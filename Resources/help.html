@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TwinFM Help</title>
+<style>
+  :root {
+    --bg: #16181c;
+    --panel: #1e2126;
+    --text: #d8dce2;
+    --muted: #8a919c;
+    --sound: #3cc85a;
+    --filter: #aa70e2;
+    --env: #dcce48;
+    --lfo: #e9709e;
+    --comb: #f2962e;
+    --neutral: #78becd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 40px 64px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  h1 {
+    font-size: 26px;
+    margin: 0 0 4px;
+    color: #fff;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 32px;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 40px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #333;
+  }
+  h2.sound    { color: var(--sound); }
+  h2.filter   { color: var(--filter); }
+  h2.env      { color: var(--env); }
+  h2.lfo      { color: var(--lfo); }
+  h2.comb     { color: var(--comb); }
+  h2.neutral  { color: var(--neutral); }
+  p { margin: 0 0 12px; }
+  dl { margin: 0 0 12px; }
+  dt {
+    font-weight: 600;
+    color: #fff;
+    margin-top: 8px;
+  }
+  dd {
+    margin: 2px 0 0 0;
+    color: var(--text);
+  }
+  code {
+    background: var(--panel);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #2b2f36;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  a { color: var(--neutral); }
+</style>
+</head>
+<body>
+
+<h1>TwinFM</h1>
+<p class="subtitle">A dual 4-operator FM synthesizer — reference for every section.</p>
+
+<div class="panel">
+  <p>Each voice runs two independent FM engines, <b>A</b> and <b>B</b>, mixed in stereo, then
+  through a resonant low-pass filter, an amplifier envelope and a chorus:</p>
+  <p><code>FM A + FM B → Mixer → Low-Pass Filter → Amp → Chorus → Master</code></p>
+  <p>Pitch bend moves both engines; channel pressure (aftertouch) opens the filter.</p>
+</div>
+
+<h2 class="sound">FM Engine A / B</h2>
+<p>The <b>A | B</b> tabs switch which engine the panel shows; both always play. Each engine has
+four sine-based operators. An <i>algorithm</i> decides which operators modulate which: a
+<i>carrier</i> is heard, a <i>modulator</i> bends a carrier's phase to add harmonics.</p>
+<dl>
+  <dt>Algorithm</dt><dd>Operator routing. <code>4&gt;3&gt;2&gt;1</code> is one stack (4 modulates 3,
+  3 modulates 2, 2 modulates the carrier 1); <code>(2,3,4)&gt;1</code> is three modulators on one
+  carrier; <code>Parallel</code> is four carriers (additive). Only carriers are heard directly.</dd>
+  <dt>Feedback</dt><dd>Operator 4 modulates itself — from a brighter sine toward a buzzy, saw-like
+  tone.</dd>
+  <dt>Pitch / Fine</dt><dd>Transpose the whole engine in semitones / cents. Detuning engine B a few
+  cents against A (the default) thickens the sound.</dd>
+  <dt>Detune</dt><dd>Stereo detune within the engine (left and right drift apart).</dd>
+  <dt>Oversample</dt><dd>Off / 2x / 4x. Reduces aliasing on bright, high-index patches at extra CPU
+  cost.</dd>
+</dl>
+<p>Each operator row:</p>
+<dl>
+  <dt>Wave</dt><dd>Sine, or a small harmonic stack (<code>1+2</code>, <code>1+3</code>,
+  <code>1+3+5</code>, <code>1-4</code>) for richer modulators and carriers.</dd>
+  <dt>Ratio / Fine</dt><dd>Operator frequency as a multiple of the note. Whole-number ratios give
+  harmonic tones; in-between ratios give bells and metallic sounds.</dd>
+  <dt>Level</dt><dd>For a carrier, its loudness. For a modulator, the modulation index — how many
+  harmonics it adds.</dd>
+  <dt>Delay / Attack / Decay / Sustain / Release</dt><dd>The operator's own envelope. On a
+  modulator it shapes the <i>timbre</i> over time (e.g. a bright attack that mellows).</dd>
+</dl>
+
+<h2 class="comb">Mixer</h2>
+<dl>
+  <dt>A / B Level</dt><dd>How much of each engine goes to the filter.</dd>
+  <dt>A / B Pan</dt><dd>Stereo position of each engine.</dd>
+</dl>
+
+<h2 class="filter">Low-Pass Filter + Filter Envelope</h2>
+<dl>
+  <dt>Cutoff</dt><dd>Filter frequency. Everything above it is rolled off (24 dB/octave).</dd>
+  <dt>Resonance</dt><dd>Emphasis at the cutoff.</dd>
+  <dt>Env Amount</dt><dd>How far (in octaves) the Filter Envelope moves the cutoff; negative
+  values sweep it down.</dd>
+  <dt>Pressure</dt><dd>How far (in octaves) channel pressure / aftertouch moves the cutoff.</dd>
+  <dt>Attack / Decay / Sustain / Release</dt><dd>The filter envelope, triggered by each note.</dd>
+</dl>
+
+<h2 class="env">Amp Envelope</h2>
+<p>The overall loudness contour of each note. A voice is freed once its release has faded.</p>
+
+<h2 class="neutral">Chorus</h2>
+<dl>
+  <dt>Mix</dt><dd>Dry / wet balance.</dd>
+  <dt>Rate</dt><dd>Speed of the chorus sweep. One LFO drives every voice, so all notes sweep
+  together; left and right run 90&deg; apart for width.</dd>
+  <dt>Depth</dt><dd>How far the delay sweeps (milliseconds).</dd>
+  <dt>Delay</dt><dd>Base delay time — shorter is tighter, longer is lusher.</dd>
+  <dt>Feedback</dt><dd>Feeds the chorus back into itself for a more resonant, flanger-like
+  colour.</dd>
+</dl>
+
+<h2 class="comb">Global</h2>
+<dl>
+  <dt>Voices</dt><dd>Poly (10 voices) or Mono (legato: a note played while another is held changes
+  pitch without re-attacking the envelopes).</dd>
+  <dt>Bend Range</dt><dd>Pitch-bend range, up to 4 semitones each way. <code>Off</code> ignores
+  pitch bend.</dd>
+  <dt>Master</dt><dd>Output level.</dd>
+</dl>
+
+</body>
+</html>

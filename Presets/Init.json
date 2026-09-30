@@ -1,0 +1,14 @@
+{
+  "meta": {"name": "Init"},
+  "state": {"parameterState": {
+    "Global": {"voiceMode": "1", "bendRange": "4"},
+    "FM4OpA": {"algorithm": "0", "feedback": "0", "pitch": "0", "fine": "0", "detune": "0", "oversample": "0", "op1Wave": "0", "op1Ratio": "1", "op1Fine": "0", "op1Level": "0.9", "op1Delay": "0", "op1Attack": "0.005", "op1Decay": "0.3", "op1Sustain": "0.7", "op1Release": "0.3", "op2Wave": "0", "op2Ratio": "1", "op2Fine": "0", "op2Level": "0.6", "op2Delay": "0", "op2Attack": "0.005", "op2Decay": "0.3", "op2Sustain": "0.7", "op2Release": "0.3", "op3Wave": "0", "op3Ratio": "1", "op3Fine": "0", "op3Level": "0.5", "op3Delay": "0", "op3Attack": "0.005", "op3Decay": "0.3", "op3Sustain": "0.7", "op3Release": "0.3", "op4Wave": "0", "op4Ratio": "1", "op4Fine": "0", "op4Level": "0.4", "op4Delay": "0", "op4Attack": "0.005", "op4Decay": "0.3", "op4Sustain": "0.7", "op4Release": "0.3"},
+    "FM4OpB": {"algorithm": "0", "feedback": "0", "pitch": "0", "fine": "7", "detune": "0", "oversample": "0", "op1Wave": "0", "op1Ratio": "1", "op1Fine": "0", "op1Level": "0.9", "op1Delay": "0", "op1Attack": "0.005", "op1Decay": "0.3", "op1Sustain": "0.7", "op1Release": "0.3", "op2Wave": "0", "op2Ratio": "1", "op2Fine": "0", "op2Level": "0.6", "op2Delay": "0", "op2Attack": "0.005", "op2Decay": "0.3", "op2Sustain": "0.7", "op2Release": "0.3", "op3Wave": "0", "op3Ratio": "1", "op3Fine": "0", "op3Level": "0.5", "op3Delay": "0", "op3Attack": "0.005", "op3Decay": "0.3", "op3Sustain": "0.7", "op3Release": "0.3", "op4Wave": "0", "op4Ratio": "1", "op4Fine": "0", "op4Level": "0.4", "op4Delay": "0", "op4Attack": "0.005", "op4Decay": "0.3", "op4Sustain": "0.7", "op4Release": "0.3"},
+    "Mixer": {"level1": "0.7", "pan1": "-0.3", "level2": "0.5", "pan2": "0.3"},
+    "LPF": {"frequency": "3", "q": "1", "envAmount": "2", "pressure": "2"},
+    "FilterEnv": {"attack": "0.005", "decay": "0.5", "sustain": "0.4", "release": "0.5"},
+    "AmpEnv": {"attack": "0.005", "decay": "0.3", "sustain": "0.8", "release": "0.5"},
+    "Chorus": {"mix": "0.3", "rate": "-1", "depth": "0.5", "baseDelay": "10", "feedback": "0.2"},
+    "Final": {"level": "0.7"}
+  }}
+}

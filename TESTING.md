@@ -1,0 +1,70 @@
+# Testing TwinFM
+
+The project ships a suite of in-process self-tests (via CTest) plus the CLAP conformance
+validator. Everything runs headless on Linux/macOS — no DAW or audio device required.
+
+## Prerequisites
+
+- CMake ≥ 3.17 and a C++20 compiler (gcc or clang).
+- Submodules (CLAP headers for the tests; DPF + pugl for the plugin build):
+
+  ```sh
+  git submodule update --init --recursive
+  ```
+
+- To build the plugin itself (DPF's OpenGL/NanoVG UI), the X11 + GL dev packages:
+
+  ```sh
+  sudo apt install pkg-config libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev
+  ```
+
+## Build and run all tests
+
+```sh
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+Add `-DTWINFM_WERROR=ON` at configure time to treat warnings as errors for the framework
+and the `pm-selftest` glue (this is what CI keys on). The tests that pull in vendored
+PolygraphModular headers stay on that code's own warning style.
+
+## What each test covers
+
+The seven CTest cases exercise the `pm_framework` engine end-to-end (the DPF plugin wrapper
+itself is covered by `clap-validator`, below):
+
+| CTest name       | Executable               | Verifies |
+|------------------|--------------------------|----------|
+| `pm`             | `pm-selftest`            | UMP MIDI layer: predicates, raw-word decode, microtonal pitch attribute, CLAP→UMP decoders |
+| `pm-module`      | `pm-module-test`         | `Module` + `ModuleMap` core: param read/write, process proc, map add/get |
+| `pm-adsr`        | `pm-adsr-test`           | ADSR envelope: note-on drives attack, note-off drives release to ~0 |
+| `pm-modules`     | `pm-modules-test`        | Combine / Final compile+run; PitchConverter maps note→pitch |
+| `pm-factory`     | `pm-factory-test`        | ModuleFactory + the init-specs build all 14 voice modules; an FM4Op sounds on a note |
+| `pm-twinfm`      | `pm-twinfm-test`         | The TwinFM voice: note plays at pitch, full pitch bend = +2 semitones, channel pressure opens the filter, voice frees on release |
+| `pm-voicemanager`| `pm-voicemanager-test`   | Polyphony: a 3-note chord allocates 3 voices and frees them on release |
+
+## Running a single test
+
+```sh
+ctest --test-dir build -R pm-twinfm --output-on-failure  # by name (regex)
+./build/pm-twinfm-test                                    # or run the binary directly
+```
+
+Each test binary prints diagnostic values (e.g. `pitch: 440.8 Hz, bent 494.7 Hz`) and ends with
+`ALL PASS`; CTest keys success on that string.
+
+## CLAP conformance
+
+Validate the built plugin against the CLAP spec with
+[`clap-validator`](https://github.com/free-audio/clap-validator):
+
+```sh
+clap-validator validate build/bin/TwinFM.clap
+```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs the configure + build + `ctest` on every push across
+Linux (gcc/clang) and macOS (clang) with `-DTWINFM_WERROR=ON`.
