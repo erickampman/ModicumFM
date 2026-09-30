@@ -2,8 +2,8 @@
 // source image's own aspect ratio (never stretched). A click opens unlikelyware.com in the
 // system's default browser.
 
-#ifndef TWINFM_LOGO_HPP
-#define TWINFM_LOGO_HPP
+#ifndef FEM_LOGO_HPP
+#define FEM_LOGO_HPP
 
 #include "NanoVG.hpp"
 
@@ -84,4 +84,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // TWINFM_LOGO_HPP
+#endif // FEM_LOGO_HPP

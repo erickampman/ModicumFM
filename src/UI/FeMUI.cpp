@@ -1,13 +1,13 @@
-// TwinFMUI.cpp — UI side. Three rows under the top strip (logo, wordmark, preset menu, help):
+// FeMUI.cpp — UI side. Two rows under the top strip (logo, wordmark, preset menu, help):
 //
-//   FM Engine (A|B tabs): engine globals column | 4 operator rows (Wave, Ratio, Fine, Level,
-//                          Delay/Attack/Decay/Sustain/Release)
-//   Mixer | Low-Pass Filter | Filter Envelope
-//   Amp Envelope | Chorus | Global (Voices, Bend Range, Master)
+//   FM Engine: engine globals column | 6 operator rows (role caption, Wave, Ratio, Fine, Level,
+//              Delay/Attack/Decay/Sustain/Release)
+//   Low-Pass Filter | Filter Envelope | Chorus | Global (Voices, Bend Range, Master)
 //
-// Every param is a knob unless it's an enum (dropdown). The two engines are identical widget sets
-// in two GroupBoxes sharing one rect; the tab bar shows one and hides the other. The UI is the
-// callback for all controls, routing by param index.
+// Every param is a knob unless it's an enum (dropdown). The operator captions show each
+// operator's role in the current algorithm (carrier, or modulator N hops from the output) —
+// the same role analysis the planned macros use (docs/ROADMAP.md). The UI is the callback for
+// all controls, routing by param index.
 
 #include "DistrhoUI.hpp"
 
@@ -29,17 +29,17 @@
 #include "Label.hpp"
 #include "Logo.hpp"
 #include "PopupMenu.hpp"
-#include "PresetDump.hpp" // dev-only JSON patch dumper (no-op unless TWINFM_PRESET_DUMP=1)
+#include "PresetDump.hpp" // dev-only JSON patch dumper (no-op unless FEM_PRESET_DUMP=1)
 #include "PresetKeys.hpp"
-#include "TabBar.hpp"
 #include "TitleText.hpp"
-#include "TwinFMParams.h"
+#include "FeMParams.h"
+#include "FM6OpAlgorithms.hpp" // algorithm table + operator roles (shared with the engine)
 
 START_NAMESPACE_DISTRHO
 
 #include "extra/WebView.hpp" // native WebView overlay (WKWebView/WebKitGTK/WebView2), for Help
 
-using namespace twinfm;
+using namespace fem;
 using DGL_NAMESPACE::Color;
 using DGL_NAMESPACE::Dropdown;
 using DGL_NAMESPACE::GroupBox;
@@ -50,10 +50,9 @@ using DGL_NAMESPACE::Logo;
 using DGL_NAMESPACE::NanoSubWidget;
 using DGL_NAMESPACE::PopupMenu;
 using DGL_NAMESPACE::SubWidget;
-using DGL_NAMESPACE::TabBar;
 using DGL_NAMESPACE::TitleText;
 
-#if TWINFM_PRESET_DUMP
+#if FEM_PRESET_DUMP
 // Dev-only "DUMP" button: a plain left-click writes the patch JSON. A button (not a keystroke or
 // modifier-click) so it works identically in every host on macOS and Linux — Ctrl-click is a
 // right-click on macOS, and hosts often don't forward key events to a plugin UI at all.
@@ -93,14 +92,13 @@ private:
 };
 #endif
 
-class TwinFMUI : public UI,
-                 public Knob::Callback,
-                 public Dropdown::Callback,
-                 public PopupMenu::Callback,
-                 public TabBar::Callback
+class FeMUI : public UI,
+              public Knob::Callback,
+              public Dropdown::Callback,
+              public PopupMenu::Callback
 {
 public:
-    TwinFMUI()
+    FeMUI()
         : UI(DISTRHO_UI_DEFAULT_WIDTH, DISTRHO_UI_DEFAULT_HEIGHT)
     {
         // Lock the aspect ratio to the design ratio so no host can hand the plugin a
@@ -109,19 +107,15 @@ public:
                                true, false);
 
         // Per-module accent colours, following PM's category scheme.
-        fFmGroup[0]    = makeGroup("FM Engine A", colSound());
-        fFmGroup[1]    = makeGroup("FM Engine B", colSound());
-        fMixGroup      = makeGroup("Mixer", colComb());
+        fFmGroup       = makeGroup("FM Engine", colSound());
         fLpfGroup      = makeGroup("Low-Pass Filter", colFilter());
         fFiltEnvGroup  = makeGroup("Filter Envelope", colFilter());
-        fAmpEnvGroup   = makeGroup("Amp Envelope", colEnv());
         fChorusGroup   = makeGroup("Chorus", colNeutral());
         fGlobalGroup   = makeGroup("Global", colComb());
 
-        for (uint32_t e = 0; e < 2; ++e)
-            for (uint32_t o = 0; o < kFmOperators; ++o)
-                fOpLabel[e][o] = std::make_unique<Label>(fFmGroup[e].get(),
-                                                         "Op " + std::to_string(o + 1));
+        for (uint32_t o = 0; o < kFmOperators; ++o)
+            fOpLabel[o] = std::make_unique<Label>(fFmGroup.get());
+        updateOpRoles(static_cast<int>(kParams[kParamAlgorithm].def));
 
         for (uint32_t i = 0; i < kParamCount; ++i)
         {
@@ -146,17 +140,10 @@ public:
             fKnobs[i] = std::move(knob);
         }
 
-        // Engine tab bar (created after the panels so it draws on top of the title strip).
-        fFmTab = std::make_unique<TabBar>(this, this);
-        fFmTab->setTabs({"A", "B"});
-        fFmTab->setAccentColor(colSound());
-        fFmTab->setActive(0);
-        fFmGroup[1]->hide();
-
-#if TWINFM_PRESET_DUMP
+#if FEM_PRESET_DUMP
         fDumpBtn = std::make_unique<DumpButton>(this, [this] {
             const std::string p = dumpPresetToFile(fMirror);
-            std::fprintf(stderr, "[TwinFM] patch %s %s\n",
+            std::fprintf(stderr, "[FeM] patch %s %s\n",
                          p.empty() ? "dump FAILED" : "dumped to", p.c_str());
         });
 #endif
@@ -164,7 +151,7 @@ public:
         fLogo = std::make_unique<Logo>(this, EmbeddedResources::Unlikelyware_Final_ColorData,
                                         EmbeddedResources::Unlikelyware_Final_ColorDataSize);
 
-        // Wordmark: "Twin" + "FM" in two accent colours sampled from the logo, Almendra (embedded,
+        // Wordmark: "Fe" + "M" in two accent colours sampled from the logo, Almendra (embedded,
         // matches the unlikelyware.com brand face).
         fTitleText = std::make_unique<TitleText>(this, EmbeddedResources::Almendra_RegularData,
                                                   EmbeddedResources::Almendra_RegularDataSize,
@@ -189,12 +176,12 @@ public:
         fMenu = std::make_unique<PopupMenu>(this, this); // created last → draws on top
 
         layout();
-#if TWINFM_PRESET_DUMP
+#if FEM_PRESET_DUMP
         for (uint32_t i = 0; i < kParamCount; ++i) fMirror[i] = kParams[i].def;
 #endif
     }
 
-    ~TwinFMUI() override
+    ~FeMUI() override
     {
         if (fHelpWebView != nullptr)
             webViewDestroy(fHelpWebView);
@@ -208,6 +195,7 @@ protected:
             return;
         if (fKnobs[index])     { fKnobs[index]->setRealValue(value, false); fKnobs[index]->repaint(); }
         if (fDropdowns[index]) fDropdowns[index]->setIndex(static_cast<int>(value));
+        if (index == kParamAlgorithm) updateOpRoles(static_cast<int>(value));
         recordMirror(index, value);
     }
 
@@ -239,15 +227,21 @@ protected:
         editParameter(id, false);
         recordMirror(id, static_cast<float>(index));
         if (fDropdowns[id]) fDropdowns[id]->setIndex(index);
+        if (id == kParamAlgorithm) updateOpRoles(index);
     }
 
-    /* -- engine tabs ------------------------------------------------------ */
-    // Hiding a GroupBox hides its whole child subtree, so only the active engine is drawn.
-    void tabSelected(TabBar*, int index) override
+    // Operator captions: "Op N" plus its role in `algorithm` — "out" for a carrier, "mod K" for a
+    // modulator K hops from the output — with carriers in the engine accent colour.
+    void updateOpRoles(int algorithm)
     {
-        if (index == 0) { fFmGroup[0]->show(); fFmGroup[1]->hide(); }
-        else            { fFmGroup[0]->hide(); fFmGroup[1]->show(); }
-        repaint();
+        const FM6OpRoles roles = fm6OpRoles(algorithm);
+        for (uint32_t o = 0; o < kFmOperators; ++o)
+        {
+            const uint8_t d = roles.depth[o];
+            fOpLabel[o]->setText("Op " + std::to_string(o + 1)
+                                 + (d == 0 ? "  out" : "  mod " + std::to_string(d)));
+            fOpLabel[o]->setColor(d == 0 ? colSound() : Color(170, 176, 186));
+        }
     }
 
     // Apply every param the selected preset has a value for (looked up by "module.item" key via
@@ -308,12 +302,11 @@ protected:
 
 private:
     // Panels declared before their child controls so the children are destroyed first.
-    std::unique_ptr<GroupBox>   fFmGroup[2];
-    std::unique_ptr<GroupBox>   fMixGroup, fLpfGroup, fFiltEnvGroup, fAmpEnvGroup, fChorusGroup, fGlobalGroup;
-    std::unique_ptr<Label>      fOpLabel[2][kFmOperators];
+    std::unique_ptr<GroupBox>   fFmGroup;
+    std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fChorusGroup, fGlobalGroup;
+    std::unique_ptr<Label>      fOpLabel[kFmOperators];
     std::unique_ptr<Knob>       fKnobs[kParamCount];
     std::unique_ptr<Dropdown>   fDropdowns[kParamCount];
-    std::unique_ptr<TabBar>     fFmTab;
     std::unique_ptr<Logo>       fLogo;
     std::unique_ptr<TitleText>  fTitleText;
     std::unique_ptr<Dropdown>   fPresetDropdown;
@@ -324,7 +317,7 @@ private:
     // Sentinel dropdown id, distinct from every real ParamIndex, so dropdownClicked()/
     // menuSelected() can tell the preset selector apart from a per-param dropdown.
     static constexpr uint32_t kPresetDropdownId = kParamCount;
-#if TWINFM_PRESET_DUMP
+#if FEM_PRESET_DUMP
     std::unique_ptr<DumpButton> fDumpBtn;
 #endif
     float                       fUiScale = 1.0f; // set each layout() pass
@@ -332,20 +325,19 @@ private:
 
     /* -- param classification --------------------------------------------- */
 
-    // Engine (0/1) and in-block offset of an FM param; false if `i` isn't an FM engine param.
-    static bool fmOffset(uint32_t i, uint32_t& engine, uint32_t& k)
+    // In-block offset of an FM engine param; false if `i` isn't one.
+    static bool fmOffset(uint32_t i, uint32_t& k)
     {
-        if (i < fmParam(0, 0) || i >= fmParam(2, 0))
+        if (i < fmParam(0) || i >= fmParam(kFmEngineParamCount))
             return false;
-        engine = (i - fmParam(0, 0)) / kFmEngineParamCount;
-        k      = (i - fmParam(0, 0)) % kFmEngineParamCount;
+        k = i - fmParam(0);
         return true;
     }
     // Operator item (kOpWave..kOpRelease) of an FM operator param; -1 otherwise.
     static int opItem(uint32_t i)
     {
-        uint32_t e, k;
-        if (!fmOffset(i, e, k) || k < kFmOpBase)
+        uint32_t k;
+        if (!fmOffset(i, k) || k < kFmOpBase)
             return -1;
         return static_cast<int>((k - kFmOpBase) % kFmOpCount);
     }
@@ -354,8 +346,8 @@ private:
     {
         if (i == kParamVoiceMode || i == kParamBendRange)
             return true;
-        uint32_t e, k;
-        if (!fmOffset(i, e, k))
+        uint32_t k;
+        if (!fmOffset(i, k))
             return false;
         return k == kFmAlgorithm || k == kFmOversample || opItem(i) == kOpWave;
     }
@@ -365,11 +357,25 @@ private:
         if (i == kParamVoiceMode) return {"Mono", "Poly"};
         if (i == kParamBendRange)
             return {"Off", "0.5 st", "1 st", "1.5 st", "2 st", "2.5 st", "3 st", "3.5 st", "4 st"};
-        uint32_t e, k;
-        fmOffset(i, e, k);
+        uint32_t k = 0;
+        fmOffset(i, k);
         if (k == kFmAlgorithm)
-            return {"4>3>2>1", "(4,3)>2>1", "4>2>1, 3>1", "(2,3,4)>1",
-                    "2>1, 4>3", "4>(1,2,3)", "3>2>1, 4", "Parallel"};
+        {
+            // "12 · out 1,3": algorithm number, then its carriers (the rest are modulators).
+            std::vector<std::string> names;
+            for (int a = 0; a < kFM6OpAlgorithms; ++a)
+            {
+                std::string n = std::to_string(a + 1) + " \xC2\xB7 out ";
+                for (int o = 0, first = 1; o < kFM6OpCount; ++o)
+                    if (kFM6OpAlgos[a].carrierMask & (1u << o))
+                    {
+                        n += (first ? "" : ",") + std::to_string(o + 1);
+                        first = 0;
+                    }
+                names.push_back(n);
+            }
+            return names;
+        }
         if (k == kFmOversample) return {"Off", "2x", "4x"};
         return {"Sine", "1+2", "1+3", "1+3+5", "1-4"}; // operator wave (harmonic stacks)
     }
@@ -390,8 +396,8 @@ private:
         case kOpRelease: return "Release";
         default: break;
         }
-        uint32_t e, k;
-        if (fmOffset(i, e, k))
+        uint32_t k;
+        if (fmOffset(i, k))
         {
             switch (k)
             {
@@ -406,10 +412,10 @@ private:
         }
         switch (i)
         {
-        case kParamFiltAttack:  case kParamAmpAttack:  return "Attack";
-        case kParamFiltDecay:   case kParamAmpDecay:   return "Decay";
-        case kParamFiltSustain: case kParamAmpSustain: return "Sustain";
-        case kParamFiltRelease: case kParamAmpRelease: return "Release";
+        case kParamFiltAttack:  return "Attack";
+        case kParamFiltDecay:   return "Decay";
+        case kParamFiltSustain: return "Sustain";
+        case kParamFiltRelease: return "Release";
         default: return kParams[i].name;
         }
     }
@@ -417,24 +423,19 @@ private:
     // Module-category accent colours (PM-inspired).
     static Color colSound()   { return Color(60, 200, 90); }   // oscillators (FM engines) — green
     static Color colFilter()  { return Color(170, 112, 226); } // filter — purple
-    static Color colEnv()     { return Color(220, 206, 72); }  // amp envelope — muted yellow
-    static Color colComb()    { return Color(242, 150, 46); }  // mixer / global — orange
+    static Color colComb()    { return Color(242, 150, 46); }  // global — orange
     static Color colNeutral() { return Color(120, 190, 205); } // chorus — teal
 
     GroupBox* groupFor(uint32_t i) const
     {
-        uint32_t e, k;
-        if (fmOffset(i, e, k)) return fFmGroup[e].get();
+        uint32_t k;
+        if (fmOffset(i, k)) return fFmGroup.get();
         switch (i)
         {
-        case kParamMixALevel: case kParamMixAPan: case kParamMixBLevel: case kParamMixBPan:
-            return fMixGroup.get();
         case kParamLpfCutoff: case kParamLpfResonance: case kParamLpfEnvAmount: case kParamLpfPressure:
             return fLpfGroup.get();
         case kParamFiltAttack: case kParamFiltDecay: case kParamFiltSustain: case kParamFiltRelease:
             return fFiltEnvGroup.get();
-        case kParamAmpAttack: case kParamAmpDecay: case kParamAmpSustain: case kParamAmpRelease:
-            return fAmpEnvGroup.get();
         case kParamChorusMix: case kParamChorusRate: case kParamChorusDepth:
         case kParamChorusDelay: case kParamChorusFeedback:
             return fChorusGroup.get();
@@ -446,9 +447,8 @@ private:
     Color accentFor(uint32_t i) const
     {
         const GroupBox* g = groupFor(i);
-        if (g == fFmGroup[0].get() || g == fFmGroup[1].get()) return colSound();
+        if (g == fFmGroup.get())                              return colSound();
         if (g == fLpfGroup.get() || g == fFiltEnvGroup.get()) return colFilter();
-        if (g == fAmpEnvGroup.get())                          return colEnv();
         if (g == fChorusGroup.get())                          return colNeutral();
         return colComb();
     }
@@ -468,14 +468,8 @@ private:
             };
         if (index == kParamChorusRate) // octaves re 1 Hz → Hz
             return [](float v) { char b[16]; std::snprintf(b, sizeof(b), "%.2f Hz", std::exp2(v)); return std::string(b); };
-        if (index == kParamMixAPan || index == kParamMixBPan)
-            return [](float v) {
-                const int p = static_cast<int>(std::lround(v * 100.0f));
-                char b[8];
-                if (p == 0) return std::string("C");
-                std::snprintf(b, sizeof(b), "%c%d", p < 0 ? 'L' : 'R', std::abs(p));
-                return std::string(b);
-            };
+        if (index == kParamDetune) // 0..1 → the engine's ±25 ct L/R split (FM6Op: ×50 ct total)
+            return [](float v) { char b[16]; std::snprintf(b, sizeof(b), "%.1f ct", v * 50.0f); return std::string(b); };
         if (index == kParamChorusDelay)  return fmt("%.1f ms");
         if (index == kParamChorusDepth)  return fmt("%.2f ms");
         if (opItem(index) == kOpRatio)   return fmt("%.2f");
@@ -494,7 +488,7 @@ private:
     }
 
     // Patch-value mirror for the dev-only JSON dumper: no-op (and no member) in release builds.
-#if TWINFM_PRESET_DUMP
+#if FEM_PRESET_DUMP
     float fMirror[kParamCount];
     void recordMirror(uint32_t id, float v) { if (id < kParamCount) fMirror[id] = v; }
 #else
@@ -526,7 +520,7 @@ private:
         const char* tmp = std::getenv("TMPDIR");
         std::string dir = (tmp && *tmp) ? tmp : "/tmp";
         if (!dir.empty() && dir.back() != '/') dir += '/';
-        return dir + "twinfm-help.html";
+        return dir + "fem-help.html";
     }
 
     // The WebView needs a real file:// URL, not an in-memory buffer, so the embedded HTML bytes
@@ -596,33 +590,30 @@ private:
         const int topPad = logoH + static_cast<int>(6 * scale);
         fTopPad = topPad;
 
-        // Rows: FM engine (tall: 4 operator rows), then two module rows. The module rows are sized
-        // for one knob (label + sphere + value) plus the group title strip; the FM row gets the rest.
-        const int totalH = H - 2 * m - 2 * gap - topPad;
+        // Rows: FM engine (tall: 6 operator rows), then one module row sized for one knob
+        // (label + sphere + value) plus the group title strip; the FM row gets the rest.
+        const int totalH = H - 2 * m - gap - topPad;
         const int rowH   = static_cast<int>(130 * scale);
-        const int fmH    = totalH - 2 * rowH;
+        const int fmH    = totalH - rowH;
         const int colL   = m;
         const int fullW  = W - 2 * m;
         const int fmY    = m + topPad;
         const int row1   = fmY + fmH + gap;
-        const int row2   = row1 + rowH + gap;
 
-        // Knob sizes: module knobs full size, operator knobs smaller so four rows fit.
+        // Knob sizes: module knobs full size, operator knobs smaller so six rows fit.
         const float knobD = std::fmax(30.0f, 54.0f * scale);
-        const float opKnobD = std::fmax(24.0f, 40.0f * scale);
+        const float opKnobD = std::fmax(22.0f, 36.0f * scale);
         for (uint32_t i = 0; i < kParamCount; ++i)
             if (fKnobs[i]) fKnobs[i]->setDiameter(opItem(i) >= 0 ? opKnobD : knobD, txtScale);
 
-        GroupBox* allGroups[] = { fFmGroup[0].get(), fFmGroup[1].get(), fMixGroup.get(), fLpfGroup.get(),
-                                  fFiltEnvGroup.get(), fAmpEnvGroup.get(), fChorusGroup.get(),
-                                  fGlobalGroup.get() };
+        GroupBox* allGroups[] = { fFmGroup.get(), fLpfGroup.get(), fFiltEnvGroup.get(),
+                                  fChorusGroup.get(), fGlobalGroup.get() };
         for (GroupBox* g : allGroups)
             g->setUiScale(txtScale);
         for (uint32_t i = 0; i < kParamCount; ++i)
             if (fDropdowns[i]) fDropdowns[i]->setUiScale(txtScale);
-        for (auto& engine : fOpLabel)
-            for (auto& l : engine)
-                l->setUiScale(txtScale);
+        for (auto& l : fOpLabel)
+            l->setUiScale(txtScale);
         fMenu->setUiScale(txtScale);
         fPresetDropdown->setUiScale(txtScale);
 
@@ -639,34 +630,22 @@ private:
             fPresetDropdown->setAbsolutePos(titleX + titleW + gap, m / 2);
         }
 
-        // Row 0: FM engine A / B (overlaid; the tab bar picks one).
-        for (int e = 0; e < 2; ++e)
-        {
-            placeGroup(fFmGroup[e].get(), colL, fmY, fullW, fmH);
-            layoutFmEngine(static_cast<uint32_t>(e));
-        }
-        placeTab(fFmTab.get(), colL, fmY, fullW, scale);
+        // Row 0: the FM engine.
+        placeGroup(fFmGroup.get(), colL, fmY, fullW, fmH);
+        layoutFmEngine();
 
-        // Row 1: Mixer | Low-Pass Filter | Filter Envelope (four knobs each).
+        // Row 1: Low-Pass Filter | Filter Envelope | Chorus | Global. Widths roughly follow
+        // control count, with extra for the long LPF labels and Global's two dropdowns.
         {
-            const int w = (fullW - 2 * gap) / 3;
-            placeGroup(fMixGroup.get(),     colL,               row1, w, rowH);
-            placeGroup(fLpfGroup.get(),     colL + w + gap,     row1, w, rowH);
-            placeGroup(fFiltEnvGroup.get(), colL + 2 * (w + gap), row1, fullW - 2 * (w + gap), rowH);
-            layoutKnobRow(fMixGroup.get(), {kParamMixALevel, kParamMixAPan, kParamMixBLevel, kParamMixBPan});
+            const int avail = fullW - 3 * gap;
+            const int lpfW = avail * 9 / 36, envW = avail * 8 / 36, chW = avail * 10 / 36;
+            int x = colL;
+            placeGroup(fLpfGroup.get(),     x, row1, lpfW, rowH); x += lpfW + gap;
+            placeGroup(fFiltEnvGroup.get(), x, row1, envW, rowH); x += envW + gap;
+            placeGroup(fChorusGroup.get(),  x, row1, chW,  rowH); x += chW + gap;
+            placeGroup(fGlobalGroup.get(),  x, row1, colL + fullW - x, rowH);
             layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount, kParamLpfPressure});
             layoutKnobRow(fFiltEnvGroup.get(), {kParamFiltAttack, kParamFiltDecay, kParamFiltSustain, kParamFiltRelease});
-        }
-
-        // Row 2: Amp Envelope (4) | Chorus (5) | Global (3), widths proportional to control count.
-        {
-            const int avail = fullW - 2 * gap;
-            const int ampW = avail * 4 / 12, chW = avail * 5 / 12;
-            placeGroup(fAmpEnvGroup.get(), colL,                    row2, ampW, rowH);
-            placeGroup(fChorusGroup.get(), colL + ampW + gap,       row2, chW,  rowH);
-            placeGroup(fGlobalGroup.get(), colL + ampW + chW + 2 * gap, row2,
-                       fullW - ampW - chW - 2 * gap, rowH);
-            layoutKnobRow(fAmpEnvGroup.get(), {kParamAmpAttack, kParamAmpDecay, kParamAmpSustain, kParamAmpRelease});
             layoutKnobRow(fChorusGroup.get(), {kParamChorusMix, kParamChorusRate, kParamChorusDepth,
                                                kParamChorusDelay, kParamChorusFeedback});
             layoutKnobRow(fGlobalGroup.get(), {kParamVoiceMode, kParamBendRange, kParamMasterLevel});
@@ -676,7 +655,7 @@ private:
         const int helpW = static_cast<int>(34 * scale), helpH = static_cast<int>(28 * scale);
         fHelpButton->setSize(static_cast<uint>(helpW), static_cast<uint>(helpH));
         fHelpButton->setAbsolutePos(W - helpW - m, (topPad - helpH) / 2 + m / 2);
-#if TWINFM_PRESET_DUMP
+#if FEM_PRESET_DUMP
         if (fDumpBtn)
         {
             const int bw = static_cast<int>(58 * scale), bh = static_cast<int>(18 * scale);
@@ -686,40 +665,40 @@ private:
 #endif
     }
 
-    // One FM engine panel: a globals column (Algorithm; Feedback, Pitch / Fine, Detune;
-    // Oversample) on the left, then four operator rows — caption, Wave dropdown, then Ratio,
+    // The FM engine panel: a globals column (Algorithm; Feedback, Pitch / Fine, Detune;
+    // Oversample) on the left, then six operator rows — role caption, Wave dropdown, then Ratio,
     // Fine, Level, Delay, Attack, Decay, Sustain, Release knobs.
-    void layoutFmEngine(uint32_t e)
+    void layoutFmEngine()
     {
         int cx, cy, cw, ch;
-        fFmGroup[e]->contentBounds(cx, cy, cw, ch);
+        fFmGroup->contentBounds(cx, cy, cw, ch);
         const int gap   = static_cast<int>(12 * fUiScale);
         const int dropH = static_cast<int>(46 * fUiScale);
 
         // Globals column.
         const int gw = static_cast<int>(210 * fUiScale);
-        place(fDropdowns[fmParam(e, kFmAlgorithm)].get(), cx, cy, gw, dropH);
+        place(fDropdowns[fmParam(kFmAlgorithm)].get(), cx, cy, gw, dropH);
         const int knobAreaH = ch - 2 * dropH;
         const int kh = knobAreaH / 2, kw = gw / 2;
-        place(fKnobs[fmParam(e, kFmFeedback)].get(), cx,      cy + dropH,      kw,      kh);
-        place(fKnobs[fmParam(e, kFmPitch)].get(),    cx + kw, cy + dropH,      gw - kw, kh);
-        place(fKnobs[fmParam(e, kFmFine)].get(),     cx,      cy + dropH + kh, kw,      knobAreaH - kh);
-        place(fKnobs[fmParam(e, kFmDetune)].get(),   cx + kw, cy + dropH + kh, gw - kw, knobAreaH - kh);
-        place(fDropdowns[fmParam(e, kFmOversample)].get(), cx, cy + dropH + knobAreaH, gw, dropH);
+        place(fKnobs[fmParam(kFmFeedback)].get(), cx,      cy + dropH,      kw,      kh);
+        place(fKnobs[fmParam(kFmPitch)].get(),    cx + kw, cy + dropH,      gw - kw, kh);
+        place(fKnobs[fmParam(kFmFine)].get(),     cx,      cy + dropH + kh, kw,      knobAreaH - kh);
+        place(fKnobs[fmParam(kFmDetune)].get(),   cx + kw, cy + dropH + kh, gw - kw, knobAreaH - kh);
+        place(fDropdowns[fmParam(kFmOversample)].get(), cx, cy + dropH + knobAreaH, gw, dropH);
 
         // Operator rows.
         const int ox     = cx + gw + gap;
         const int ow     = cx + cw - ox;
-        const int labelW = static_cast<int>(44 * fUiScale);
+        const int labelW = static_cast<int>(80 * fUiScale);
         const int cellW  = (ow - labelW) / static_cast<int>(kFmOpCount);
         const int rowH   = ch / static_cast<int>(kFmOperators);
         for (uint32_t o = 0; o < kFmOperators; ++o)
         {
             const int y = cy + static_cast<int>(o) * rowH;
-            place(fOpLabel[e][o].get(), ox, y, labelW, rowH);
+            place(fOpLabel[o].get(), ox, y, labelW, rowH);
             for (uint32_t j = 0; j < kFmOpCount; ++j)
             {
-                const uint32_t id = fmOpParam(e, o, j);
+                const uint32_t id = fmOpParam(o, j);
                 SubWidget* w = fKnobs[id] ? static_cast<SubWidget*>(fKnobs[id].get())
                                           : static_cast<SubWidget*>(fDropdowns[id].get());
                 place(w, ox + labelW + static_cast<int>(j) * cellW, y, cellW, rowH);
@@ -754,22 +733,12 @@ private:
 
     void placeGroup(GroupBox* g, int x, int y, int w, int h) { place(g, x, y, w, h); }
 
-    // Place a TabBar in the top-right of its panel's title strip.
-    void placeTab(TabBar* t, int gx, int gy, int gw, float scale)
-    {
-        const int tabH  = static_cast<int>(20 * scale);
-        const int tabW  = static_cast<int>(56 * scale);
-        const int inset = static_cast<int>(8 * scale);
-        t->setSize(static_cast<uint>(tabW), static_cast<uint>(tabH));
-        t->setAbsolutePos(gx + gw - tabW - inset, gy + static_cast<int>(4 * scale));
-    }
-
-    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TwinFMUI)
+    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FeMUI)
 };
 
 UI* createUI()
 {
-    return new TwinFMUI();
+    return new FeMUI();
 }
 
 END_NAMESPACE_DISTRHO

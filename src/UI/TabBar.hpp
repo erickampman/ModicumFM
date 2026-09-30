@@ -1,10 +1,10 @@
 // TabBar.hpp — a compact horizontal tab selector for DPF NanoVG UIs. Sits in a panel's title
-// strip and switches which of several overlaid panels is shown (see TwinFMUI's tab groups). The
+// strip and switches which of several overlaid panels is shown (see FeMUI's tab groups). The
 // UI owns the show/hide of the actual content; this widget just reports the selected index via
 // the Callback. Identify which group fired with setId().
 
-#ifndef TWINFM_TABBAR_HPP
-#define TWINFM_TABBAR_HPP
+#ifndef FEM_TABBAR_HPP
+#define FEM_TABBAR_HPP
 
 #include "NanoVG.hpp"
 
@@ -99,4 +99,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // TWINFM_TABBAR_HPP
+#endif // FEM_TABBAR_HPP

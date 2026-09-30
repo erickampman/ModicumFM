@@ -1,4 +1,4 @@
-// TwinFMPlugin.cpp — DSP side: DPF Plugin wrapper around the vendored PolygraphModular
+// FeMPlugin.cpp — DSP side: DPF Plugin wrapper around the vendored PolygraphModular
 // voice engine. DPF hands us MIDI 1.0 events + a parameter interface and generates the CLAP
 // (VST3/LV2) wrapper; all the synthesis is the VoiceManager the self-tests exercise.
 //
@@ -8,15 +8,14 @@
 //   run()        → sample-accurate: splits at each MIDI event, renders in short control chunks
 //
 // The voice is wired in VoiceManager::buildDefaultPatch:
-//   note + bend → FM4Op A, FM4Op B → mixer → LPF (filter ADSR + pressure) → VCA (amp ADSR)
-//   → chorus (shared LFO) → Final (master level).
+//   note + bend → FM6Op → LPF (filter ADSR + pressure) → chorus (shared LFO) → Final (master level).
 
 #include "DistrhoPlugin.hpp"
 
 #include <algorithm>
 #include <memory>
 
-#include "TwinFMParams.h"
+#include "FeMParams.h"
 
 #include "ParamAddressMacros.h"
 #include "VoiceManager.hpp"
@@ -26,17 +25,17 @@
 
 START_NAMESPACE_DISTRHO
 
-using namespace twinfm;
+using namespace fem;
 
 // Engine chunk length inside run(). Modules read their mod inputs (filter envelope, pressure,
 // LFO) once per chunk, so this is the control rate: 64 samples ≈ 1.3 ms at 48 kHz keeps a snappy
 // filter envelope smooth, where a full MODULE_BUFF_SIZE (512) chunk would step every ~11 ms.
 static constexpr uint32_t kControlChunk = 64;
 
-class TwinFMPlugin : public Plugin
+class FeMPlugin : public Plugin
 {
 public:
-    TwinFMPlugin()
+    FeMPlugin()
         : Plugin(kParamCount, 0, 0) // params, programs, states
     {
         for (uint32_t i = 0; i < kParamCount; ++i)
@@ -46,16 +45,16 @@ public:
 
 protected:
     /* -- information ------------------------------------------------------ */
-    const char* getLabel()       const override { return "TwinFM"; }
+    const char* getLabel()       const override { return "FeM"; }
     const char* getDescription() const override
     {
-        return "A dual 4-operator FM synth built on the PolygraphModular voice engine.";
+        return "A 6-operator FM synth built on the PolygraphModular voice engine.";
     }
     const char* getMaker()    const override { return "Unlikelyware"; }
     const char* getHomePage() const override { return "https://www.unlikelyware.com"; }
     const char* getLicense()  const override { return "MIT"; }
     uint32_t    getVersion()  const override { return d_version(0, 1, 0); }
-    int64_t     getUniqueId() const override { return d_cconst('T', 'w', 'F', 'M'); }
+    int64_t     getUniqueId() const override { return d_cconst('F', 'e', 'M', '6'); }
 
     /* -- init ------------------------------------------------------------- */
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override
@@ -124,74 +123,61 @@ private:
     std::unique_ptr<VoiceManager> fVoiceManager;
     float                         fValues[kParamCount];
 
-    // FM4Op item for engine offset k (kFmAlgorithm .. kFmOversample).
+    // FM6Op item for engine offset k (kFmAlgorithm .. kFmOversample).
     static uint8_t fmEngineItem(uint32_t k)
     {
         switch (k)
         {
-        case kFmAlgorithm:  return FM4OpParamItemAlgorithm;
-        case kFmFeedback:   return FM4OpParamItemFeedback;
-        case kFmPitch:      return FM4OpParamItemPitch;
-        case kFmFine:       return FM4OpParamItemFine;
-        case kFmDetune:     return FM4OpParamItemDetune;
-        case kFmOversample: return FM4OpParamItemOversample;
+        case kFmAlgorithm:  return FM6OpParamItemAlgorithm;
+        case kFmFeedback:   return FM6OpParamItemFeedback;
+        case kFmPitch:      return FM6OpParamItemPitch;
+        case kFmFine:       return FM6OpParamItemFine;
+        case kFmDetune:     return FM6OpParamItemDetune;
+        case kFmOversample: return FM6OpParamItemOversample;
         default:            return 0;
         }
     }
 
-    // FM4Op item for operator item j. FM4Op's four 13-item operator blocks share one layout, so
+    // FM6Op item for operator item j. FM6Op's six 13-item operator blocks share one layout, so
     // operator o's item is Op1's item + 13·o.
     static uint8_t fmOpItem(uint32_t op, uint32_t j)
     {
         static constexpr uint8_t kOp1Items[kFmOpCount] = {
-            FM4OpParamItemOp1Wave,   FM4OpParamItemOp1Ratio,  FM4OpParamItemOp1Fine,
-            FM4OpParamItemOp1Level,  FM4OpParamItemOp1Delay,  FM4OpParamItemOp1Attack,
-            FM4OpParamItemOp1Decay,  FM4OpParamItemOp1Sustain, FM4OpParamItemOp1Release};
-        constexpr uint8_t kOpStride = FM4OpParamItemOp2AmpInput - FM4OpParamItemOp1AmpInput;
+            FM6OpParamItemOp1Wave,   FM6OpParamItemOp1Ratio,  FM6OpParamItemOp1Fine,
+            FM6OpParamItemOp1Level,  FM6OpParamItemOp1Delay,  FM6OpParamItemOp1Attack,
+            FM6OpParamItemOp1Decay,  FM6OpParamItemOp1Sustain, FM6OpParamItemOp1Release};
+        constexpr uint8_t kOpStride = FM6OpParamItemOp2AmpInput - FM6OpParamItemOp1AmpInput;
         return static_cast<uint8_t>(kOp1Items[j] + op * kOpStride);
     }
 
     // Map a DPF param index onto its VoiceManager module item address (0 = handled elsewhere).
     static AUParameterAddress vmAddress(uint32_t index)
     {
-        // FM engines A / B.
-        const uint32_t fmFirst = fmParam(0, 0), fmEnd = fmParam(2, 0);
-        if (index >= fmFirst && index < fmEnd)
+        // FM engine.
+        if (index >= fmParam(0) && index < fmParam(kFmEngineParamCount))
         {
-            const uint32_t rel    = index - fmFirst;
-            const uint32_t engine = rel / kFmEngineParamCount;
-            const uint32_t k      = rel % kFmEngineParamCount;
-            const uint8_t  inst   = engine == 0 ? ModuleInstance1 : ModuleInstance2;
-            const uint8_t  item   = k < kFmOpBase
-                                  ? fmEngineItem(k)
-                                  : fmOpItem((k - kFmOpBase) / kFmOpCount, (k - kFmOpBase) % kFmOpCount);
-            return MODULE_PARAM_ADDRESS(ModuleParamKindFM4Op, inst, item);
+            const uint32_t k    = index - fmParam(0);
+            const uint8_t  item = k < kFmOpBase
+                                ? fmEngineItem(k)
+                                : fmOpItem((k - kFmOpBase) / kFmOpCount, (k - kFmOpBase) % kFmOpCount);
+            return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, item);
         }
 
-        const auto mixer  = [](uint8_t item) { return MODULE_PARAM_ADDRESS(ModuleParamKindQuadStereoMixer, ModuleInstance1, item); };
         const auto lpf    = [](uint8_t item) { return MODULE_PARAM_ADDRESS(ModuleParamKindButterworthLowPassFilter, ModuleInstance1, item); };
-        const auto adsr   = [](uint8_t inst, uint8_t item) { return MODULE_PARAM_ADDRESS(ModuleParamKindADSR, inst, item); };
+        const auto adsr   = [](uint8_t item) { return MODULE_PARAM_ADDRESS(ModuleParamKindADSR, ModuleInstance1, item); };
         const auto chorus = [](uint8_t item) { return MODULE_PARAM_ADDRESS(ModuleParamKindChorus, ModuleInstance1, item); };
         switch (index)
         {
         case kParamBendRange:      return pitchBend1RangeAddress;
         case kParamMasterLevel:    return MODULE_PARAM_ADDRESS(ModuleParamKindFinalOutput, ModuleInstance1, FinalOutputParamItemLevel);
-        case kParamMixALevel:      return mixer(QuadStereoMixerParamItemLevel1);
-        case kParamMixAPan:        return mixer(QuadStereoMixerParamItemPan1);
-        case kParamMixBLevel:      return mixer(QuadStereoMixerParamItemLevel2);
-        case kParamMixBPan:        return mixer(QuadStereoMixerParamItemPan2);
         case kParamLpfCutoff:      return lpf(LPFParamItemPitch);
         case kParamLpfResonance:   return lpf(LPFParamItemQ);
         case kParamLpfEnvAmount:   return lpf(LPFParamItemFreqModLevel);    // mod 1 = filter env
         case kParamLpfPressure:    return lpf(LPFParamItemFreqModLevel2);   // mod 2 = pressure
-        case kParamFiltAttack:     return adsr(ModuleInstance1, ADSRParamItemAttack);
-        case kParamFiltDecay:      return adsr(ModuleInstance1, ADSRParamItemDecay);
-        case kParamFiltSustain:    return adsr(ModuleInstance1, ADSRParamItemSustain);
-        case kParamFiltRelease:    return adsr(ModuleInstance1, ADSRParamItemRelease);
-        case kParamAmpAttack:      return adsr(ModuleInstance2, ADSRParamItemAttack);
-        case kParamAmpDecay:       return adsr(ModuleInstance2, ADSRParamItemDecay);
-        case kParamAmpSustain:     return adsr(ModuleInstance2, ADSRParamItemSustain);
-        case kParamAmpRelease:     return adsr(ModuleInstance2, ADSRParamItemRelease);
+        case kParamFiltAttack:     return adsr(ADSRParamItemAttack);
+        case kParamFiltDecay:      return adsr(ADSRParamItemDecay);
+        case kParamFiltSustain:    return adsr(ADSRParamItemSustain);
+        case kParamFiltRelease:    return adsr(ADSRParamItemRelease);
         case kParamChorusMix:      return chorus(ChorusParamItemMix);
         case kParamChorusRate:     return MODULE_PARAM_ADDRESS(ModuleParamKindSharedLFO, ModuleInstance1, SharedLFOParamItemPitch);
         case kParamChorusDepth:    return chorus(ChorusParamItemModDelayLevel);
@@ -206,8 +192,8 @@ private:
         return static_cast<int>(voiceModeValue + 0.5f) == 0; // 0 = Mono, 1 = poly
     }
 
-    // Voice mode: Mono = 1 voice + VoiceManager legato (last-note note-stack), both envelopes and
-    // both FM engines in true legato (no re-attack while a note is held). Poly = 10 voices.
+    // Voice mode: Mono = 1 voice + VoiceManager legato (last-note note-stack), the filter envelope
+    // and the FM engine in true legato (no re-attack while a note is held). Poly = 10 voices.
     void applyVoiceMode(float value)
     {
         if (!fVoiceManager)
@@ -216,11 +202,8 @@ private:
         setConfig(MIDIParamItemVoiceCount, mono ? 1.0f : 10.0f);
         setConfig(MIDIParamItemLegato,     mono ? 1.0f : 0.0f);
         const float legato = mono ? 2.0f : 0.0f;   // 0 = Steal, 2 = LegatoTrue
-        for (uint8_t inst : {ModuleInstance1, ModuleInstance2})
-        {
-            fVoiceManager->setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindADSR, inst, ADSRParamItemLegato), legato);
-            fVoiceManager->setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindFM4Op, inst, FM4OpParamItemRetrigger), legato);
-        }
+        fVoiceManager->setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindADSR, ModuleInstance1, ADSRParamItemLegato), legato);
+        fVoiceManager->setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemRetrigger), legato);
     }
 
     void applyParam(uint32_t index, float value)
@@ -246,7 +229,7 @@ private:
         setConfig(MIDIParamItemFreeRun, 0);
 
         // Fixed voicing that isn't exposed as a param: full stereo width out of the Final stage
-        // (the engines' detune/pan and the chorus make the width), and the chorus LFO's right
+        // (the engine's detune and the chorus make the width), and the chorus LFO's right
         // channel 90° ahead of the left for a wide stereo sweep.
         fVoiceManager->setParameter(
             MODULE_PARAM_ADDRESS(ModuleParamKindFinalOutput, ModuleInstance1, FinalOutputParamItemSpread), 1.0f);
@@ -285,12 +268,12 @@ private:
         }
     }
 
-    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TwinFMPlugin)
+    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FeMPlugin)
 };
 
 Plugin* createPlugin()
 {
-    return new TwinFMPlugin();
+    return new FeMPlugin();
 }
 
 END_NAMESPACE_DISTRHO

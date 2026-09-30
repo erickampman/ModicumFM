@@ -3,8 +3,8 @@
 // mouse events first — modal capture). The UI opens it for a given control, and gets the chosen
 // row back via the Callback. A `tag` carries the caller's identity (e.g. a host param index).
 
-#ifndef TWINFM_POPUPMENU_HPP
-#define TWINFM_POPUPMENU_HPP
+#ifndef FEM_POPUPMENU_HPP
+#define FEM_POPUPMENU_HPP
 
 #include "NanoVG.hpp"
 
@@ -137,4 +137,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // TWINFM_POPUPMENU_HPP
+#endif // FEM_POPUPMENU_HPP

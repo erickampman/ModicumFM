@@ -20,8 +20,8 @@
 //   k->setRealValue(0.01f);
 //   k->setSize(w, h); k->setAbsolutePos(x, y);
 
-#ifndef TWINFM_KNOB_HPP
-#define TWINFM_KNOB_HPP
+#ifndef FEM_KNOB_HPP
+#define FEM_KNOB_HPP
 
 #include "NanoVG.hpp"
 #include "EventHandlers.hpp"
@@ -232,4 +232,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // TWINFM_KNOB_HPP
+#endif // FEM_KNOB_HPP

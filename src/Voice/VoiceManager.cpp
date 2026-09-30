@@ -56,26 +56,21 @@ void VoiceManager::reset() {
 void VoiceManager::buildDefaultPatch(Voice& voice)
 {
 #if HAS_DEFAULT_PATCH
-    // TwinFM voice:
-    //   PitchConverter + PitchBend --(Combine 2, Add)--> FM4Op A pitch, FM4Op B pitch
-    //   FM4Op A, FM4Op B --> QuadStereoMixer (inputs 1, 2: level + pan each)
-    //   --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = channel pressure)
-    //   --> Combine 1 (Multiply = VCA) x ADSR 2 amp env
+    // FeM voice:
+    //   PitchConverter + PitchBend --(Combine 2, Add)--> FM6Op pitch
+    //   FM6Op --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = channel pressure)
     //   --> Chorus (delay mod = SharedLFO, one phase across all voices) --> Final
-    // The FM4Ops take the note gate from MIDI directly (gate input unpatched); patching the pitch
-    // input makes them follow the summed pitch instead of the raw MIDI note, which is what lets
-    // pitch bend reach them.
+    // No VCA: the carriers' own envelopes shape the amplitude (DX-style), and the voice frees once
+    // the Final output falls silent. The FM6Op takes the note gate from MIDI directly (gate input
+    // unpatched); patching the pitch input makes it follow the summed pitch instead of the raw MIDI
+    // note, which is what lets pitch bend reach it.
     Module* pitchConverterModule = voice.getModule(pitchConverter1Address);
     Module* pitchBendModule      = voice.getModule(pitchBend1Address);
     Module* pitchSumModule       = voice.getModule(combine2Address);
-    Module* fmAModule            = voice.getModule(fm4Op1Address);
-    Module* fmBModule            = voice.getModule(fm4Op2Address);
-    Module* mixerModule          = voice.getModule(mixer1Address);
+    Module* fmModule             = voice.getModule(fm6Op1Address);
     Module* filterEnvModule      = voice.getModule(adsr1Address);
-    Module* ampEnvModule         = voice.getModule(adsr2Address);
     Module* pressureModule       = voice.getModule(channelPressure1Address);
     Module* lpfModule            = voice.getModule(lpf1Address);
-    Module* vcaModule            = voice.getModule(combine1Address);
     Module* lfoModule            = voice.getModule(sharedLFO1Address);
     Module* chorusModule         = voice.getModule(chorus1Address);
     Module* finalModule          = voice.getModule(finalAddress);
@@ -83,18 +78,12 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     //                   upstream              -> downstream       (downstream input port)
     ++(finalModule->activeCount);
     voice.connectModules(chorusModule,         finalModule,     finalInputAddress);
-    voice.connectModules(vcaModule,            chorusModule,    chorus1InputAddress);
+    voice.connectModules(lpfModule,            chorusModule,    chorus1InputAddress);
     voice.connectModules(lfoModule,            chorusModule,    chorus1ModInputAddress);
-    voice.connectModules(lpfModule,            vcaModule,       combine1Input1Address);
-    voice.connectModules(ampEnvModule,         vcaModule,       combine1Input2Address);
-    voice.setParameter(combine1TypeAddress, static_cast<float>(ParamItemCombineType_Multiply));
-    voice.connectModules(mixerModule,          lpfModule,       lpf1InputAddress);
+    voice.connectModules(fmModule,             lpfModule,       lpf1InputAddress);
     voice.connectModules(filterEnvModule,      lpfModule,       lpf1FreqModInputAddress);
     voice.connectModules(pressureModule,       lpfModule,       lpf1FreqModInput2Address);
-    voice.connectModules(fmAModule,            mixerModule,     mixer1Input1Address);
-    voice.connectModules(fmBModule,            mixerModule,     mixer1Input2Address);
-    voice.connectModules(pitchSumModule,       fmAModule,       fm4Op1PitchInputAddress);
-    voice.connectModules(pitchSumModule,       fmBModule,       fm4Op2PitchInputAddress);
+    voice.connectModules(pitchSumModule,       fmModule,        fm6Op1PitchInputAddress);
     voice.connectModules(pitchConverterModule, pitchSumModule,  combine2Input1Address);
     voice.connectModules(pitchBendModule,      pitchSumModule,  combine2Input2Address);
     voice.setParameter(combine2TypeAddress, static_cast<float>(ParamItemCombineType_Add));
@@ -182,7 +171,7 @@ void VoiceManager::noteOn(const pm::UmpMessage& msg) {
     // (instead of letting it fall through to the steal path) is what keeps the
     // oscillator on the same voice so it can retune without a phase-reset click
     // (see Voice::handleMIDIMessage / Module::legatoContinuation). The ADSR and
-    // FM4Op modules decide independently (via their own legato param) whether
+    // FM6Op modules decide independently (via their own legato param) whether
     // to retrigger the envelope or let it continue. A fully Inactive voice is
     // silent, so a fresh note there resets phase harmlessly — fall through to
     // normal allocation for that case.

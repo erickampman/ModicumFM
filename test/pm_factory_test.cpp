@@ -1,6 +1,6 @@
-// pm_factory_test — builds the whole TwinFM module set through ModuleFactory + the
+// pm_factory_test — builds the whole FeM module set through ModuleFactory + the
 // getModuleInitSpecs() registry, places them in a ModuleMap (as a Voice will), and confirms an
-// FM4Op among them sounds when sent a note. Proves the factory/spec glue off Apple.
+// FM6Op among them sounds when sent a note. Proves the factory/spec glue off Apple.
 
 #include "Module.hpp"
 #include "ModuleFactory.hpp"
@@ -24,7 +24,7 @@ static int g_fails = 0;
 
 int main() {
    const auto& specs = getModuleInitSpecs();
-   CHECK(specs.size() == 14, "14 module specs");
+   CHECK(specs.size() == 10, "10 module specs");
 
    ModuleFactory factory(48000.0, 512);
    ModuleMap map;
@@ -38,19 +38,18 @@ int main() {
       mod->setPitchConverter(&pc);
       map.add(s.id, std::move(mod));
    }
-   CHECK(map.allModules().size() == 14, "14 modules built into the map");
+   CHECK(map.allModules().size() == 10, "10 modules built into the map");
 
-   // Every module of the TwinFM voice is present.
+   // Every module of the FeM voice is present.
    const AUParameterAddress expected[] = {
-      pitchConverter1Address, pitchBend1Address, combine2Address, fm4Op1Address, fm4Op2Address,
-      mixer1Address, lpf1Address, adsr1Address, channelPressure1Address, combine1Address,
-      adsr2Address, chorus1Address, sharedLFO1Address, finalAddress};
+      pitchConverter1Address, pitchBend1Address, combine2Address, fm6Op1Address, lpf1Address,
+      adsr1Address, channelPressure1Address, chorus1Address, sharedLFO1Address, finalAddress};
    for (AUParameterAddress a : expected)
       CHECK(map.get(a) != nullptr, "voice module present");
 
-   // A factory-built FM4Op (pitch input unpatched → follows the MIDI note) sounds after a note-on.
-   Module* fm = map.get(fm4Op1Address);
-   CHECK(fm && fm->processProc && fm->midiProc, "fm4Op has process + MIDI procs");
+   // A factory-built FM6Op (pitch input unpatched → follows the MIDI note) sounds after a note-on.
+   Module* fm = map.get(fm6Op1Address);
+   CHECK(fm && fm->processProc && fm->midiProc, "fm6Op has process + MIDI procs");
    fm->midiProc(pm::makeNoteOn(69, 0x8000), fm);
    float peak = 0.0f;
    for (int b = 0; b < 4; ++b) {
@@ -58,7 +57,7 @@ int main() {
       for (int i = 0; i < 512; ++i)
          peak = std::fmax(peak, std::fabs(fm->output.first->data[i]));
    }
-   CHECK(peak > 0.01f, "factory-built fm4Op sounds after note-on");
+   CHECK(peak > 0.01f, "factory-built fm6Op sounds after note-on");
 
    if (g_fails == 0)
       std::printf("ALL PASS\n");

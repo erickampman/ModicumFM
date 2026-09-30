@@ -90,7 +90,7 @@ enum ModuleParamKind : NSUInteger {
    ModuleParamKindJuliaGran,
    ModuleParamKindClockGran,
    ModuleParamKindCVMixer, // combine mod sources (add/multiply, per-input enable)
-   ModuleParamKindFM4Op,
+   ModuleParamKindFM6Op,
    ModuleParamKindSharedLFO,
 };
 
@@ -306,7 +306,7 @@ enum VoiceStealAlgorithm : NSUInteger {
 
 // Per-parameter constants (portable): the source for CLAP clap_param_info generation.
 
-// --- TwinFM: FM4Op voice modules (ported from PolygraphModularUnified) ---
+// --- FeM voice modules (ported from PolygraphModularUnified) ---
 enum LFOParamWave : NSUInteger {
    LFOParamWaveSine = 0,
    LFOParamWaveTriangle,
@@ -320,21 +320,6 @@ enum LFOParamLRPhase : NSUInteger {   // L/R phase offset choices (index 0..4)
    LFOParamLRPhase90,
    LFOParamLRPhase120,
    LFOParamLRPhase180,
-};
-
-enum QuadStereoMixerParamItem : NSUInteger {
-   QuadStereoMixerParamItemInput1 = 1,   // connection
-   QuadStereoMixerParamItemInput2,       // connection
-   QuadStereoMixerParamItemInput3,       // connection
-   QuadStereoMixerParamItemInput4,       // connection
-   QuadStereoMixerParamItemLevel1,
-   QuadStereoMixerParamItemLevel2,
-   QuadStereoMixerParamItemLevel3,
-   QuadStereoMixerParamItemLevel4,
-   QuadStereoMixerParamItemPan1,
-   QuadStereoMixerParamItemPan2,
-   QuadStereoMixerParamItemPan3,
-   QuadStereoMixerParamItemPan4,
 };
 
 enum PitchBendConverterParamItem : NSUInteger {
@@ -363,44 +348,55 @@ enum SharedLFOParamItem : NSUInteger {
    SharedLFOParamItemClockRatio,  // indexed (kLFOClockRatios): Auto / 1/16..3/4 / ×1..×16 of the clock rate
 };
 
-enum FM4OpParamItem : NSUInteger {
+enum FM6OpParamItem : NSUInteger {
    // Global
-   FM4OpParamItemAlgorithm = 1,   // indexed: 0..7 (operator routing)
-   FM4OpParamItemFeedback,        // feedback amount (top op), 0..1
-   FM4OpParamItemOutputLevel,     // master out
-   FM4OpParamItemPitchInput,      // connection: fundamental pitch CV (oct re A440); MIDI note if unpatched
-   FM4OpParamItemGateInput,       // connection: gate CV (rising=trigger, falling=release); overrides MIDI
-   FM4OpParamItemRetrigger,       // indexed: 0=Steal, 1=LegatoRetrigger, 2=LegatoTrue
-   FM4OpParamItemDetune,          // L/R stereo detune (0..1 -> cents)
-   FM4OpParamItemSpread,          // stereo width (0=mono, 1=full L/R)
+   FM6OpParamItemAlgorithm = 1,   // indexed: 0..31 (DX7 algorithms 1..32, see FM6OpAlgorithms.hpp)
+   FM6OpParamItemFeedback,        // feedback amount (per-algorithm feedback op), 0..1
+   FM6OpParamItemOutputLevel,     // master out
+   FM6OpParamItemPitchInput,      // connection: fundamental pitch CV (oct re A440); MIDI note if unpatched
+   FM6OpParamItemGateInput,       // connection: gate CV (rising=trigger, falling=release); overrides MIDI
+   FM6OpParamItemRetrigger,       // indexed: 0=Steal, 1=LegatoRetrigger, 2=LegatoTrue
+   FM6OpParamItemDetune,          // L/R stereo detune (0..1 -> cents)
+   FM6OpParamItemSpread,          // stereo width (0=mono, 1=full L/R)
    // Operator 1 (13 items)
-   FM4OpParamItemOp1AmpInput, FM4OpParamItemOp1FreqInput, FM4OpParamItemOp1Ratio,
-   FM4OpParamItemOp1Fine, FM4OpParamItemOp1Wave, FM4OpParamItemOp1Level,
-   FM4OpParamItemOp1AmpDepth, FM4OpParamItemOp1FreqDepth, FM4OpParamItemOp1Delay,
-   FM4OpParamItemOp1Attack, FM4OpParamItemOp1Decay, FM4OpParamItemOp1Sustain, FM4OpParamItemOp1Release,
+   FM6OpParamItemOp1AmpInput, FM6OpParamItemOp1FreqInput, FM6OpParamItemOp1Ratio,
+   FM6OpParamItemOp1Fine, FM6OpParamItemOp1Wave, FM6OpParamItemOp1Level,
+   FM6OpParamItemOp1AmpDepth, FM6OpParamItemOp1FreqDepth, FM6OpParamItemOp1Delay,
+   FM6OpParamItemOp1Attack, FM6OpParamItemOp1Decay, FM6OpParamItemOp1Sustain, FM6OpParamItemOp1Release,
    // Operator 2 (13 items)
-   FM4OpParamItemOp2AmpInput, FM4OpParamItemOp2FreqInput, FM4OpParamItemOp2Ratio,
-   FM4OpParamItemOp2Fine, FM4OpParamItemOp2Wave, FM4OpParamItemOp2Level,
-   FM4OpParamItemOp2AmpDepth, FM4OpParamItemOp2FreqDepth, FM4OpParamItemOp2Delay,
-   FM4OpParamItemOp2Attack, FM4OpParamItemOp2Decay, FM4OpParamItemOp2Sustain, FM4OpParamItemOp2Release,
+   FM6OpParamItemOp2AmpInput, FM6OpParamItemOp2FreqInput, FM6OpParamItemOp2Ratio,
+   FM6OpParamItemOp2Fine, FM6OpParamItemOp2Wave, FM6OpParamItemOp2Level,
+   FM6OpParamItemOp2AmpDepth, FM6OpParamItemOp2FreqDepth, FM6OpParamItemOp2Delay,
+   FM6OpParamItemOp2Attack, FM6OpParamItemOp2Decay, FM6OpParamItemOp2Sustain, FM6OpParamItemOp2Release,
    // Operator 3 (13 items)
-   FM4OpParamItemOp3AmpInput, FM4OpParamItemOp3FreqInput, FM4OpParamItemOp3Ratio,
-   FM4OpParamItemOp3Fine, FM4OpParamItemOp3Wave, FM4OpParamItemOp3Level,
-   FM4OpParamItemOp3AmpDepth, FM4OpParamItemOp3FreqDepth, FM4OpParamItemOp3Delay,
-   FM4OpParamItemOp3Attack, FM4OpParamItemOp3Decay, FM4OpParamItemOp3Sustain, FM4OpParamItemOp3Release,
+   FM6OpParamItemOp3AmpInput, FM6OpParamItemOp3FreqInput, FM6OpParamItemOp3Ratio,
+   FM6OpParamItemOp3Fine, FM6OpParamItemOp3Wave, FM6OpParamItemOp3Level,
+   FM6OpParamItemOp3AmpDepth, FM6OpParamItemOp3FreqDepth, FM6OpParamItemOp3Delay,
+   FM6OpParamItemOp3Attack, FM6OpParamItemOp3Decay, FM6OpParamItemOp3Sustain, FM6OpParamItemOp3Release,
    // Operator 4 (13 items)
-   FM4OpParamItemOp4AmpInput, FM4OpParamItemOp4FreqInput, FM4OpParamItemOp4Ratio,
-   FM4OpParamItemOp4Fine, FM4OpParamItemOp4Wave, FM4OpParamItemOp4Level,
-   FM4OpParamItemOp4AmpDepth, FM4OpParamItemOp4FreqDepth, FM4OpParamItemOp4Delay,
-   FM4OpParamItemOp4Attack, FM4OpParamItemOp4Decay, FM4OpParamItemOp4Sustain, FM4OpParamItemOp4Release,
-   // Appended (preset-safe: name-keyed loads, no-op defaults).
-   FM4OpParamItemPitch,           // global coarse transpose (semitones)
-   FM4OpParamItemFine,            // global fine tune (cents)
-   FM4OpParamItemFMInput,         // connection: linear FM CV → added to fundamental Hz (× FMLevel)
-   FM4OpParamItemFMLevel,         // FM input depth (Hz per unit input)
-   FM4OpParamItemFeedbackInput,   // connection: feedback-amount mod CV (× FeedbackDepth)
-   FM4OpParamItemFeedbackDepth,   // feedback-mod input depth
-   FM4OpParamItemOversample,      // anti-alias quality: 0 = Off, 1 = 2×, 2 = 4× (CPU cost only when on)
+   FM6OpParamItemOp4AmpInput, FM6OpParamItemOp4FreqInput, FM6OpParamItemOp4Ratio,
+   FM6OpParamItemOp4Fine, FM6OpParamItemOp4Wave, FM6OpParamItemOp4Level,
+   FM6OpParamItemOp4AmpDepth, FM6OpParamItemOp4FreqDepth, FM6OpParamItemOp4Delay,
+   FM6OpParamItemOp4Attack, FM6OpParamItemOp4Decay, FM6OpParamItemOp4Sustain, FM6OpParamItemOp4Release,
+   // Operator 5 (13 items)
+   FM6OpParamItemOp5AmpInput, FM6OpParamItemOp5FreqInput, FM6OpParamItemOp5Ratio,
+   FM6OpParamItemOp5Fine, FM6OpParamItemOp5Wave, FM6OpParamItemOp5Level,
+   FM6OpParamItemOp5AmpDepth, FM6OpParamItemOp5FreqDepth, FM6OpParamItemOp5Delay,
+   FM6OpParamItemOp5Attack, FM6OpParamItemOp5Decay, FM6OpParamItemOp5Sustain, FM6OpParamItemOp5Release,
+   // Operator 6 (13 items)
+   FM6OpParamItemOp6AmpInput, FM6OpParamItemOp6FreqInput, FM6OpParamItemOp6Ratio,
+   FM6OpParamItemOp6Fine, FM6OpParamItemOp6Wave, FM6OpParamItemOp6Level,
+   FM6OpParamItemOp6AmpDepth, FM6OpParamItemOp6FreqDepth, FM6OpParamItemOp6Delay,
+   FM6OpParamItemOp6Attack, FM6OpParamItemOp6Decay, FM6OpParamItemOp6Sustain, FM6OpParamItemOp6Release,
+   FM6OpParamItemPitch,           // global coarse transpose (semitones)
+   FM6OpParamItemFine,            // global fine tune (cents)
+   FM6OpParamItemFMInput,         // connection: linear FM CV → added to fundamental Hz (× FMLevel)
+   FM6OpParamItemFMLevel,         // FM input depth (Hz per unit input)
+   FM6OpParamItemFeedbackInput,   // connection: feedback-amount mod CV (× FeedbackDepth)
+   FM6OpParamItemFeedbackDepth,   // feedback-mod input depth
+   FM6OpParamItemOversample,      // anti-alias quality: 0 = Off, 1 = 2×, 2 = 4× (CPU cost only when on)
+   // New items go here (append-only: presets and the plugin param table key off these).
+   FM6OpParamItemCount_           // one past the last item — must stay <= MODULE_MAX_PARAMS + 1
 };
 
 struct ModuleParamConstants {

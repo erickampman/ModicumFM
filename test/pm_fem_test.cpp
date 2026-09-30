@@ -1,6 +1,6 @@
-// pm_twinfm_test — the TwinFM voice end to end through the VoiceManager's default patch
-// (dual FM4Op → mixer → LPF (ADSR 1 + channel pressure) → VCA (ADSR 2) → Chorus → Final):
-//   1. a note sounds, at the note's pitch (operators 2-4 muted → operator 1 is a pure sine);
+// pm_fem_test — the FeM voice end to end through the VoiceManager's default patch
+// (FM6Op → LPF (ADSR 1 + channel pressure) → Chorus → Final):
+//   1. a note sounds, at the note's pitch (operators 2-6 muted → operator 1 is a pure sine);
 //   2. full pitch bend raises it by the bend range (default 4 quarter-tones = 2 semitones);
 //   3. channel pressure opens the filter (pressure → LPF cutoff mod 2);
 //   4. the voice frees after release.
@@ -43,15 +43,17 @@ static VoiceManager* makeVM() {
    return vm;
 }
 
-// Mute operators 2-4 on both engines (algorithm 0: 4>3>2>1, carrier = op 1) → a pure sine.
+static AUParameterAddress fm(uint8_t item) {
+   return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, item);
+}
+
+// Mute operators 2-6 (algorithm 1: 2>1, 6>5>4>3; carriers 1, 3) → op 1 alone, a pure sine.
 static void pureSine(VoiceManager& vm) {
-   for (uint8_t inst : {ModuleInstance1, ModuleInstance2}) {
-      vm.setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindFM4Op, inst, FM4OpParamItemAlgorithm), 0.0f);
-      vm.setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindFM4Op, inst, FM4OpParamItemFeedback), 0.0f);
-      vm.setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindFM4Op, inst, FM4OpParamItemOp2Level), 0.0f);
-      vm.setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindFM4Op, inst, FM4OpParamItemOp3Level), 0.0f);
-      vm.setParameter(MODULE_PARAM_ADDRESS(ModuleParamKindFM4Op, inst, FM4OpParamItemOp4Level), 0.0f);
-   }
+   vm.setParameter(fm(FM6OpParamItemAlgorithm), 0.0f);
+   vm.setParameter(fm(FM6OpParamItemFeedback), 0.0f);
+   for (uint8_t lvl : {FM6OpParamItemOp2Level, FM6OpParamItemOp3Level, FM6OpParamItemOp4Level,
+                       FM6OpParamItemOp5Level, FM6OpParamItemOp6Level})
+      vm.setParameter(fm(lvl), 0.0f);
 }
 
 struct Block { float L[kN], R[kN]; };
@@ -110,7 +112,8 @@ int main() {
 
    // --- 3: channel pressure opens the filter ------------------------------------------------
    {
-      VoiceManager* vm = makeVM();   // default operator levels → bright, harmonic-rich tone
+      VoiceManager* vm = makeVM();
+      vm->setParameter(fm(FM6OpParamItemOp2Level), 0.8f);        // Op2 → Op1 hard: harmonic-rich tone
       const auto lpf = [](uint8_t item) {
          return MODULE_PARAM_ADDRESS(ModuleParamKindButterworthLowPassFilter, ModuleInstance1, item);
       };
@@ -127,7 +130,7 @@ int main() {
 
       // --- 4: release frees the voice ---
       vm->handleMIDIMessage(pm::makeNoteOff(57));
-      for (int k = 0; k < 400; ++k) render(*vm, b);   // ~4.3 s: amp release (1 s) + ring-out
+      for (int k = 0; k < 400; ++k) render(*vm, b);   // ~4.3 s: operator release (0.3 s) + ring-out
       CHECK(vm->activeCount() == 0, "voice frees after release");
       delete vm;
    }

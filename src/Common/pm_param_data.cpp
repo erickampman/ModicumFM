@@ -69,48 +69,50 @@ const ModuleParamConstantsGroup pitchConverterModuleConstantsGroup = {
    sizeof(pitchConverterConstants) / sizeof(pitchConverterConstants[0]), pitchConverterConstants};
 
 
-// --- TwinFM voice modules (tables ported from PolygraphModularUnified; unit/valueStrings/
+// --- FeM voice modules (tables ported from PolygraphModularUnified; unit/valueStrings/
 // paramInfo left 0 like the rest of this file) ---
 
-#define FM4OP_OP(N, LVL) \
-   {"op" #N "AmpInput",  FM4OpParamItemOp##N##AmpInput,  0,  0, nullptr,    0.0f, 0.0f, 0.0f, 0}, \
-   {"op" #N "FreqInput", FM4OpParamItemOp##N##FreqInput, 0,  0, nullptr,    0.0f, 0.0f, 0.0f, 0}, \
-   {"op" #N "Ratio",     FM4OpParamItemOp##N##Ratio,     0,  0, nullptr,    0.5f, 16.0f, 1.0f, 0}, \
-   {"op" #N "Fine",      FM4OpParamItemOp##N##Fine,      0, 0, nullptr,    -100.0f, 100.0f, 0.0f, 0}, \
-   {"op" #N "Wave",      FM4OpParamItemOp##N##Wave,      0,  0, nullptr, 0.0f, 4.0f, 0.0f, 0}, \
-   {"op" #N "Level",     FM4OpParamItemOp##N##Level,     0, 0, nullptr,    0.0f, 1.0f, LVL, 0}, \
-   {"op" #N "AmpDepth",  FM4OpParamItemOp##N##AmpDepth,  0,  0, nullptr,    0.0f, 1.0f, 1.0f, 0}, \
-   {"op" #N "FreqDepth", FM4OpParamItemOp##N##FreqDepth, 0,  0, nullptr,    0.0f, 1.0f, 0.0f, 0}, \
-   {"op" #N "Delay",     FM4OpParamItemOp##N##Delay,     0,  0, nullptr,    0.0f, 5.0f, 0.0f, 0}, \
-   {"op" #N "Attack",    FM4OpParamItemOp##N##Attack,    0,  0, nullptr,    0.001f, 20.0f, 0.005f, 0}, \
-   {"op" #N "Decay",     FM4OpParamItemOp##N##Decay,     0,  0, nullptr,    0.001f, 30.0f, 0.3f, 0}, \
-   {"op" #N "Sustain",   FM4OpParamItemOp##N##Sustain,   0, 0, nullptr,    0.0f, 1.0f, 0.70f, 0}, \
-   {"op" #N "Release",   FM4OpParamItemOp##N##Release,   0,  0, nullptr,    0.001f, 30.0f, 0.3f, 0}
+#define FM6OP_OP(N, LVL) \
+   {"op" #N "AmpInput",  FM6OpParamItemOp##N##AmpInput,  0,  0, nullptr,    0.0f, 0.0f, 0.0f, 0}, \
+   {"op" #N "FreqInput", FM6OpParamItemOp##N##FreqInput, 0,  0, nullptr,    0.0f, 0.0f, 0.0f, 0}, \
+   {"op" #N "Ratio",     FM6OpParamItemOp##N##Ratio,     0,  0, nullptr,    0.5f, 16.0f, 1.0f, 0}, \
+   {"op" #N "Fine",      FM6OpParamItemOp##N##Fine,      0, 0, nullptr,    -100.0f, 100.0f, 0.0f, 0}, \
+   {"op" #N "Wave",      FM6OpParamItemOp##N##Wave,      0,  0, nullptr, 0.0f, 4.0f, 0.0f, 0}, \
+   {"op" #N "Level",     FM6OpParamItemOp##N##Level,     0, 0, nullptr,    0.0f, 1.0f, LVL, 0}, \
+   {"op" #N "AmpDepth",  FM6OpParamItemOp##N##AmpDepth,  0,  0, nullptr,    0.0f, 1.0f, 1.0f, 0}, \
+   {"op" #N "FreqDepth", FM6OpParamItemOp##N##FreqDepth, 0,  0, nullptr,    0.0f, 1.0f, 0.0f, 0}, \
+   {"op" #N "Delay",     FM6OpParamItemOp##N##Delay,     0,  0, nullptr,    0.0f, 5.0f, 0.0f, 0}, \
+   {"op" #N "Attack",    FM6OpParamItemOp##N##Attack,    0,  0, nullptr,    0.001f, 20.0f, 0.005f, 0}, \
+   {"op" #N "Decay",     FM6OpParamItemOp##N##Decay,     0,  0, nullptr,    0.001f, 30.0f, 0.3f, 0}, \
+   {"op" #N "Sustain",   FM6OpParamItemOp##N##Sustain,   0, 0, nullptr,    0.0f, 1.0f, 0.70f, 0}, \
+   {"op" #N "Release",   FM6OpParamItemOp##N##Release,   0,  0, nullptr,    0.001f, 30.0f, 0.3f, 0}
 
-static const ModuleParamConstants fm4OpConstants[] = {
-   {"algorithm",   FM4OpParamItemAlgorithm,   0,  0, nullptr,  0.0f, 7.0f, 0.0f, 0},
-   {"feedback",    FM4OpParamItemFeedback,    0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},
-   {"outputLevel", FM4OpParamItemOutputLevel, 0, 0, nullptr, 0.0f, 1.0f, 0.8f, 0},
-   {"pitchInput",  FM4OpParamItemPitchInput,  0,  0, nullptr, 0.0f, 0.0f, 0.0f, 0},
-   {"gateInput",   FM4OpParamItemGateInput,   0,  0, nullptr, 0.0f, 0.0f, 0.0f, 0},
-   {"retrigger",   FM4OpParamItemRetrigger,   0,  0, nullptr, 0.0f, 2.0f, 0.0f, 0},
-   {"detune",      FM4OpParamItemDetune,      0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},
-   {"spread",      FM4OpParamItemSpread,      0,  0, nullptr, 0.0f, 1.0f, 1.0f, 0},
-   FM4OP_OP(1, 0.9f),
-   FM4OP_OP(2, 0.6f),
-   FM4OP_OP(3, 0.5f),
-   FM4OP_OP(4, 0.4f),
-   {"pitch",         FM4OpParamItemPitch,         0, 0, nullptr, -48.0f, 48.0f, 0.0f, 0},
-   {"fine",          FM4OpParamItemFine,          0, 0, nullptr, -100.0f, 100.0f, 0.0f, 0},
-   {"fmInput",       FM4OpParamItemFMInput,       0,  0, nullptr, 0.0f, 0.0f, 0.0f, 0},
-   {"fmLevel",       FM4OpParamItemFMLevel,       0,   0, nullptr, 0.0f, 2000.0f, 0.0f, 0},
-   {"feedbackInput", FM4OpParamItemFeedbackInput, 0,  0, nullptr, 0.0f, 0.0f, 0.0f, 0},
-   {"feedbackDepth", FM4OpParamItemFeedbackDepth, 0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},
-   {"oversample",    FM4OpParamItemOversample,    0,  0, nullptr, 0.0f, 2.0f, 0.0f, 0},
+static const ModuleParamConstants fm6OpConstants[] = {
+   {"algorithm",   FM6OpParamItemAlgorithm,   0,  0, nullptr,  0.0f, 31.0f, 0.0f, 0},
+   {"feedback",    FM6OpParamItemFeedback,    0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+   {"outputLevel", FM6OpParamItemOutputLevel, 0, 0, nullptr, 0.0f, 1.0f, 0.8f, 0},
+   {"pitchInput",  FM6OpParamItemPitchInput,  0,  0, nullptr, 0.0f, 0.0f, 0.0f, 0},
+   {"gateInput",   FM6OpParamItemGateInput,   0,  0, nullptr, 0.0f, 0.0f, 0.0f, 0},
+   {"retrigger",   FM6OpParamItemRetrigger,   0,  0, nullptr, 0.0f, 2.0f, 0.0f, 0},
+   {"detune",      FM6OpParamItemDetune,      0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+   {"spread",      FM6OpParamItemSpread,      0,  0, nullptr, 0.0f, 1.0f, 1.0f, 0},
+   FM6OP_OP(1, 0.9f),
+   FM6OP_OP(2, 0.35f),
+   FM6OP_OP(3, 0.0f),
+   FM6OP_OP(4, 0.0f),
+   FM6OP_OP(5, 0.0f),
+   FM6OP_OP(6, 0.0f),
+   {"pitch",         FM6OpParamItemPitch,         0, 0, nullptr, -48.0f, 48.0f, 0.0f, 0},
+   {"fine",          FM6OpParamItemFine,          0, 0, nullptr, -100.0f, 100.0f, 0.0f, 0},
+   {"fmInput",       FM6OpParamItemFMInput,       0,  0, nullptr, 0.0f, 0.0f, 0.0f, 0},
+   {"fmLevel",       FM6OpParamItemFMLevel,       0,   0, nullptr, 0.0f, 2000.0f, 0.0f, 0},
+   {"feedbackInput", FM6OpParamItemFeedbackInput, 0,  0, nullptr, 0.0f, 0.0f, 0.0f, 0},
+   {"feedbackDepth", FM6OpParamItemFeedbackDepth, 0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+   {"oversample",    FM6OpParamItemOversample,    0,  0, nullptr, 0.0f, 2.0f, 0.0f, 0},
 };
-#undef FM4OP_OP
-const ModuleParamConstantsGroup fm4OpConstantsGroup = {
-   const_cast<char*>("FM 4-Op"), sizeof(fm4OpConstants) / sizeof(fm4OpConstants[0]), fm4OpConstants};
+#undef FM6OP_OP
+const ModuleParamConstantsGroup fm6OpConstantsGroup = {
+   const_cast<char*>("FM 6-Op"), sizeof(fm6OpConstants) / sizeof(fm6OpConstants[0]), fm6OpConstants};
 
 static const ModuleParamConstants sharedLFOConstants[] = {
    {"frequency", SharedLFOParamItemPitch,   0,  0, nullptr,   -7.0f, 7.0f, 0.0f, 0},
@@ -134,23 +136,6 @@ static const ModuleParamConstants pitchBendConverterConstants[] = {
 };
 const ModuleParamConstantsGroup pitchBendConverterConstantsGroup = {
    const_cast<char*>("Pitch Bend"), sizeof(pitchBendConverterConstants) / sizeof(pitchBendConverterConstants[0]), pitchBendConverterConstants};
-
-static const ModuleParamConstants quadStereoMixerConstants[] = {
-   {"input1", QuadStereoMixerParamItemInput1, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0}, // connection
-   {"input2", QuadStereoMixerParamItemInput2, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0}, // connection
-   {"input3", QuadStereoMixerParamItemInput3, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0}, // connection
-   {"input4", QuadStereoMixerParamItemInput4, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0}, // connection
-   {"level1", QuadStereoMixerParamItemLevel1, 0, 0, nullptr, 0.0f, 1.0f, 0.7f, 0},
-   {"level2", QuadStereoMixerParamItemLevel2, 0, 0, nullptr, 0.0f, 1.0f, 0.7f, 0},
-   {"level3", QuadStereoMixerParamItemLevel3, 0, 0, nullptr, 0.0f, 1.0f, 0.7f, 0},
-   {"level4", QuadStereoMixerParamItemLevel4, 0, 0, nullptr, 0.0f, 1.0f, 0.7f, 0},
-   {"pan1",   QuadStereoMixerParamItemPan1, 0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
-   {"pan2",   QuadStereoMixerParamItemPan2, 0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
-   {"pan3",   QuadStereoMixerParamItemPan3, 0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
-   {"pan4",   QuadStereoMixerParamItemPan4, 0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
-};
-const ModuleParamConstantsGroup quadStereoMixerConstantsGroup = {
-   const_cast<char*>("Quad Stereo Mixer"), sizeof(quadStereoMixerConstants) / sizeof(quadStereoMixerConstants[0]), quadStereoMixerConstants};
 
 static const ModuleParamConstants chorusConstants[] = {
    {"input",         ChorusParamItemInput, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0}, // connection

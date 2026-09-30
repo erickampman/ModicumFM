@@ -1,6 +1,6 @@
 //
 //  LPFilterModule.hpp — per-voice 24 dB/oct Butterworth low-pass filter (port of PM's
-//  LPFilterModule). In TwinFM it sits after the engine mixer, before the VCA. Cutoff is an
+//  LPFilterModule). In FeM it sits after the engine mixer, before the VCA. Cutoff is an
 //  absolute pitch (fed through the voice's shared PitchConverter); Q adds resonance. Freq mod
 //  input 1 carries the filter envelope, input 2 channel pressure; the Q mod input is unused.
 //

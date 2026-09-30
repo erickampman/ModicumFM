@@ -1,9 +1,9 @@
-// TitleText.hpp — the "TwinFM" wordmark: "Twin" and "FM" drawn in two accent colors using the
+// TitleText.hpp — the "FeM" wordmark: "Fe" and "M" drawn in two accent colors using the
 // embedded Almendra display font (see EmbeddedResources.hpp / Resources/Almendra-Regular.ttf).
 // Sits between the logo and the Preset dropdown in the top strip. Not interactive.
 
-#ifndef TWINFM_TITLETEXT_HPP
-#define TWINFM_TITLETEXT_HPP
+#ifndef FEM_TITLETEXT_HPP
+#define FEM_TITLETEXT_HPP
 
 #include "NanoVG.hpp"
 
@@ -46,12 +46,12 @@ protected:
 private:
     Color fColorA, fColorB;
     float fFontSize = 48.0f;
-    const std::string fPartA = "Twin";
-    const std::string fPartB = "FM";
+    const std::string fPartA = "Fe";
+    const std::string fPartB = "M";
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TitleText)
 };
 
 END_NAMESPACE_DGL
 
-#endif // TWINFM_TITLETEXT_HPP
+#endif // FEM_TITLETEXT_HPP

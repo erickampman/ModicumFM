@@ -1,4 +1,4 @@
-# Testing TwinFM
+# Testing FeM
 
 The project ships a suite of in-process self-tests (via CTest) plus the CLAP conformance
 validator. Everything runs headless on Linux/macOS — no DAW or audio device required.
@@ -26,13 +26,13 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-Add `-DTWINFM_WERROR=ON` at configure time to treat warnings as errors for the framework
+Add `-DFEM_WERROR=ON` at configure time to treat warnings as errors for the framework
 and the `pm-selftest` glue (this is what CI keys on). The tests that pull in vendored
 PolygraphModular headers stay on that code's own warning style.
 
 ## What each test covers
 
-The seven CTest cases exercise the `pm_framework` engine end-to-end (the DPF plugin wrapper
+The eight CTest cases exercise the `pm_framework` engine end-to-end (the DPF plugin wrapper
 itself is covered by `clap-validator`, below):
 
 | CTest name       | Executable               | Verifies |
@@ -41,15 +41,16 @@ itself is covered by `clap-validator`, below):
 | `pm-module`      | `pm-module-test`         | `Module` + `ModuleMap` core: param read/write, process proc, map add/get |
 | `pm-adsr`        | `pm-adsr-test`           | ADSR envelope: note-on drives attack, note-off drives release to ~0 |
 | `pm-modules`     | `pm-modules-test`        | Combine / Final compile+run; PitchConverter maps note→pitch |
-| `pm-factory`     | `pm-factory-test`        | ModuleFactory + the init-specs build all 14 voice modules; an FM4Op sounds on a note |
-| `pm-twinfm`      | `pm-twinfm-test`         | The TwinFM voice: note plays at pitch, full pitch bend = +2 semitones, channel pressure opens the filter, voice frees on release |
+| `pm-factory`     | `pm-factory-test`        | ModuleFactory + the init-specs build all 10 voice modules; an FM6Op sounds on a note |
+| `pm-fem`         | `pm-fem-test`            | The FeM voice: note plays at pitch, full pitch bend = +2 semitones, channel pressure opens the filter, voice frees on release |
+| `pm-fm6op`       | `pm-fm6op-test`          | FM6Op: algorithm-table invariants, operator-role analysis, all 32 algorithms sound and stay within ±1, algorithm 4's cross-feedback reaches the sound |
 | `pm-voicemanager`| `pm-voicemanager-test`   | Polyphony: a 3-note chord allocates 3 voices and frees them on release |
 
 ## Running a single test
 
 ```sh
-ctest --test-dir build -R pm-twinfm --output-on-failure  # by name (regex)
-./build/pm-twinfm-test                                    # or run the binary directly
+ctest --test-dir build -R pm-fem --output-on-failure  # by name (regex)
+./build/pm-fem-test                                    # or run the binary directly
 ```
 
 Each test binary prints diagnostic values (e.g. `pitch: 440.8 Hz, bent 494.7 Hz`) and ends with
@@ -61,10 +62,10 @@ Validate the built plugin against the CLAP spec with
 [`clap-validator`](https://github.com/free-audio/clap-validator):
 
 ```sh
-clap-validator validate build/bin/TwinFM.clap
+clap-validator validate build/bin/FeM.clap
 ```
 
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs the configure + build + `ctest` on every push across
-Linux (gcc/clang) and macOS (clang) with `-DTWINFM_WERROR=ON`.
+Linux (gcc/clang) and macOS (clang) with `-DFEM_WERROR=ON`.

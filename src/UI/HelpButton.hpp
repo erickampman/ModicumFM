@@ -2,8 +2,8 @@
 // always compiled in). Used to toggle the Help panel; the label swaps between "?" and "x" so it
 // reads as open/close rather than a single fixed action.
 
-#ifndef TWINFM_HELPBUTTON_HPP
-#define TWINFM_HELPBUTTON_HPP
+#ifndef FEM_HELPBUTTON_HPP
+#define FEM_HELPBUTTON_HPP
 
 #include "NanoVG.hpp"
 
@@ -62,4 +62,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // TWINFM_HELPBUTTON_HPP
+#endif // FEM_HELPBUTTON_HPP

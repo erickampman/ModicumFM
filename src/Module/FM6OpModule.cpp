@@ -1,13 +1,14 @@
 //
-//  FM4OpModule.cpp
+//  FM6OpModule.cpp
 //
-//  Full per-sample 4-op PM engine: all 8 algorithms + feedback + amp/freq CV
-//  inputs; operators use the harmonic-stack wavetables (sine.cpp). A small master
-//  gate handles note-off. PMU port of PM's FM4OpModule — only the MIDI proc
-//  differs (pm::UmpMessage note predicates instead of MIDIUniversalMessage).
+//  Full per-sample 6-op PM engine: the 32 DX7-style algorithms (FM6OpAlgorithms.hpp) + one
+//  feedback path per algorithm + amp/freq CV inputs; operators use the harmonic-stack wavetables
+//  (sine.cpp). Grown from TwinFM's FM6OpModule: same envelopes, legato handling, stereo detune
+//  and oversampling, generalised from 4 to kFM6OpCount operators.
 //
 
-#include "FM4OpModule.hpp"
+#include "FM6OpModule.hpp"
+#include "FM6OpAlgorithms.hpp"
 #include "sine.hpp"           // harmonic-stack wavetables (sine.cpp), shared with LFO
 #include "PitchConverter.hpp" // pitch CV (octaves re A440) -> Hz
 #include "pm_midi.h"
@@ -50,31 +51,14 @@ static inline double fmWave(int wave, double p) {
     return (b + (tbl[ii + 1] - b) * fr) * kFMGain[wave];
 }
 
-// --- Algorithms -------------------------------------------------------------
-
-// Operators are indexed 0..3 (= op1..op4). Bit i in a mask refers to op index i.
-// modMask[c] = which ops modulate op c. carrierMask = which ops sum to output.
-// Feedback is always on op index 3 (the "top" operator).
-struct FMAlgo {
-    uint8_t modMask[4];
-    uint8_t carrierMask;
-};
-
-static const FMAlgo kFMAlgos[8] = {
-    { { 0b0010, 0b0100, 0b1000, 0 }, 0b0001 },  // 0: 4>3>2>1              (carrier 1)
-    { { 0b0010, 0b1100, 0,      0 }, 0b0001 },  // 1: (4,3)>2>1            (carrier 1)
-    { { 0b0110, 0b1000, 0,      0 }, 0b0001 },  // 2: 4>2>1, 3>1           (carrier 1)
-    { { 0b1110, 0,      0,      0 }, 0b0001 },  // 3: (2,3,4)>1            (carrier 1)
-    { { 0b0010, 0,      0b1000, 0 }, 0b0101 },  // 4: 2>1, 4>3             (carriers 1,3)
-    { { 0b1000, 0b1000, 0b1000, 0 }, 0b0111 },  // 5: 4>(1,2,3)            (carriers 1,2,3)
-    { { 0b0010, 0b0100, 0,      0 }, 0b1001 },  // 6: 3>2>1 + 4            (carriers 1,4)
-    { { 0,      0,      0,      0 }, 0b1111 },  // 7: 1,2,3,4 parallel     (additive)
-};
-
 // --- Params (contiguous per-op block: 13 items each) ------------------------
 
+static_assert(FM6OpParamItemCount_ - 1 <= MODULE_MAX_PARAMS, "FM6Op items must fit Module::params");
+constexpr int kOpStride = FM6OpParamItemOp2AmpInput - FM6OpParamItemOp1AmpInput;
+static_assert(kOpStride == 13, "per-op block layout");
+
 static inline uint8_t opItem(int oi, int offset) {
-    return (uint8_t)(FM4OpParamItemOp1AmpInput + oi * 13 + offset);
+    return (uint8_t)(FM6OpParamItemOp1AmpInput + oi * kOpStride + offset);
 }
 enum { kAmpIn = 0, kFreqIn, kRatio, kFine, kWave, kLevel, kAmpDepth, kFreqDepth,
        kDelay, kAttack, kDecay, kSustain, kRelease };
@@ -116,14 +100,14 @@ static inline double egTick(FMEG& e, double atkInc, double decCoef, double sus, 
 
 // --- State ------------------------------------------------------------------
 
-struct FM4OpState {
+struct FM6OpState {
     double sampleRate = 44100.0;
 
-    double phase[2][4]    = { { 0.0 }, { 0.0 } };  // [channel][op], 0..1
-    double prevOut[2][4]  = { { 0.0 }, { 0.0 } };  // y[n-1] per op, per channel
-    double prevOut2[2][4] = { { 0.0 }, { 0.0 } };  // y[n-2]; feedback op reads the AVERAGE of the
+    double phase[2][kFM6OpCount]    = { { 0.0 }, { 0.0 } };  // [channel][op], 0..1
+    double prevOut[2][kFM6OpCount]  = { { 0.0 }, { 0.0 } };  // y[n-1] per op, per channel
+    double prevOut2[2][kFM6OpCount] = { { 0.0 }, { 0.0 } };  // y[n-2]; feedback op reads the AVERAGE of the
                                                    // two (single-sample feedback self-oscillates)
-    FMEG   eg[4];                                  // per-op amplitude envelope (shared L/R)
+    FMEG   eg[kFM6OpCount];                                  // per-op amplitude envelope (shared L/R)
 
     double  f0       = 440.0; // Hz from the played note (Pitch-input fallback)
     float   velAmp   = 1.0f;
@@ -157,44 +141,44 @@ static void fmDesignDecimationKernel(double* k, int taps, int osFactor) {
     for (int n = 0; n < taps; ++n) k[n] /= sum;
 }
 
-// Render ONE sample of the 4-op bank for channel `ch`: advance each op's phase by phInc[oi], apply
-// the algorithm's modulation routing + averaged feedback on the top op, and sum the carriers. Used
+// Render ONE sample of the 6-op bank for channel `ch`: advance each op's phase by phInc[oi], apply
+// the algorithm's modulation routing + averaged feedback (fbSrc -> fbDst), and sum the carriers. Used
 // by both the 1× path (phInc = freq/sr) and the oversampled path (phInc = freq/(sr·N), called N×).
-static inline double fmRenderStep(FM4OpState* st, int ch, const FMAlgo& algo, const int* wave,
-                                  const double phInc[4], const double amp[4], double feedback) {
-    double opOut[4];
-    for (int oi = 3; oi >= 0; --oi) {
+static inline double fmRenderStep(FM6OpState* st, int ch, const FM6OpAlgo& algo, const int* wave,
+                                  const double phInc[kFM6OpCount], const double amp[kFM6OpCount], double feedback) {
+    double opOut[kFM6OpCount];
+    for (int oi = kFM6OpCount - 1; oi >= 0; --oi) {
         st->phase[ch][oi] += phInc[oi];
         st->phase[ch][oi] -= std::floor(st->phase[ch][oi]);
         double mod = 0.0;
         const uint8_t mm = algo.modMask[oi];
-        for (int src = 0; src < 4; ++src) { if (mm & (1 << src)) { mod += opOut[src]; } }
-        if (oi == 3) { mod += feedback * 0.5 * (st->prevOut[ch][3] + st->prevOut2[ch][3]); }
+        for (int src = 0; src < kFM6OpCount; ++src) { if (mm & (1 << src)) { mod += opOut[src]; } }
+        if (oi == algo.fbDst) { mod += feedback * 0.5 * (st->prevOut[ch][algo.fbSrc] + st->prevOut2[ch][algo.fbSrc]); }
         opOut[oi] = fmWave(wave[oi], st->phase[ch][oi] + mod) * amp[oi];
     }
     double s = 0.0;
-    for (int oi = 0; oi < 4; ++oi) { if (algo.carrierMask & (1 << oi)) { s += opOut[oi]; } }
-    for (int oi = 0; oi < 4; ++oi) { st->prevOut2[ch][oi] = st->prevOut[ch][oi]; st->prevOut[ch][oi] = opOut[oi]; }
+    for (int oi = 0; oi < kFM6OpCount; ++oi) { if (algo.carrierMask & (1 << oi)) { s += opOut[oi]; } }
+    for (int oi = 0; oi < kFM6OpCount; ++oi) { st->prevOut2[ch][oi] = st->prevOut[ch][oi]; st->prevOut[ch][oi] = opOut[oi]; }
     return s;
 }
 
 // --- Lifecycle --------------------------------------------------------------
 
-const void InitFM4OpModule(uint32_t /*count*/, Module* module) {
+const void InitFM6OpModule(uint32_t /*count*/, Module* module) {
     fmInitGains();
-    auto* st = new FM4OpState();
+    auto* st = new FM6OpState();
     st->sampleRate = module->mSampleRate;
     module->state = st;
 }
 
-const void DeinitFM4OpModule(Module* module) {
-    delete static_cast<FM4OpState*>(module->state);
+const void DeinitFM6OpModule(Module* module) {
+    delete static_cast<FM6OpState*>(module->state);
     module->state = nullptr;
 }
 
-const void ResetFM4OpModule(Module* module) {
-    if (auto* st = static_cast<FM4OpState*>(module->state)) {
-        for (int oi = 0; oi < 4; ++oi) {
+const void ResetFM6OpModule(Module* module) {
+    if (auto* st = static_cast<FM6OpState*>(module->state)) {
+        for (int oi = 0; oi < kFM6OpCount; ++oi) {
             st->phase[0][oi] = st->phase[1][oi] = 0.0;
             st->prevOut[0][oi]  = st->prevOut[1][oi]  = 0.0;
             st->prevOut2[0][oi] = st->prevOut2[1][oi] = 0.0;
@@ -202,25 +186,25 @@ const void ResetFM4OpModule(Module* module) {
         }
         st->prevGate = 0.0f;
         st->lastNote = 255;
-        for (int ch = 0; ch < 2; ++ch) std::fill_n(st->osHist[ch], FM4OpState::FM_OS_TAPS, 0.0);
+        for (int ch = 0; ch < 2; ++ch) std::fill_n(st->osHist[ch], FM6OpState::FM_OS_TAPS, 0.0);
         st->osWrite = 0;
     }
 }
 
-const void SampleRateFM4OpModule(Module* module, double newSampleRate) {
-    if (auto* st = static_cast<FM4OpState*>(module->state)) { st->sampleRate = newSampleRate; }
+const void SampleRateFM6OpModule(Module* module, double newSampleRate) {
+    if (auto* st = static_cast<FM6OpState*>(module->state)) { st->sampleRate = newSampleRate; }
 }
 
 // --- MIDI -------------------------------------------------------------------
 
-void MIDIFM4OpModule(const pm::UmpMessage& message, Module* module) {
-    auto* st = static_cast<FM4OpState*>(module->state);
+void MIDIFM6OpModule(const pm::UmpMessage& message, Module* module) {
+    auto* st = static_cast<FM6OpState*>(module->state);
     if (!st) { return; }
 
     // A patched Gate input takes over envelope gating (the patch should run
     // independently of MIDI). MIDI still sets the base freq (used only when the
     // Pitch input is unpatched).
-    const bool gateConn = module->isInputConnected(FM4OpParamItemGateInput);
+    const bool gateConn = module->isInputConnected(FM6OpParamItemGateInput);
 
     if (pm::isNoteOn(message)) {
         const uint8_t note = (uint8_t)message.note;
@@ -229,15 +213,15 @@ void MIDIFM4OpModule(const pm::UmpMessage& message, Module* module) {
         st->f0 = 440.0 * std::exp2(((double)note - 69.0) / 12.0);
         if (!gateConn) {
             st->velAmp = (float)message.velocity / 65535.0f;   // MIDI 2.0 16-bit
-            const int legato = module->getParamValueAsInt(FM4OpParamItemRetrigger);
+            const int legato = module->getParamValueAsInt(FM6OpParamItemRetrigger);
             // A voice-legato slide (mono, note routed to the still-sounding voice) sets
             // module->legatoContinuation — the same signal the simple oscillators use to skip their
-            // phase reset. FM 4 Op honours it too: even in Steal mode a legato slide re-attacks
+            // phase reset. FM6Op honours it too: even in Steal mode a legato slide re-attacks
             // smoothly from the current level and keeps phase, instead of snapping the envelope to 0
             // and resetting phase (an amplitude step plus a phase click). Genuine polyphonic steal
             // (new note on an idle/stolen voice, legatoContinuation false) still hard-retriggers.
             const bool smoothRetrigger = samePitch || module->legatoContinuation;
-            for (int oi = 0; oi < 4; ++oi) {
+            for (int oi = 0; oi < kFM6OpCount; ++oi) {
                 if (legato == 1) {                       // LegatoRetrigger: re-attack from current
                     egTriggerLegato(st->eg[oi]);
                 } else if (legato == 2) {                // LegatoTrue: never restart the attack on a slide
@@ -259,14 +243,14 @@ void MIDIFM4OpModule(const pm::UmpMessage& message, Module* module) {
             }
         }
     } else if (pm::isNoteOff(message)) {
-        if (!gateConn) { for (int oi = 0; oi < 4; ++oi) { egRelease(st->eg[oi]); } }
+        if (!gateConn) { for (int oi = 0; oi < kFM6OpCount; ++oi) { egRelease(st->eg[oi]); } }
     }
 }
 
 // --- Process ----------------------------------------------------------------
 
-const KPBuffPair* ProcessFM4OpModule(uint64_t processCallID, uint32_t count, Module* module) {
-    auto* st = static_cast<FM4OpState*>(module->state);
+const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Module* module) {
+    auto* st = static_cast<FM6OpState*>(module->state);
     if (!st) { return KPBuffPairHelper::zeroes(); }
 
     float* outL = module->output.first->data;
@@ -275,35 +259,37 @@ const KPBuffPair* ProcessFM4OpModule(uint64_t processCallID, uint32_t count, Mod
     const double sr    = st->sampleRate;
 
     // Oversample factor: 0=Off→1, 1→2×, 2→4×. Off keeps the exact original per-sample path.
-    const int    osSel    = std::min(2, std::max(0, module->getParamValueAsInt(FM4OpParamItemOversample)));
+    const int    osSel    = std::min(2, std::max(0, module->getParamValueAsInt(FM6OpParamItemOversample)));
     const int    osFactor = osSel == 0 ? 1 : (osSel == 1 ? 2 : 4);
     if (osFactor > 1 && st->osKernelFactor != osFactor) {
-        fmDesignDecimationKernel(st->osKernel, FM4OpState::FM_OS_TAPS, osFactor);
+        fmDesignDecimationKernel(st->osKernel, FM6OpState::FM_OS_TAPS, osFactor);
         st->osKernelFactor = osFactor;
-        for (int ch = 0; ch < 2; ++ch) std::fill_n(st->osHist[ch], FM4OpState::FM_OS_TAPS, 0.0);
+        for (int ch = 0; ch < 2; ++ch) std::fill_n(st->osHist[ch], FM6OpState::FM_OS_TAPS, 0.0);
         st->osWrite = 0;
     }
 
-    const int    algoIdx  = std::min(7, std::max(0, module->getParamValueAsInt(FM4OpParamItemAlgorithm)));
-    const FMAlgo algo     = kFMAlgos[algoIdx];
-    const double baseFeedback   = module->getParamValue(FM4OpParamItemFeedback);
-    const double feedbackDepth  = module->getParamValue(FM4OpParamItemFeedbackDepth);
-    const double outLevel = module->getParamValue(FM4OpParamItemOutputLevel);
+    const int    algoIdx  = std::min(kFM6OpAlgorithms - 1, std::max(0, module->getParamValueAsInt(FM6OpParamItemAlgorithm)));
+    const FM6OpAlgo& algo = kFM6OpAlgos[algoIdx];
+    // Carriers are summed, so scale by 1/count: switching algorithm doesn't jump the level.
+    const double carrierNorm = 1.0 / std::max<int>(1, fm6OpRoles(algo).carrierCount);
+    const double baseFeedback   = module->getParamValue(FM6OpParamItemFeedback);
+    const double feedbackDepth  = module->getParamValue(FM6OpParamItemFeedbackDepth);
+    const double outLevel = module->getParamValue(FM6OpParamItemOutputLevel);
 
     // Global transpose (constant across the block): Pitch (semitones) + Fine (cents).
-    const double pitchSemis   = module->getParamValue(FM4OpParamItemPitch);
-    const double fineCents     = module->getParamValue(FM4OpParamItemFine);
+    const double pitchSemis   = module->getParamValue(FM6OpParamItemPitch);
+    const double fineCents     = module->getParamValue(FM6OpParamItemFine);
     const double transposeFac  = std::exp2((pitchSemis + fineCents / 100.0) / 12.0);
     // Linear FM depth: FMInput (Hz per unit) is ADDED to the fundamental (through-zero).
-    const double fmLevel       = module->getParamValue(FM4OpParamItemFMLevel);
+    const double fmLevel       = module->getParamValue(FM6OpParamItemFMLevel);
 
     // Hoist per-op params (constant across the block); pull the CV input buffers.
-    double ratioFine[4], baseLevel[4], ampDepth[4], freqDepth[4];
-    double egAtkInc[4], egDecCoef[4], egSus[4], egRelCoef[4], delaySamp[4];
-    int    wave[4];
-    const float* ampIn[2][4];   // [channel][op] — L/R read independently
-    const float* freqIn[2][4];
-    for (int oi = 0; oi < 4; ++oi) {
+    double ratioFine[kFM6OpCount], baseLevel[kFM6OpCount], ampDepth[kFM6OpCount], freqDepth[kFM6OpCount];
+    double egAtkInc[kFM6OpCount], egDecCoef[kFM6OpCount], egSus[kFM6OpCount], egRelCoef[kFM6OpCount], delaySamp[kFM6OpCount];
+    int    wave[kFM6OpCount];
+    const float* ampIn[2][kFM6OpCount];   // [channel][op] — L/R read independently
+    const float* freqIn[2][kFM6OpCount];
+    for (int oi = 0; oi < kFM6OpCount; ++oi) {
         const double ratio   = module->getParamValue(opItem(oi, kRatio));
         const double fineFac = std::exp2(module->getParamValue(opItem(oi, kFine)) / 1200.0);  // cents
         ratioFine[oi]        = ratio * fineFac;
@@ -323,14 +309,18 @@ const KPBuffPair* ProcessFM4OpModule(uint64_t processCallID, uint32_t count, Mod
             freqIn[0][oi] = p->first->data; freqIn[1][oi] = p->second->data;
         } else { freqIn[0][oi] = freqIn[1][oi] = nullptr; }
 
-        // DADSR: params are in SECONDS (like the ADSR module). Linear attack, exp decay/release.
+        // DADSR: params are in SECONDS. Linear attack, exp decay/release. With no VCA after the
+        // engine, the carriers' envelopes ARE the amp envelope, so Decay/Release mean the time to
+        // fall 60 dB (not a one-e time constant, which would ring on ~7x longer than the knob says
+        // and hold voices long after they're inaudible).
+        constexpr double kLn1000 = 6.907755278982137;
         const double atkSec = module->getParamValue(opItem(oi, kAttack));
         const double decSec = module->getParamValue(opItem(oi, kDecay));
         const double relSec = module->getParamValue(opItem(oi, kRelease));
         egAtkInc[oi]  = 1.0 / std::max(1.0, atkSec * sr);
-        egDecCoef[oi] = 1.0 - std::exp(-1.0 / (decSec * sr));
+        egDecCoef[oi] = 1.0 - std::exp(-kLn1000 / (decSec * sr));
         egSus[oi]     = module->getParamValue(opItem(oi, kSustain));
-        egRelCoef[oi] = 1.0 - std::exp(-1.0 / (relSec * sr));
+        egRelCoef[oi] = 1.0 - std::exp(-kLn1000 / (relSec * sr));
         delaySamp[oi] = (double)module->getParamValue(opItem(oi, kDelay)) * sr;
     }
 
@@ -338,31 +328,31 @@ const KPBuffPair* ProcessFM4OpModule(uint64_t processCallID, uint32_t count, Mod
     // the played MIDI note. The per-op Freq inputs add to it (pitch domain), then
     // Ratio multiplies to the op frequency.
     PitchConverter* pc = module->pitchConverter;
-    const bool   usePitchIn = pc && module->isInputConnected(FM4OpParamItemPitchInput);
-    const float* pitchPtr   = usePitchIn ? module->retrieveInput(FM4OpParamItemPitchInput, processCallID, count)->first->data : nullptr;
+    const bool   usePitchIn = pc && module->isInputConnected(FM6OpParamItemPitchInput);
+    const float* pitchPtr   = usePitchIn ? module->retrieveInput(FM6OpParamItemPitchInput, processCallID, count)->first->data : nullptr;
 
     // Gate input (overrides MIDI): rising edge triggers the EGs, falling releases.
-    const bool   gateConn = module->isInputConnected(FM4OpParamItemGateInput);
-    const float* gatePtr  = gateConn ? module->retrieveInput(FM4OpParamItemGateInput, processCallID, count)->first->data : nullptr;
+    const bool   gateConn = module->isInputConnected(FM6OpParamItemGateInput);
+    const float* gatePtr  = gateConn ? module->retrieveInput(FM6OpParamItemGateInput, processCallID, count)->first->data : nullptr;
 
     // Global linear-FM CV added to the fundamental, read in STEREO (L/R independent).
     const float* fmIn[2] = { nullptr, nullptr };
-    if (module->isInputConnected(FM4OpParamItemFMInput)) {
-        const KPBuffPair* p = module->retrieveInput(FM4OpParamItemFMInput, processCallID, count);
+    if (module->isInputConnected(FM6OpParamItemFMInput)) {
+        const KPBuffPair* p = module->retrieveInput(FM6OpParamItemFMInput, processCallID, count);
         fmIn[0] = p->first->data; fmIn[1] = p->second->data;
     }
     // Feedback-amount mod CV, read in STEREO too.
     const float* fbIn[2] = { nullptr, nullptr };
-    if (module->isInputConnected(FM4OpParamItemFeedbackInput)) {
-        const KPBuffPair* p = module->retrieveInput(FM4OpParamItemFeedbackInput, processCallID, count);
+    if (module->isInputConnected(FM6OpParamItemFeedbackInput)) {
+        const KPBuffPair* p = module->retrieveInput(FM6OpParamItemFeedbackInput, processCallID, count);
         fbIn[0] = p->first->data; fbIn[1] = p->second->data;
     }
 
     // Stereo: L/R detuned symmetrically; Spread = width (0 mono .. 1 full).
-    const double detuneCents  = (double)module->getParamValue(FM4OpParamItemDetune) * 50.0;
+    const double detuneCents  = (double)module->getParamValue(FM6OpParamItemDetune) * 50.0;
     const double detuneFac[2] = { std::exp2(-detuneCents / 2.0 / 1200.0),
                                   std::exp2(+detuneCents / 2.0 / 1200.0) };
-    const double spread       = (double)module->getParamValue(FM4OpParamItemSpread);
+    const double spread       = (double)module->getParamValue(FM6OpParamItemSpread);
 
     for (uint32_t i = 0; i < count; ++i) {
         // Sample-accurate gate edges (gate level doubles as velocity).
@@ -370,10 +360,10 @@ const KPBuffPair* ProcessFM4OpModule(uint64_t processCallID, uint32_t count, Mod
             const float g = gatePtr[i];
             if (g >= 0.5f && st->prevGate < 0.5f) {              // rising: trigger
                 st->velAmp = std::min(1.0f, std::max(0.0f, g));
-                for (int oi = 0; oi < 4; ++oi) { egTrigger(st->eg[oi], delaySamp[oi]); st->phase[0][oi] = st->phase[1][oi] = 0.0; st->prevOut[0][oi] = st->prevOut[1][oi] = 0.0; st->prevOut2[0][oi] = st->prevOut2[1][oi] = 0.0; }
-                if (osFactor > 1) { for (int ch = 0; ch < 2; ++ch) std::fill_n(st->osHist[ch], FM4OpState::FM_OS_TAPS, 0.0); }  // clean decimator start
+                for (int oi = 0; oi < kFM6OpCount; ++oi) { egTrigger(st->eg[oi], delaySamp[oi]); st->phase[0][oi] = st->phase[1][oi] = 0.0; st->prevOut[0][oi] = st->prevOut[1][oi] = 0.0; st->prevOut2[0][oi] = st->prevOut2[1][oi] = 0.0; }
+                if (osFactor > 1) { for (int ch = 0; ch < 2; ++ch) std::fill_n(st->osHist[ch], FM6OpState::FM_OS_TAPS, 0.0); }  // clean decimator start
             } else if (g < 0.5f && st->prevGate >= 0.5f) {       // falling: release
-                for (int oi = 0; oi < 4; ++oi) { egRelease(st->eg[oi]); }
+                for (int oi = 0; oi < kFM6OpCount; ++oi) { egRelease(st->eg[oi]); }
             }
             st->prevGate = g;
         }
@@ -382,22 +372,22 @@ const KPBuffPair* ProcessFM4OpModule(uint64_t processCallID, uint32_t count, Mod
         const double fundBase = (usePitchIn ? pc->pitchToFrequency(pitchPtr[i]) : st->f0) * transposeFac;
 
         // Envelopes advance ONCE per sample (shared by both stereo channels).
-        double egv[4];
-        for (int oi = 0; oi < 4; ++oi) {
+        double egv[kFM6OpCount];
+        for (int oi = 0; oi < kFM6OpCount; ++oi) {
             egv[oi] = egTick(st->eg[oi], egAtkInc[oi], egDecCoef[oi], egSus[oi], egRelCoef[oi]);
         }
 
         // Render the operator bank per channel: detuned frequency + independent Amp/FM input channels.
         // Per-op phase increment and amp are computed once per OUTPUT sample (CV/EG held across any
         // oversampling sub-steps), then fmRenderStep runs once (Off) or N× into the decimator.
-        double phInc[2][4], amp[2][4], fb[2];
+        double phInc[2][kFM6OpCount], amp[2][kFM6OpCount], fb[2];
         for (int ch = 0; ch < 2; ++ch) {
             double fundHz = fundBase;
             if (fmIn[ch]) { fundHz += (double)fmIn[ch][i] * fmLevel; }
             double feedback = baseFeedback;
             if (fbIn[ch]) { feedback += (double)fbIn[ch][i] * feedbackDepth; }
             fb[ch] = feedback < 0.0 ? 0.0 : (feedback > 1.0 ? 1.0 : feedback);
-            for (int oi = 0; oi < 4; ++oi) {
+            for (int oi = 0; oi < kFM6OpCount; ++oi) {
                 double freq = fundHz * ratioFine[oi] * detuneFac[ch];
                 if (freqIn[ch][oi]) { freq *= std::exp2((double)freqIn[ch][oi][i] * freqDepth[oi]); }
                 phInc[ch][oi] = freq / (sr * osFactor);
@@ -416,13 +406,13 @@ const KPBuffPair* ProcessFM4OpModule(uint64_t processCallID, uint32_t count, Mod
             for (int k = 0; k < osFactor; ++k) {
                 st->osHist[0][st->osWrite] = fmRenderStep(st, 0, algo, wave, phInc[0], amp[0], fb[0]);
                 st->osHist[1][st->osWrite] = fmRenderStep(st, 1, algo, wave, phInc[1], amp[1], fb[1]);
-                st->osWrite = (st->osWrite + 1) % FM4OpState::FM_OS_TAPS;
+                st->osWrite = (st->osWrite + 1) % FM6OpState::FM_OS_TAPS;
             }
             for (int ch = 0; ch < 2; ++ch) {
                 double acc = 0.0;
                 int idx = st->osWrite;
-                for (int t = 0; t < FM4OpState::FM_OS_TAPS; ++t) {
-                    idx = (idx == 0 ? FM4OpState::FM_OS_TAPS - 1 : idx - 1);
+                for (int t = 0; t < FM6OpState::FM_OS_TAPS; ++t) {
+                    idx = (idx == 0 ? FM6OpState::FM_OS_TAPS - 1 : idx - 1);
                     acc += st->osKernel[t] * st->osHist[ch][idx];
                 }
                 chan[ch] = acc;
@@ -432,7 +422,7 @@ const KPBuffPair* ProcessFM4OpModule(uint64_t processCallID, uint32_t count, Mod
         // Stereo width (Spread): 0 = mono (mid only), 1 = full L/R.
         const double mid  = 0.5 * (chan[0] + chan[1]);
         const double side = 0.5 * (chan[0] - chan[1]) * spread;
-        const double g    = (double)st->velAmp * outLevel;
+        const double g    = (double)st->velAmp * outLevel * carrierNorm;
         outL[i] = (float)((mid + side) * g);
         outR[i] = (float)((mid - side) * g);
     }

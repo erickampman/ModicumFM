@@ -14,11 +14,10 @@ extern const ModuleParamConstantsGroup adsrConstantsGroup;
 extern const ModuleParamConstantsGroup combineConstantsGroup;
 extern const ModuleParamConstantsGroup finalConstantsGroup;
 extern const ModuleParamConstantsGroup pitchConverterModuleConstantsGroup;
-extern const ModuleParamConstantsGroup fm4OpConstantsGroup;
+extern const ModuleParamConstantsGroup fm6OpConstantsGroup;
 extern const ModuleParamConstantsGroup sharedLFOConstantsGroup;
 extern const ModuleParamConstantsGroup channelPressureConstantsGroup;
 extern const ModuleParamConstantsGroup pitchBendConverterConstantsGroup;
-extern const ModuleParamConstantsGroup quadStereoMixerConstantsGroup;
 extern const ModuleParamConstantsGroup chorusConstantsGroup;
 
 #endif // PM_PARAM_DATA_H
