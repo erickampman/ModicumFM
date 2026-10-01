@@ -92,6 +92,10 @@ static constexpr PresetKey kPresetKeys[kParamCount] = {
    {"Chorus", "feedback"},
    {"FM6Op", "velFloor"},
    {"FM6Op", "velCurve"},
+   {"FM6Op", "brightness"},
+   {"FM6Op", "bite"},
+   {"FM6Op", "grit"},
+   {"FM6Op", "body"},
 };
 
 } // namespace modicumfm

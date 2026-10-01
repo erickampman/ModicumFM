@@ -398,6 +398,11 @@ enum FM6OpParamItem : NSUInteger {
    // New items go here (append-only: presets and the plugin param table key off these).
    FM6OpParamItemVelFloor,        // indexed: velocity-to-level y-intercept, 0% / 25% / 50% / 75% / 100% (fixed)
    FM6OpParamItemVelCurve,        // indexed: velocity-to-level shape, 0 Concave / 1 Linear / 2 Convex
+   // Role-based macros (Character panel). Each is neutral at its default: no change to the sound.
+   FM6OpParamItemBrightness,      // -1..1: scales every modulator's level (index)
+   FM6OpParamItemBite,            //  0..1: faster modulator attack/decay, lower modulator sustain
+   FM6OpParamItemGrit,            //  0..1: more feedback + the highest-ratio modulator pushed harder
+   FM6OpParamItemBody,            // -1..1: tilts carrier levels toward low-ratio (+) or high-ratio (-) carriers
    FM6OpParamItemCount_           // one past the last item — must stay <= MODULE_MAX_PARAMS + 1
 };
 

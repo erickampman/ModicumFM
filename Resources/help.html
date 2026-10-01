@@ -87,6 +87,35 @@
   opens the filter.</p>
 </div>
 
+<h2 class="sound">Voice and Operators</h2>
+<p>The <b>Voice | Operators</b> tabs at the top switch the main area between the simple controls
+(<b>Voice</b>) and the full engine (<b>Operators</b>, shown when the plugin opens). The filter,
+Response, Chorus and Global panels are on both.</p>
+
+<h2 class="sound">Voice: Character</h2>
+<p>Four broad controls that reshape the whole sound at once. Each acts on operators by their
+<i>role</i> in the current algorithm, so it means the same thing whatever the algorithm. Hover a
+knob to see the operators it affects ringed in the Sound diagram. At the default (0) each leaves
+the sound exactly as the operators set it; double-click returns it there.</p>
+<dl>
+  <dt>Brightness</dt><dd>Turns every modulator up (brighter, more harmonics) or down (purer,
+  closer to sine waves). Where the carriers sit at different ratios — e.g. the drawbar-style
+  Organ — it also turns the higher ones up or down, like pulling out the upper drawbars.</dd>
+  <dt>Bite</dt><dd>A sharper attack: the modulators hit harder but fade faster and settle lower,
+  so each note starts with a brief burst of brightness while the carriers' envelopes stay the
+  same — a plucked or struck edge.</dd>
+  <dt>Grit</dt><dd>Adds feedback and drives the highest-ratio modulator harder, for a rougher,
+  buzzier edge.</dd>
+  <dt>Body</dt><dd>Warm and wide (up) or thin and focused (down). Turned up, the low-ratio
+  carriers (fundamental, body) get louder and the high-ratio ones softer, the carriers drift
+  slightly apart in pitch, and the left/right detune widens — a thicker, ensemble-like sound.
+  Turned down, the high-ratio carriers come forward and the stereo detune narrows, to mono at the
+  far end. (The loud/soft balance needs carriers at different ratios; the width works on every
+  sound.)</dd>
+</dl>
+<p>The <b>Sound</b> panel shows the algorithm diagram (click it to choose another), as on the
+Operators tab.</p>
+
 <h2 class="sound">FM Engine</h2>
 <p>Six sine-based operators. An <i>algorithm</i> decides which operators modulate which: a
 <i>carrier</i> is heard, a <i>modulator</i> bends a carrier's phase to add harmonics. Each

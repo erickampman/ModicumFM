@@ -211,6 +211,75 @@ static float fmVelocityLevel(uint32_t velocity16, int floorSel, int curveSel) {
     return (float)(floor + (1.0 - floor) * std::pow(v, p));
 }
 
+// --- Role-based macros --------------------------------------------------------
+
+// The Character macros act on operators by ROLE in the current algorithm (FM6OpAlgorithms.hpp's
+// fm6OpRoles), not by operator number, so each one means the same thing on every algorithm. All
+// four are neutral at 0: every factor below is then exactly 1 and the sound is untouched.
+//
+//   Brightness  every modulator's level × 2^(1.5·b)   (index up/down ~1.5 octaves at the ends),
+//               and carriers tilted toward their high-ratio members: ×2^(1.5·b·h), h = 0 for the
+//               lowest-ratio carrier … 1 for the highest — so all-carrier ("drawbar") algorithms
+//               brighten too; no effect on carriers that share one ratio
+//   Bite        modulators' level ×(1+bite), attack ×(1-0.8·bite), decay ×(1-0.85·bite),
+//               sustain ×(1-0.7·bite): a bigger but shorter burst of brightness at the start of the
+//               note, over an unchanged carrier envelope
+//   Grit        feedback + 0.8·grit, and the highest-ratio modulator's level × (1 + 1.5·grit)
+//   Body        warm & wide (+) ↔ thin & focused (-), three parts:
+//               · carrier levels tilted by ratio: ×2^(-body·pos), pos = -1 for the lowest-ratio
+//                 carrier … +1 for the highest (no effect when the carriers share one ratio)
+//               · (+ only) carriers spread apart in pitch, up to ±kFMBodySpreadCents across them
+//               · stereo L/R detune: + adds up to kFMBodyWidenCents; - scales the Detune knob's
+//                 spread down, to mono at -1
+//
+// Modulator levels may be pushed up to kFMMacroMaxLevel (index 1.5 × 2π) — above the Level
+// knob's 1.0 — so Brightness still has somewhere to go on an already-bright patch.
+static constexpr double kFMMacroMaxLevel = 1.5;
+static constexpr double kFMBodySpreadCents = 8.0;
+static constexpr double kFMBodyWidenCents  = 16.0;
+
+struct FMMacros {
+    FM6OpRoles roles;
+    double brightScale = 1.0, bite = 0.0, grit = 0.0;
+    int    gritOp = -1;                  // highest-ratio modulator, or -1
+    double carrierScale[kFM6OpCount] = { 1, 1, 1, 1, 1, 1 };
+    double carrierCents[kFM6OpCount] = { 0, 0, 0, 0, 0, 0 };   // Body's pitch spread
+    double body = 0.0;
+};
+
+static FMMacros fmMacros(Module* module, const FM6OpAlgo& algo, const double ratio[kFM6OpCount]) {
+    FMMacros m;
+    m.roles       = fm6OpRoles(algo);
+    const double bright = module->getParamValue(FM6OpParamItemBrightness);
+    m.brightScale = std::exp2(1.5 * bright);
+    m.bite        = std::min(1.0, std::max(0.0, (double)module->getParamValue(FM6OpParamItemBite)));
+    m.grit        = std::min(1.0, std::max(0.0, (double)module->getParamValue(FM6OpParamItemGrit)));
+    double lo = 1e9, hi = -1e9;
+    for (int oi = 0; oi < kFM6OpCount; ++oi) {
+        const double lr = std::log2(ratio[oi]);
+        if (m.roles.isCarrier(oi)) { lo = std::min(lo, lr); hi = std::max(hi, lr); }
+        else if (m.gritOp < 0 || ratio[oi] > ratio[m.gritOp]) { m.gritOp = oi; }
+    }
+    const double body = std::min(1.0, std::max(-1.0, (double)module->getParamValue(FM6OpParamItemBody)));
+    m.body = body;
+    if (body > 0.0 && m.roles.carrierCount > 1) {
+        // Spread the carriers evenly across ±spread·body cents, in operator order.
+        int k = 0;
+        const double n = m.roles.carrierCount;
+        for (int oi = 0; oi < kFM6OpCount; ++oi)
+            if (m.roles.isCarrier(oi))
+                m.carrierCents[oi] = body * kFMBodySpreadCents * (2.0 * k++ / (n - 1.0) - 1.0);
+    }
+    if ((body != 0.0 || bright != 0.0) && hi - lo > 1e-6) {
+        for (int oi = 0; oi < kFM6OpCount; ++oi) {
+            if (!m.roles.isCarrier(oi)) continue;
+            const double pos = (std::log2(ratio[oi]) - 0.5 * (lo + hi)) / (0.5 * (hi - lo)); // -1..1
+            m.carrierScale[oi] = std::exp2(-body * pos + 1.5 * bright * 0.5 * (pos + 1.0));
+        }
+    }
+    return m;
+}
+
 // --- MIDI -------------------------------------------------------------------
 
 void MIDIFM6OpModule(const pm::UmpMessage& message, Module* module) {
@@ -290,7 +359,8 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
     const FM6OpAlgo& algo = kFM6OpAlgos[algoIdx];
     // Carriers are summed, so scale by 1/count: switching algorithm doesn't jump the level.
     const double carrierNorm = 1.0 / std::max<int>(1, fm6OpRoles(algo).carrierCount);
-    const double baseFeedback   = module->getParamValue(FM6OpParamItemFeedback);
+    const double gritParam      = std::min(1.0, std::max(0.0, (double)module->getParamValue(FM6OpParamItemGrit)));
+    const double baseFeedback   = std::min(1.0, module->getParamValue(FM6OpParamItemFeedback) + 0.8 * gritParam);
     const double feedbackDepth  = module->getParamValue(FM6OpParamItemFeedbackDepth);
     const double outLevel = module->getParamValue(FM6OpParamItemOutputLevel);
 
@@ -307,11 +377,24 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
     int    wave[kFM6OpCount];
     const float* ampIn[2][kFM6OpCount];   // [channel][op] — L/R read independently
     const float* freqIn[2][kFM6OpCount];
+    double ratioRaw[kFM6OpCount];
+    for (int oi = 0; oi < kFM6OpCount; ++oi) { ratioRaw[oi] = module->getParamValue(opItem(oi, kRatio)); }
+    const FMMacros macros = fmMacros(module, algo, ratioRaw);
     for (int oi = 0; oi < kFM6OpCount; ++oi) {
-        const double ratio   = module->getParamValue(opItem(oi, kRatio));
+        const double ratio   = ratioRaw[oi];
         const double fineFac = std::exp2(module->getParamValue(opItem(oi, kFine)) / 1200.0);  // cents
-        ratioFine[oi]        = ratio * fineFac;
+        ratioFine[oi]        = ratio * fineFac * std::exp2(macros.carrierCents[oi] / 1200.0);
         baseLevel[oi]        = module->getParamValue(opItem(oi, kLevel));
+        const bool modulator = !macros.roles.isCarrier(oi);
+        if (modulator) {
+            double lvl = baseLevel[oi] * macros.brightScale * (1.0 + macros.bite);
+            if (oi == macros.gritOp) { lvl *= 1.0 + 1.5 * macros.grit; }
+            baseLevel[oi] = std::min(lvl, std::max(baseLevel[oi], kFMMacroMaxLevel));
+        } else {
+            // Carriers may be raised by Brightness/Body, but not past full level (or their own
+            // setting, if already higher).
+            baseLevel[oi] = std::min(baseLevel[oi] * macros.carrierScale[oi], std::max(baseLevel[oi], 1.0));
+        }
         ampDepth[oi]         = module->getParamValue(opItem(oi, kAmpDepth));
         freqDepth[oi]        = module->getParamValue(opItem(oi, kFreqDepth));
         wave[oi]             = module->getParamValueAsInt(opItem(oi, kWave));
@@ -332,12 +415,14 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
         // fall 60 dB (not a one-e time constant, which would ring on ~7x longer than the knob says
         // and hold voices long after they're inaudible).
         constexpr double kLn1000 = 6.907755278982137;
-        const double atkSec = module->getParamValue(opItem(oi, kAttack));
-        const double decSec = module->getParamValue(opItem(oi, kDecay));
+        // Bite shortens the modulators' attack/decay and lowers their sustain (no-op at 0).
+        const double biteT = modulator ? macros.bite : 0.0;
+        const double atkSec = module->getParamValue(opItem(oi, kAttack)) * (1.0 - 0.8 * biteT);
+        const double decSec = std::max(0.001, module->getParamValue(opItem(oi, kDecay)) * (1.0 - 0.85 * biteT));
         const double relSec = module->getParamValue(opItem(oi, kRelease));
         egAtkInc[oi]  = 1.0 / std::max(1.0, atkSec * sr);
         egDecCoef[oi] = 1.0 - std::exp(-kLn1000 / (decSec * sr));
-        egSus[oi]     = module->getParamValue(opItem(oi, kSustain));
+        egSus[oi]     = module->getParamValue(opItem(oi, kSustain)) * (1.0 - 0.7 * biteT);
         egRelCoef[oi] = 1.0 - std::exp(-kLn1000 / (relSec * sr));
         delaySamp[oi] = (double)module->getParamValue(opItem(oi, kDelay)) * sr;
     }
@@ -367,7 +452,10 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
     }
 
     // Stereo: L/R detuned symmetrically; Spread = width (0 mono .. 1 full).
-    const double detuneCents  = (double)module->getParamValue(FM6OpParamItemDetune) * 50.0;
+    // Body widens (+) or narrows (-) the stereo detune; neutral leaves it exactly as set.
+    const double detuneKnob   = (double)module->getParamValue(FM6OpParamItemDetune) * 50.0;
+    const double detuneCents  = macros.body > 0.0 ? detuneKnob + macros.body * kFMBodyWidenCents
+                                                  : detuneKnob * (1.0 + macros.body);
     const double detuneFac[2] = { std::exp2(-detuneCents / 2.0 / 1200.0),
                                   std::exp2(+detuneCents / 2.0 / 1200.0) };
     const double spread       = (double)module->getParamValue(FM6OpParamItemSpread);

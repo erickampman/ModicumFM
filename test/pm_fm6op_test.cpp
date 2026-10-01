@@ -4,7 +4,9 @@
 //   2. the role analysis (carriers / modulator depth) on a few known algorithms;
 //   3. every algorithm sounds after a note, stays finite and within ±1 (carrier normalisation);
 //   4. feedback reaches the sound, including algorithm 4's cross-operator path (Op4 → Op6);
-//   5. velocity → level: Floor (y-intercept) and Concave / Linear / Convex curves.
+//   5. velocity → level: Floor (y-intercept) and Concave / Linear / Convex curves;
+//   6. the Character macros: neutral is bit-identical, and Brightness / Bite / Grit / Body move
+//      the brightness the right way on the operators their role selects.
 
 #include "FM6OpAlgorithms.hpp"
 #include "Module.hpp"
@@ -17,6 +19,7 @@
 #include <cmath>
 #include <cstdio>
 #include <memory>
+#include <vector>
 
 static int g_fails = 0;
 #define CHECK(cond, msg)                                                                           \
@@ -62,6 +65,25 @@ static float play(Module* m, int blocks, bool& finite, float* sumOut = nullptr,
    }
    if (sumOut) *sumOut = sum;
    return peak;
+}
+
+// Render a note (blocks × kN samples of L) for the macro tests.
+static std::vector<float> renderNote(Module* m, int blocks) {
+   m->reset();
+   m->midiProc(pm::makeNoteOn(57, 0xFFFF), m);
+   std::vector<float> out;
+   static uint64_t callID = 100000;
+   for (int b = 0; b < blocks; ++b) {
+      m->processProc(callID++, kN, m);
+      out.insert(out.end(), m->output.first->data, m->output.first->data + kN);
+   }
+   return out;
+}
+// Brightness proxy over [from, to): mean |x[n] - x[n-1]| / mean |x| — grows with high harmonics.
+static double brightness(const std::vector<float>& x, size_t from, size_t to) {
+   double d = 0, a = 0;
+   for (size_t i = from + 1; i < to && i < x.size(); ++i) { d += std::fabs(x[i] - x[i - 1]); a += std::fabs(x[i]); }
+   return a > 0 ? d / a : 0;
 }
 
 int main() {
@@ -161,6 +183,103 @@ int main() {
    CHECK(std::fabs(floor50 / full - 0.5f) < 0.02f, "50% floor: softest note at half level");
    std::printf("velocity @half: linear %.3f concave %.3f convex %.3f fixed %.3f (full %.3f)\n",
                linear / full, concave / full, convex / full, fixed / full, full);
+
+   // --- 6: Character macros ----------------------------------------------------------------------
+   set(fm, FM6OpParamItemVelFloor, 0); set(fm, FM6OpParamItemVelCurve, 1);
+   const auto macros = [&](float b, float bite, float grit, float body) {
+      set(fm, FM6OpParamItemBrightness, b); set(fm, FM6OpParamItemBite, bite);
+      set(fm, FM6OpParamItemGrit, grit);    set(fm, FM6OpParamItemBody, body);
+   };
+   // Algorithm 1 voice: Op2 (ratio 1, level 0.4, sustaining) modulates carrier Op1.
+   set(fm, FM6OpParamItemAlgorithm, 0.0f);
+   for (uint8_t l : levels) set(fm, l, 0.0f);
+   set(fm, FM6OpParamItemOp1Level, 1.0f);
+   set(fm, FM6OpParamItemOp2Level, 0.4f);
+   const size_t late0 = 20 * kN, late1 = 30 * kN;   // ~0.2 s .. 0.32 s in (past attack + decay)
+   macros(0, 0, 0, 0);
+   const std::vector<float> neutral = renderNote(fm, 30);
+   const double bNeutral = brightness(neutral, late0, late1);
+   {
+      // Neutral must be bit-identical to the macros never having existed: re-render and compare.
+      const std::vector<float> again = renderNote(fm, 30);
+      CHECK(again == neutral, "neutral macros: identical output");
+   }
+   macros(1, 0, 0, 0);
+   const double bUp = brightness(renderNote(fm, 30), late0, late1);
+   macros(-1, 0, 0, 0);
+   const double bDown = brightness(renderNote(fm, 30), late0, late1);
+   CHECK(bUp > bNeutral * 1.2 && bDown < bNeutral * 0.9, "Brightness moves modulator index");
+   macros(0, 1, 0, 0);
+   const double bBite = brightness(renderNote(fm, 30), late0, late1);
+   CHECK(bBite < bNeutral * 0.9, "Bite: modulator brightness falls away after the attack");
+   macros(0, 0, 1, 0);
+   const double bGrit = brightness(renderNote(fm, 30), late0, late1);
+   CHECK(bGrit > bNeutral * 1.2, "Grit: more feedback + harder top modulator = brighter");
+   std::printf("macros (alg 1): neutral %.3f  bright+ %.3f  bright- %.3f  bite %.3f  grit %.3f\n",
+               bNeutral, bUp, bDown, bBite, bGrit);
+
+   // Algorithm 32 (all carriers, ratios 1 and 4): Brightness tilts toward the high carrier.
+   set(fm, FM6OpParamItemAlgorithm, 31.0f);
+   set(fm, FM6OpParamItemOp1Level, 0.6f);
+   set(fm, FM6OpParamItemOp2Level, 0.3f);
+   set(fm, FM6OpParamItemOp2Ratio, 4.0f);
+   macros(0, 0, 0, 0);
+   const std::vector<float> flat = renderNote(fm, 30);
+   macros(1, 0, 0, 0);
+   const double bDrawUp = brightness(renderNote(fm, 30), late0, late1);
+   macros(-1, 0, 0, 0);
+   const double bDrawDown = brightness(renderNote(fm, 30), late0, late1);
+   CHECK(bDrawUp > brightness(flat, late0, late1) * 1.2 && bDrawDown < brightness(flat, late0, late1) * 0.8,
+         "Brightness tilts all-carrier algorithms toward / away from the high carrier");
+   // ...but not carriers that share one ratio.
+   set(fm, FM6OpParamItemOp2Ratio, 1.0f);
+   macros(0, 0, 0, 0);
+   const std::vector<float> sameRatio = renderNote(fm, 30);
+   macros(1, 0, 0, 0);
+   CHECK(renderNote(fm, 30) == sameRatio, "Brightness leaves same-ratio carriers alone");
+   set(fm, FM6OpParamItemOp2Ratio, 4.0f);
+   set(fm, FM6OpParamItemOp1Level, 1.0f);
+   set(fm, FM6OpParamItemOp2Level, 0.6f);
+   macros(0, 0, 0, 1);
+   const double bBody = brightness(renderNote(fm, 30), late0, late1);
+   macros(0, 0, 0, -1);
+   const double bThin = brightness(renderNote(fm, 30), late0, late1);
+   const double bFlat = brightness(flat, late0, late1);
+   CHECK(bBody < bFlat * 0.9 && bThin > bFlat * 1.1, "Body tilts toward the low (+) / high (-) carrier");
+   std::printf("macros (alg 32): flat %.3f  body+ %.3f  body- %.3f\n", bFlat, bBody, bThin);
+   // Body's width part: on a single-carrier patch (alg 16) it changes the L/R difference —
+   // wider at +1, mono (when Detune is set) at -1.
+   set(fm, FM6OpParamItemAlgorithm, 15.0f);
+   set(fm, FM6OpParamItemOp2Ratio, 1.0f);
+   set(fm, FM6OpParamItemDetune, 0.2f);                // 10 cents L/R
+   // L/R pitch difference (Hz), from rising zero crossings over ~2 s.
+   const auto lrSplitHz = [&]() {
+      fm->reset();
+      fm->midiProc(pm::makeNoteOn(57, 0xFFFF), fm);
+      static uint64_t id = 900000;
+      int cL = 0, cR = 0;
+      float pL = 0, pR = 0;
+      const int blocks = 188;
+      for (int b = 0; b < blocks; ++b) {
+         fm->processProc(id++, kN, fm);
+         for (uint32_t i = 0; i < kN; ++i) {
+            const float l = fm->output.first->data[i], r = fm->output.second->data[i];
+            if (pL <= 0 && l > 0) ++cL;
+            if (pR <= 0 && r > 0) ++cR;
+            pL = l; pR = r;
+         }
+      }
+      return (cR - cL) * 48000.0 / (blocks * double(kN));
+   };
+   macros(0, 0, 0, 0);  const double sNeutral = lrSplitHz();
+   macros(0, 0, 0, 1);  const double sWide    = lrSplitHz();
+   macros(0, 0, 0, -1); const double sMono    = lrSplitHz();
+   // At 220 Hz: 10 ct → ~1.3 Hz, 26 ct → ~3.3 Hz, 0 ct → 0.
+   CHECK(sWide > sNeutral * 1.8, "Body +: wider L/R detune on a single-carrier patch");
+   CHECK(std::fabs(sMono) < 0.6, "Body -1: stereo detune cancelled (mono)");
+   std::printf("body width (alg 16): L/R split neutral %.2f Hz  +1 %.2f Hz  -1 %.2f Hz\n", sNeutral, sWide, sMono);
+   macros(0, 0, 0, 0);
+   set(fm, FM6OpParamItemDetune, 0.0f);
 
    if (g_fails == 0)
       std::printf("ALL PASS\n");

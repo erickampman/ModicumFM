@@ -76,6 +76,11 @@ enum ParamIndex {
    // Response (appended)
    kParamVelFloor,       // velocity → level y-intercept: 0% / 25% / 50% / 75% / 100% (fixed)
    kParamVelCurve,       // velocity → level shape: Concave / Linear / Convex
+   // Character: role-based macros (appended; each neutral at its default)
+   kParamBrightness,     // -1..1  modulator levels
+   kParamBite,           //  0..1  modulator envelopes faster / lower
+   kParamGrit,           //  0..1  feedback + top modulator
+   kParamBody,           // -1..1  carrier tilt, low (+) vs high (-) ratio
    // (append new params here)
    kParamCount
 };
@@ -150,6 +155,11 @@ static constexpr ParamSpec kParams[kParamCount] = {
    // Response (defaults = full, linear velocity response: TwinFM's behaviour)
    {"Velocity Floor", "velfloor", "", 0.0f,   4.0f,   0.0f,  false, true },
    {"Velocity Curve", "velcurve", "", 0.0f,   2.0f,   1.0f,  false, true },
+   // Character macros (neutral defaults leave the sound unchanged)
+   {"Brightness",   "bright",   "",  -1.0f,   1.0f,   0.0f,  false, false},
+   {"Bite",         "bite",     "",   0.0f,   1.0f,   0.0f,  false, false},
+   {"Grit",         "grit",     "",   0.0f,   1.0f,   0.0f,  false, false},
+   {"Body",         "body",     "",  -1.0f,   1.0f,   0.0f,  false, false},
 };
 
 #undef MODICUMFM_FM_OP_SPECS

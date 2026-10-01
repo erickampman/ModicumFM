@@ -6,7 +6,7 @@ file records what's already in place for each and where the rest plugs in.
 
 | # | Idea | Status |
 |---|------|--------|
-| 1 | Role-based macros (Brightness, Bite, Grit, Body) | foundation only |
+| 1 | Role-based macros (Brightness, Bite, Grit, Body) | done (Voice tab → Character) |
 | 2 | Shared brightness envelope | not started |
 | 6 | Responsiveness (Touch, Key tracking, Realism) | Response panel + velocity → level done |
 | 5 | Instrument templates with their own knobs | not started |
@@ -48,6 +48,11 @@ come last.
     changes nothing).
 
 ## 1 · Role-based macros
+
+**Done.** Implemented in `FM6OpModule.cpp` (`fmMacros`, applied in the per-op hoist loop) as four
+appended FM6Op items, shown on the Voice tab's Character panel. Tested in `pm_fm6op_test` (neutral
+is bit-identical; each macro moves brightness the right way on the operators its role selects).
+The design notes below are kept for reference.
 
 New FM6Op items, each defaulting to neutral, with matching plugin params in a new "Character"
 panel:
@@ -106,8 +111,8 @@ E-Piano: Hammer, Tine, Bark, Decay).
   The mapping runs DSP-side in `ModicumFMPlugin::applyParam`: a knob change writes the underlying
   VoiceManager params. That way template knobs automate like any other param, and the expert
   panel still shows the true values.
-- **UI:** a "Voice" page with a template dropdown and the knobs, alongside the operator page.
-  `src/UI/TabBar.hpp` (used for TwinFM's A|B engines) still ships for this.
+- **UI:** on the Voice tab: the template dropdown + knobs go in the Sound panel, above the
+  algorithm diagram.
 - **Open question:** when a user edits an underlying param after tweaking a template knob, does
   the knob re-derive from the params, or stay where it is? The simplest rule is that knobs are
   relative offsets from the template's base patch, and choosing a template resets them.

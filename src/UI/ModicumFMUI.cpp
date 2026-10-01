@@ -1,10 +1,16 @@
-// ModicumFMUI.cpp — UI side. Under the top strip (logo, wordmark, preset menu, help):
+// ModicumFMUI.cpp — UI side. Under the top strip (logo, wordmark, preset menu, Voice | Operators
+// tabs, help). The Operators tab (the default) shows:
 //
 //   FM Engine (algorithm diagram +  │ Operators: 6 rows (role caption, Wave, Ratio, Level,
 //     Feedback; Pitch/Fine/Detune)  │   envelope graph)
 //   Low-Pass Filter                 │
 //   Filter Envelope (graph)         │
 //   Response (velocity) | Chorus | Global (Voices, Bend Range, Quality, Master)
+//
+// The Voice tab swaps FM Engine + Operators for the simple layer: Sound (a second algorithm
+// diagram; templates later) and Character (the role-based macros Brightness, Bite, Grit, Body;
+// shared envelopes later). Hovering a macro rings the operators it acts on in that diagram. The
+// filter, Response, Chorus and Global panels show on both tabs.
 //
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
 // operator's role in the current algorithm (carrier, or modulator N hops from the output) —
@@ -40,6 +46,7 @@
 #include "ParamEdit.hpp"
 #include "PresetKeys.hpp"
 #include "RatioKnob.hpp"
+#include "TabBar.hpp"
 #include "TitleText.hpp"
 #include "ModicumFMParams.h"
 #include "FM6OpAlgorithms.hpp" // algorithm table + operator roles (shared with the engine)
@@ -63,6 +70,7 @@ using DGL_NAMESPACE::NanoSubWidget;
 using DGL_NAMESPACE::PopupMenu;
 using DGL_NAMESPACE::RatioKnob;
 using DGL_NAMESPACE::SubWidget;
+using DGL_NAMESPACE::TabBar;
 using DGL_NAMESPACE::TitleText;
 
 #if MODICUMFM_PRESET_DUMP
@@ -109,6 +117,7 @@ class ModicumFMUI : public UI,
               public Knob::Callback,
               public Dropdown::Callback,
               public PopupMenu::Callback,
+              public TabBar::Callback,
               public ParamEditCallback
 {
 public:
@@ -128,6 +137,11 @@ public:
         fResponseGroup = makeGroup("Response", colEnv());
         fChorusGroup   = makeGroup("Chorus", colNeutral());
         fGlobalGroup   = makeGroup("Global", colComb());
+        // Voice tab panels (same places as FM Engine / Operators; hidden on the Operators tab).
+        fSoundGroup    = makeGroup("Sound", colSound());
+        fCharGroup     = makeGroup("Character", colSound());
+        fSoundGroup->hide();
+        fCharGroup->hide();
 
         for (uint32_t o = 0; o < kFmOperators; ++o)
             fOpLabel[o] = std::make_unique<Label>(fOpGroup.get());
@@ -177,6 +191,18 @@ public:
         fAlgoView->setAccentColor(colSound());
         fAlgoView->setAlgorithm(fAlgorithm);
         fAlgoView->setFeedbackActive(kParams[kParamFeedback].def > 0.0f);
+        fVoiceAlgoView = std::make_unique<AlgorithmView>(
+            fSoundGroup.get(), [this] { fAlgoPicker->open(fAlgorithm); },
+            [this](int d) { chooseAlgorithm(std::clamp(fAlgorithm + d, 0, kFM6OpAlgorithms - 1)); });
+        fVoiceAlgoView->setAccentColor(colSound());
+        fVoiceAlgoView->setAlgorithm(fAlgorithm);
+        fVoiceAlgoView->setFeedbackActive(kParams[kParamFeedback].def > 0.0f);
+
+        // Voice | Operators (opens on Operators).
+        fViewTab = std::make_unique<TabBar>(this, this);
+        fViewTab->setTabs({"Voice", "Operators"});
+        fViewTab->setAccentColor(colSound());
+        fViewTab->setActive(kTabOperators);
 
         // Envelope graphs: one per operator (with Delay) and the filter envelope (without).
         for (uint32_t o = 0; o < kFmOperators; ++o)
@@ -255,7 +281,8 @@ protected:
         if (fKnobs[index])     { fKnobs[index]->setRealValue(value, false); fKnobs[index]->repaint(); }
         if (fDropdowns[index]) fDropdowns[index]->setIndex(static_cast<int>(value));
         if (index == kParamAlgorithm) showAlgorithm(static_cast<int>(value));
-        if (index == kParamFeedback)  fAlgoView->setFeedbackActive(value > 0.0f);
+        if (index == kParamFeedback)  showFeedbackActive(value > 0.0f);
+        if (opItem(index) == kOpRatio) updateMacroHighlight(); // Grit's target can move
     }
 
     /* -- knob -> host ----------------------------------------------------- */
@@ -267,7 +294,7 @@ protected:
         if (kParams[id].integer) v = std::round(v); // e.g. engine Pitch in whole semitones
         setParameterValue(id, v);
         recordMirror(id, v);
-        if (id == kParamFeedback) fAlgoView->setFeedbackActive(v > 0.0f);
+        if (id == kParamFeedback) showFeedbackActive(v > 0.0f);
     }
 
     /* -- composite widgets -> host (RatioKnob) ---------------------------- */
@@ -312,7 +339,75 @@ protected:
     {
         fAlgorithm = std::clamp(a, 0, kFM6OpAlgorithms - 1);
         fAlgoView->setAlgorithm(fAlgorithm);
+        fVoiceAlgoView->setAlgorithm(fAlgorithm);
         updateOpRoles(fAlgorithm);
+        updateMacroHighlight();
+    }
+    void showFeedbackActive(bool on)
+    {
+        fAlgoView->setFeedbackActive(on);
+        fVoiceAlgoView->setFeedbackActive(on);
+    }
+
+    /* -- Voice | Operators tabs --------------------------------------------- */
+    static constexpr int kTabVoice = 0, kTabOperators = 1;
+    void tabSelected(TabBar*, int index) override
+    {
+        const bool voice = index == kTabVoice;
+        fEngineGroup->setVisible(!voice);
+        fOpGroup->setVisible(!voice);
+        fSoundGroup->setVisible(voice);
+        fCharGroup->setVisible(voice);
+        fHoverMacro = -1;
+        updateMacroHighlight();
+        repaint();
+    }
+
+    // Hovering a Character macro rings, in the Voice tab's diagram, the operators it acts on.
+    bool onMotion(const MotionEvent& ev) override
+    {
+        const bool handled = UI::onMotion(ev);
+        int hover = -1;
+        if (fCharGroup->isVisible())
+            for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody})
+                if (fKnobs[id]->getAbsoluteArea().contains(Point<int>(static_cast<int>(ev.pos.getX()),
+                                                                        static_cast<int>(ev.pos.getY()))))
+                    hover = static_cast<int>(id);
+        if (hover != fHoverMacro) { fHoverMacro = hover; updateMacroHighlight(); }
+        return handled;
+    }
+
+    // Operators a macro acts on, by role in the current algorithm (mirrors FM6OpModule's fmMacros).
+    uint8_t macroTargets(int macro) const
+    {
+        const FM6OpRoles roles = fm6OpRoles(fAlgorithm);
+        uint8_t carriers = 0, modulators = 0;
+        int top = -1;
+        float topRatio = -1.0f;
+        for (int o = 0; o < kFM6OpCount; ++o)
+        {
+            if (roles.isCarrier(o)) { carriers |= 1u << o; continue; }
+            modulators |= 1u << o;
+            const float r = fRatioKnob[o]->getRealValue();
+            if (r > topRatio) { topRatio = r; top = o; }
+        }
+        switch (macro)
+        {
+        case kParamBrightness: case kParamBite: return modulators;
+        case kParamBody:                        return carriers;
+        case kParamGrit:
+        {
+            const FM6OpAlgo& al = kFM6OpAlgos[fAlgorithm];
+            uint8_t m = static_cast<uint8_t>((1u << al.fbDst) | (1u << al.fbSrc));
+            if (top >= 0) m |= 1u << top;
+            return m;
+        }
+        default: return 0;
+        }
+    }
+    void updateMacroHighlight()
+    {
+        fVoiceAlgoView->setHighlight(fHoverMacro >= 0 ? macroTargets(fHoverMacro) : 0);
     }
 
     // Operator captions: "Op N" plus its role in `algorithm` — "out" for a carrier, "mod K" for a
@@ -389,12 +484,16 @@ private:
     // Panels declared before their child controls so the children are destroyed first.
     std::unique_ptr<GroupBox>   fEngineGroup, fOpGroup;
     std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fResponseGroup, fChorusGroup, fGlobalGroup;
+    std::unique_ptr<GroupBox>   fSoundGroup, fCharGroup;      // Voice tab
     std::unique_ptr<Label>      fOpLabel[kFmOperators];
     std::unique_ptr<Knob>       fKnobs[kParamCount];          // (Ratio entries are RatioKnobs)
     RatioKnob*                  fRatioKnob[kFmOperators] = {}; // views into fKnobs, per operator
     std::unique_ptr<EnvelopeGraph> fOpEnv[kFmOperators], fFiltEnv;
     std::unique_ptr<AlgorithmView>   fAlgoView;
     std::unique_ptr<AlgorithmPicker> fAlgoPicker;
+    std::unique_ptr<AlgorithmView>   fVoiceAlgoView;   // the Voice tab's copy
+    std::unique_ptr<TabBar>     fViewTab;
+    int                         fHoverMacro = -1;     // macro param under the mouse, or -1
     int                         fAlgorithm = static_cast<int>(kParams[kParamAlgorithm].def);
     EnvelopeGraph*              fEnvFor[kParamCount] = {};     // param → the graph that edits it
     std::unique_ptr<Dropdown>   fDropdowns[kParamCount];
@@ -554,6 +653,8 @@ private:
             return fChorusGroup.get();
         case kParamVelFloor: case kParamVelCurve:
             return fResponseGroup.get();
+        case kParamBrightness: case kParamBite: case kParamGrit: case kParamBody:
+            return fCharGroup.get();
         default:
             return fGlobalGroup.get(); // Voices, Bend Range, Master
         }
@@ -562,7 +663,7 @@ private:
     Color accentFor(uint32_t i) const
     {
         const GroupBox* g = groupFor(i);
-        if (g == fEngineGroup.get() || g == fOpGroup.get())   return colSound();
+        if (g == fEngineGroup.get() || g == fOpGroup.get() || g == fCharGroup.get()) return colSound();
         if (g == fLpfGroup.get() || g == fFiltEnvGroup.get()) return colFilter();
         if (g == fResponseGroup.get())                        return colEnv();
         if (g == fChorusGroup.get())                          return colNeutral();
@@ -586,6 +687,8 @@ private:
             return [](float v) { char b[16]; std::snprintf(b, sizeof(b), "%.2f Hz", std::exp2(v)); return std::string(b); };
         if (index == kParamDetune) // 0..1 → the engine's ±25 ct L/R split (FM6Op: ×50 ct total)
             return [](float v) { char b[16]; std::snprintf(b, sizeof(b), "%.1f ct", v * 50.0f); return std::string(b); };
+        if (index == kParamBrightness || index == kParamBody) // bipolar macros: signed, 0 = neutral
+            return [](float v) { char b[12]; std::snprintf(b, sizeof(b), std::fabs(v) < 0.005f ? "0.00" : "%+.2f", v); return std::string(b); };
         if (index == kParamChorusDelay)  return fmt("%.1f ms");
         if (index == kParamChorusDepth)  return fmt("%.2f ms");
         if (opItem(index) == kOpRatio)   return fmt("%.2f");
@@ -723,10 +826,13 @@ private:
         // Knob sizes: module knobs full size, operator knobs smaller so six rows fit.
         const float knobD = std::fmax(30.0f, 54.0f * scale);
         const float opKnobD = std::fmax(22.0f, 36.0f * scale);
+        const float macroKnobD = std::fmax(48.0f, 84.0f * scale);
         for (uint32_t i = 0; i < kParamCount; ++i)
-            if (fKnobs[i]) fKnobs[i]->setDiameter(opItem(i) >= 0 ? opKnobD : knobD, txtScale);
+            if (fKnobs[i]) fKnobs[i]->setDiameter(opItem(i) >= 0 ? opKnobD
+                                                  : (groupFor(i) == fCharGroup.get() ? macroKnobD : knobD),
+                                                  txtScale);
 
-        GroupBox* allGroups[] = { fEngineGroup.get(), fOpGroup.get(), fLpfGroup.get(),
+        GroupBox* allGroups[] = { fEngineGroup.get(), fOpGroup.get(), fSoundGroup.get(), fCharGroup.get(), fLpfGroup.get(),
                                   fFiltEnvGroup.get(), fResponseGroup.get(), fChorusGroup.get(),
                                   fGlobalGroup.get() };
         for (GroupBox* g : allGroups)
@@ -739,6 +845,7 @@ private:
             e->setUiScale(txtScale);
         fFiltEnv->setUiScale(txtScale);
         fAlgoView->setUiScale(txtScale);
+        fVoiceAlgoView->setUiScale(txtScale);
         fAlgoPicker->setUiScale(txtScale);
         place(fAlgoPicker.get(), 0, 0, W, H);
         fMenu->setUiScale(txtScale);
@@ -755,6 +862,11 @@ private:
             const int pw = static_cast<int>(220 * scale);
             fPresetDropdown->setSize(static_cast<uint>(pw), static_cast<uint>(topPad));
             fPresetDropdown->setAbsolutePos(titleX + titleW + gap, m / 2);
+            // Voice | Operators, right of the preset menu, level with its box.
+            const int tw = static_cast<int>(200 * scale), th = static_cast<int>(26 * scale);
+            fViewTab->setSize(static_cast<uint>(tw), static_cast<uint>(th));
+            fViewTab->setAbsolutePos(titleX + titleW + 2 * gap + pw + static_cast<int>(16 * scale),
+                                     m / 2 + topPad - th - static_cast<int>(4 * scale));
         }
 
         // Left column: FM Engine, Low-Pass Filter, Filter Envelope. Right: Operators.
@@ -764,6 +876,20 @@ private:
         placeGroup(fOpGroup.get(),      opX,  fmY, colL + fullW - opX, fmH);
         layoutEngine();
         layoutOperators();
+        // Voice tab: Sound where FM Engine is, Character where Operators is.
+        placeGroup(fSoundGroup.get(), colL, fmY, leftW, engH);
+        placeGroup(fCharGroup.get(),  opX,  fmY, colL + fullW - opX, fmH);
+        {
+            int cx, cy, cw, ch;
+            fSoundGroup->contentBounds(cx, cy, cw, ch);
+            place(fVoiceAlgoView.get(), cx, cy + 3, cw, ch - 6);
+            fCharGroup->contentBounds(cx, cy, cw, ch);
+            const int rowH = std::min(ch, static_cast<int>(150 * scale));
+            const int cellW = cw / 4;
+            int i = 0;
+            for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody})
+                place(fKnobs[id].get(), cx + (i++) * cellW, cy + static_cast<int>(10 * scale), cellW, rowH);
+        }
         layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount, kParamLpfPressure});
         {
             int cx, cy, cw, ch;

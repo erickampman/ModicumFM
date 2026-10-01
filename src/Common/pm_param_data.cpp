@@ -111,6 +111,10 @@ static const ModuleParamConstants fm6OpConstants[] = {
    {"oversample",    FM6OpParamItemOversample,    0,  0, nullptr, 0.0f, 2.0f, 0.0f, 0},
    {"velFloor",      FM6OpParamItemVelFloor,      0,  0, nullptr, 0.0f, 4.0f, 0.0f, 0}, // 0% = full velocity range
    {"velCurve",      FM6OpParamItemVelCurve,      0,  0, nullptr, 0.0f, 2.0f, 1.0f, 0}, // Linear
+   {"brightness",    FM6OpParamItemBrightness,    0,  0, nullptr, -1.0f, 1.0f, 0.0f, 0}, // macros: neutral
+   {"bite",          FM6OpParamItemBite,          0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+   {"grit",          FM6OpParamItemGrit,          0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+   {"body",          FM6OpParamItemBody,          0,  0, nullptr, -1.0f, 1.0f, 0.0f, 0},
 };
 #undef FM6OP_OP
 const ModuleParamConstantsGroup fm6OpConstantsGroup = {

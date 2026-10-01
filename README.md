@@ -37,12 +37,16 @@ note pitch + pitch bend ──> FM6Op engine
   fully open and unmodulated.
 - **Chorus**: mix, rate, depth, base delay, feedback. One LFO phase is shared by every voice, so
   all notes' choruses sweep together; L and R run 90° apart.
+- **Voice tab / Character**: role-based macros — Brightness (modulator levels + high carriers), Bite (a harder,
+  shorter modulator burst), Grit (feedback + top modulator), Body (carrier tilt + width) — applied in the
+  engine on top of the operator settings, neutral by default; hovering one rings its target
+  operators in the Sound panel's diagram. The Operators tab (default) is the full engine.
 - **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve
   (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices.
 - **Global**: Poly / Mono, pitch-bend range (off … ±4 semitones), Quality, master level.
 - **Presets**: factory presets in `Presets/*.json`, baked into the plugin at build time —
   classic DX-style starting points: E.Piano, Tubular Bells, Organ, Bass, Brass, Pluck, Glass Pad,
-  Drowning With Chowning, plus Init. In-UI
+  Drowning With Chowning, plus Init. (Organ: four drawbars on algorithm 31 plus a dedicated chiff carrier.) In-UI
   help page (`Resources/help.html`).
 
 MIDI notes are sample-accurate: `run()` splits rendering at each event's frame offset, then

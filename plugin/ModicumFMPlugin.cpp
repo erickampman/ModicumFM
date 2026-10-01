@@ -185,6 +185,10 @@ private:
         case kParamChorusFeedback: return chorus(ChorusParamItemFeedback);
         case kParamVelFloor:       return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemVelFloor);
         case kParamVelCurve:       return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemVelCurve);
+        case kParamBrightness:     return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBrightness);
+        case kParamBite:           return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBite);
+        case kParamGrit:           return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemGrit);
+        case kParamBody:           return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBody);
         default:                   return 0;
         }
     }

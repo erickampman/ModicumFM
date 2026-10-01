@@ -4,8 +4,8 @@
 // formatter, and it draws itself (arc value-ring + bevelled body + indicator + label + live
 // readout) and handles its own interaction.
 //
-// Interaction comes from DPF's KnobEventHandler (vertical drag, scroll-wheel, double-click-to-
-// default), but the knob always drives that handler in a *linear normalized* [0,1] space and
+// Interaction comes from DPF's KnobEventHandler (vertical drag, scroll-wheel, Shift-click to
+// default; we add double-click to default as one host gesture), but the knob always drives that handler in a *linear normalized* [0,1] space and
 // applies any log law itself. That is deliberate: DPF's KnobEventHandler log-scale drag is
 // broken (it re-applies logscale() to its linear accumulator every motion event, pinning wide
 // ranges near the minimum), and a normalized handler also gives every knob — linear or log —
@@ -66,7 +66,8 @@ public:
         fMin = min;
         fMax = max;
         fLog = logarithmic;
-        KnobEventHandler::setDefault(toNormalized(def));
+        fDefaultNorm = toNormalized(def);
+        KnobEventHandler::setDefault(fDefaultNorm);
     }
 
     void setRealValue(float v, bool sendCallback = false)
@@ -179,6 +180,13 @@ private:
     // KnobEventHandler::Callback — remap normalized → real and forward to the user callback.
     void knobDragStarted(SubWidget*) override  { fCallback->knobDragStarted(this); }
     void knobDragFinished(SubWidget*) override { fCallback->knobDragFinished(this); }
+    // Double-click: back to the default, reported as one begin/change/end gesture.
+    void knobDoubleClicked(SubWidget*) override
+    {
+        fCallback->knobDragStarted(this);
+        KnobEventHandler::setValue(fDefaultNorm, true);
+        fCallback->knobDragFinished(this);
+    }
     void knobValueChanged(SubWidget*, float norm) override
     {
         fCallback->knobValueChanged(this, toReal(norm));
@@ -205,6 +213,7 @@ private:
     float                             fDiameter = 0.0f;   // 0 = auto-fit
     float                             fTextScale = 1.0f;
     float                             fMin = 0.0f, fMax = 1.0f;
+    float                             fDefaultNorm = 0.0f;
     bool                              fLog = false;
 
     // Colour helpers (DPF Color components are floats in [0,1]).

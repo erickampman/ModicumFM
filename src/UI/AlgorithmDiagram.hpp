@@ -67,6 +67,7 @@ struct Style {
     float fontSize = 11.0f;       // operator numbers; 0 = no numbers (tiny thumbnails)
     float line     = 1.4f;
     bool  feedbackActive = true;  // draw the feedback loop bright (else dimmed)
+    uint8_t highlightMask = 0;    // operators to ring (bit i = Op i+1), e.g. a macro's targets
 };
 
 inline Color withA(Color c, float a) { c.alpha = a; return c; }
@@ -148,6 +149,14 @@ inline void draw(NanoVG& vg, int a, float x, float y, float w, float h, const St
         vg.roundedRect(cx(o) - box * 0.5f, cy(o) - box * 0.5f, box, box, box * 0.18f);
         vg.fillColor(carrier ? withA(st.accent, 0.85f) : Color(34, 37, 43)); vg.fill();
         vg.strokeColor(carrier ? st.accent : dim); vg.strokeWidth(st.line); vg.stroke();
+        if (st.highlightMask & (1u << o))
+        {
+            const float g = box * 0.16f;
+            vg.beginPath();
+            vg.roundedRect(cx(o) - box * 0.5f - g, cy(o) - box * 0.5f - g, box + 2 * g, box + 2 * g,
+                           box * 0.26f);
+            vg.strokeColor(Color(244, 247, 250)); vg.strokeWidth(st.line * 1.4f); vg.stroke();
+        }
         if (st.fontSize > 0.0f)
         {
             const char label[2] = { static_cast<char>('1' + o), 0 };
@@ -173,6 +182,7 @@ public:
     }
     void setAlgorithm(int a)        { fAlgo = a; repaint(); }
     void setFeedbackActive(bool on) { if (fFbOn != on) { fFbOn = on; repaint(); } }
+    void setHighlight(uint8_t mask) { if (fHighlight != mask) { fHighlight = mask; repaint(); } }
     void setAccentColor(Color c)    { fAccent = c; }
     void setUiScale(float s)        { fUiScale = s; }
 
@@ -198,6 +208,7 @@ protected:
 
         algo_diagram::Style st;
         st.accent = fAccent; st.fontSize = 11.0f * s; st.line = 1.4f * s; st.feedbackActive = fFbOn;
+        st.highlightMask = fHighlight;
         const float pad = 6.0f * s;
         algo_diagram::draw(*this, fAlgo, pad, capH + pad * 0.5f, w - 2 * pad, h - capH - 1.5f * pad, st);
     }
@@ -225,9 +236,10 @@ private:
     std::function<void()>    fOnPick;
     std::function<void(int)> fOnStep;
     Color fAccent { 60, 200, 90 };
-    int   fAlgo = 0;
-    float fUiScale = 1.0f;
-    bool  fHasFont = false, fHover = false, fFbOn = false;
+    int     fAlgo = 0;
+    float   fUiScale = 1.0f;
+    bool    fHasFont = false, fHover = false, fFbOn = false;
+    uint8_t fHighlight = 0;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AlgorithmView)
 };

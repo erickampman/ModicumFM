@@ -43,7 +43,7 @@ itself is covered by `clap-validator`, below):
 | `pm-modules`     | `pm-modules-test`        | Combine / Final compile+run; PitchConverter maps note→pitch |
 | `pm-factory`     | `pm-factory-test`        | ModuleFactory + the init-specs build all 10 voice modules; an FM6Op sounds on a note |
 | `pm-modicumfm`         | `pm-modicumfm-test`            | The ModicumFM voice: note plays at pitch, full pitch bend = +2 semitones, channel pressure opens the filter, voice frees on release |
-| `pm-fm6op`       | `pm-fm6op-test`          | FM6Op: algorithm-table invariants, operator-role analysis, all 32 algorithms sound and stay within ±1, algorithm 4's cross-feedback reaches the sound, velocity floor + curves |
+| `pm-fm6op`       | `pm-fm6op-test`          | FM6Op: algorithm-table invariants, operator-role analysis, all 32 algorithms sound and stay within ±1, algorithm 4's cross-feedback reaches the sound, velocity floor + curves, Character macros (neutral identical; Brightness / Bite / Grit / Body direction) |
 | `pm-voicemanager`| `pm-voicemanager-test`   | Polyphony: a 3-note chord allocates 3 voices and frees them on release |
 
 ## Running a single test
