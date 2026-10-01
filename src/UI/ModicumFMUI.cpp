@@ -7,10 +7,11 @@
 //   Filter Envelope (graph)         │
 //   Response (velocity) | Chorus | Global (Voices, Bend Range, Quality, Master)
 //
-// The Voice tab swaps FM Engine + Operators for the simple layer: Sound (a second algorithm
-// diagram; templates later) and Character (the role-based macros Brightness, Bite, Grit, Body;
-// shared envelopes later). Hovering a macro rings the operators it acts on in that diagram. The
-// filter, Response, Chorus and Global panels show on both tabs.
+// The Voice tab swaps the Operators panel for the simple layer, Character: the role-based macros
+// Brightness, Bite, Grit, Body, and the shared Loudness / Brightness envelopes, which scale every
+// carrier's / modulator's envelope and draw a representative one; a Reset button returns all of
+// these to neutral. Hovering a macro or envelope rings the operators it acts on in the FM Engine
+// diagram. Every other panel — FM Engine included — shows on both tabs.
 //
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
 // operator's role in the current algorithm (carrier, or modulator N hops from the output) —
@@ -47,6 +48,7 @@
 #include "PresetKeys.hpp"
 #include "RatioKnob.hpp"
 #include "TabBar.hpp"
+#include "TextButton.hpp"
 #include "TitleText.hpp"
 #include "ModicumFMParams.h"
 #include "FM6OpAlgorithms.hpp" // algorithm table + operator roles (shared with the engine)
@@ -71,6 +73,7 @@ using DGL_NAMESPACE::PopupMenu;
 using DGL_NAMESPACE::RatioKnob;
 using DGL_NAMESPACE::SubWidget;
 using DGL_NAMESPACE::TabBar;
+using DGL_NAMESPACE::TextButton;
 using DGL_NAMESPACE::TitleText;
 
 #if MODICUMFM_PRESET_DUMP
@@ -138,9 +141,7 @@ public:
         fChorusGroup   = makeGroup("Chorus", colNeutral());
         fGlobalGroup   = makeGroup("Global", colComb());
         // Voice tab panels (same places as FM Engine / Operators; hidden on the Operators tab).
-        fSoundGroup    = makeGroup("Sound", colSound());
         fCharGroup     = makeGroup("Character", colSound());
-        fSoundGroup->hide();
         fCharGroup->hide();
 
         for (uint32_t o = 0; o < kFmOperators; ++o)
@@ -149,7 +150,7 @@ public:
 
         for (uint32_t i = 0; i < kParamCount; ++i)
         {
-            if (opItem(i) == kOpFine || isEnvelopeParam(i) || i == kParamAlgorithm)
+            if (opItem(i) == kOpFine || isEnvelopeParam(i) || isSharedEnvParam(i) || i == kParamAlgorithm)
                 continue; // edited through a RatioKnob / an EnvelopeGraph / the AlgorithmView
             if (opItem(i) == kOpRatio)
             {
@@ -191,12 +192,6 @@ public:
         fAlgoView->setAccentColor(colSound());
         fAlgoView->setAlgorithm(fAlgorithm);
         fAlgoView->setFeedbackActive(kParams[kParamFeedback].def > 0.0f);
-        fVoiceAlgoView = std::make_unique<AlgorithmView>(
-            fSoundGroup.get(), [this] { fAlgoPicker->open(fAlgorithm); },
-            [this](int d) { chooseAlgorithm(std::clamp(fAlgorithm + d, 0, kFM6OpAlgorithms - 1)); });
-        fVoiceAlgoView->setAccentColor(colSound());
-        fVoiceAlgoView->setAlgorithm(fAlgorithm);
-        fVoiceAlgoView->setFeedbackActive(kParams[kParamFeedback].def > 0.0f);
 
         // Voice | Operators (opens on Operators).
         fViewTab = std::make_unique<TabBar>(this, this);
@@ -212,6 +207,19 @@ public:
         fFiltEnv = makeEnvelope(fFiltEnvGroup.get(), colFilter(), EnvelopeGraph::kNoParam,
                                 kParamFiltAttack, kParamFiltDecay, kParamFiltSustain,
                                 kParamFiltRelease);
+
+        // Voice tab: shared (relative) envelopes + Reset.
+        fLoudEnv = makeEnvelope(fCharGroup.get(), colSound(), EnvelopeGraph::kNoParam, kParamLoudAttack,
+                                kParamLoudDecay, kParamLoudSustain, kParamLoudRelease);
+        fBrightEnv = makeEnvelope(fCharGroup.get(), colSound(), EnvelopeGraph::kNoParam, kParamBrightAttack,
+                                  kParamBrightDecay, kParamBrightSustain, kParamBrightRelease);
+        fLoudEnv->setRelative(true);
+        fBrightEnv->setRelative(true);
+        fLoudLabel   = std::make_unique<Label>(fCharGroup.get(), "Loudness envelope  (all carriers)");
+        fBrightLabel = std::make_unique<Label>(fCharGroup.get(), "Brightness envelope  (all modulators)");
+        fCharReset = std::make_unique<TextButton>(fCharGroup.get(), "Reset", [this] { resetCharacter(); });
+        fCharReset->setAccentColor(colSound());
+        updateSharedEnvBases();
 
 #if MODICUMFM_PRESET_DUMP
         fDumpBtn = std::make_unique<DumpButton>(this, [this] {
@@ -277,11 +285,17 @@ protected:
             else                           rk->setFineCents(value);
             return;
         }
-        if (fEnvFor[index])    { fEnvFor[index]->setParamValue(index, value); return; }
+        if (fEnvFor[index])
+        {
+            fEnvFor[index]->setParamValue(index, value);
+            if (opItem(index) >= 0) updateSharedEnvBases(); // an operator envelope feeds the shared graphs
+            return;
+        }
         if (fKnobs[index])     { fKnobs[index]->setRealValue(value, false); fKnobs[index]->repaint(); }
         if (fDropdowns[index]) fDropdowns[index]->setIndex(static_cast<int>(value));
         if (index == kParamAlgorithm) showAlgorithm(static_cast<int>(value));
         if (index == kParamFeedback)  showFeedbackActive(value > 0.0f);
+        if (opItem(index) >= 0)       updateSharedEnvBases(); // representative envelopes may change
         if (opItem(index) == kOpRatio) updateMacroHighlight(); // Grit's target can move
     }
 
@@ -295,6 +309,7 @@ protected:
         setParameterValue(id, v);
         recordMirror(id, v);
         if (id == kParamFeedback) showFeedbackActive(v > 0.0f);
+        if (opItem(id) == kOpLevel) updateSharedEnvBases();
     }
 
     /* -- composite widgets -> host (RatioKnob) ---------------------------- */
@@ -304,6 +319,7 @@ protected:
     {
         setParameterValue(id, v);
         recordMirror(id, v);
+        if (opItem(id) >= 0) updateSharedEnvBases();
     }
 
     /* -- dropdown + menu -------------------------------------------------- */
@@ -339,14 +355,13 @@ protected:
     {
         fAlgorithm = std::clamp(a, 0, kFM6OpAlgorithms - 1);
         fAlgoView->setAlgorithm(fAlgorithm);
-        fVoiceAlgoView->setAlgorithm(fAlgorithm);
         updateOpRoles(fAlgorithm);
         updateMacroHighlight();
+        updateSharedEnvBases();
     }
     void showFeedbackActive(bool on)
     {
         fAlgoView->setFeedbackActive(on);
-        fVoiceAlgoView->setFeedbackActive(on);
     }
 
     /* -- Voice | Operators tabs --------------------------------------------- */
@@ -354,25 +369,27 @@ protected:
     void tabSelected(TabBar*, int index) override
     {
         const bool voice = index == kTabVoice;
-        fEngineGroup->setVisible(!voice);
         fOpGroup->setVisible(!voice);
-        fSoundGroup->setVisible(voice);
         fCharGroup->setVisible(voice);
         fHoverMacro = -1;
         updateMacroHighlight();
         repaint();
     }
 
-    // Hovering a Character macro rings, in the Voice tab's diagram, the operators it acts on.
+    // Hovering a Character macro / envelope rings, in the FM Engine diagram, the operators it acts on.
     bool onMotion(const MotionEvent& ev) override
     {
         const bool handled = UI::onMotion(ev);
         int hover = -1;
+        const Point<int> at(static_cast<int>(ev.pos.getX()), static_cast<int>(ev.pos.getY()));
         if (fCharGroup->isVisible())
+        {
             for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody})
-                if (fKnobs[id]->getAbsoluteArea().contains(Point<int>(static_cast<int>(ev.pos.getX()),
-                                                                        static_cast<int>(ev.pos.getY()))))
+                if (fKnobs[id]->getAbsoluteArea().contains(at))
                     hover = static_cast<int>(id);
+            if (fLoudEnv->getAbsoluteArea().contains(at))   hover = kParamLoudAttack;
+            if (fBrightEnv->getAbsoluteArea().contains(at)) hover = kParamBrightAttack;
+        }
         if (hover != fHoverMacro) { fHoverMacro = hover; updateMacroHighlight(); }
         return handled;
     }
@@ -393,8 +410,8 @@ protected:
         }
         switch (macro)
         {
-        case kParamBrightness: case kParamBite: return modulators;
-        case kParamBody:                        return carriers;
+        case kParamBrightness: case kParamBite: case kParamBrightAttack: return modulators;
+        case kParamBody: case kParamLoudAttack:                          return carriers;
         case kParamGrit:
         {
             const FM6OpAlgo& al = kFM6OpAlgos[fAlgorithm];
@@ -405,9 +422,49 @@ protected:
         default: return 0;
         }
     }
+    // The shared envelopes draw a representative operator's envelope (scaled): the loudest
+    // carrier for Loudness, the strongest modulator for Brightness (lowest-numbered on ties).
+    void updateSharedEnvBases()
+    {
+        if (!fLoudEnv) return;
+        const FM6OpRoles roles = fm6OpRoles(fAlgorithm);
+        int car = -1, mod = -1;
+        float carL = -1.0f, modL = -1.0f;
+        for (int o = 0; o < kFM6OpCount; ++o)
+        {
+            const float l = fKnobs[fmOpParam(o, kOpLevel)]->getRealValue();
+            if (roles.isCarrier(o)) { if (l > carL) { carL = l; car = o; } }
+            else                    { if (l > modL) { modL = l; mod = o; } }
+        }
+        const auto feed = [&](EnvelopeGraph* g, int o) {
+            const EnvelopeGraph* src = fOpEnv[o].get();
+            g->setBase(src->value(EnvelopeGraph::kAttack), src->value(EnvelopeGraph::kDecay),
+                       src->value(EnvelopeGraph::kSustain), src->value(EnvelopeGraph::kRelease));
+        };
+        feed(fLoudEnv.get(), car);
+        if (mod >= 0) { feed(fBrightEnv.get(), mod); fBrightEnv->setDisabled(false); }
+        else          { fBrightEnv->setDisabled(true, "no modulators in this algorithm"); }
+    }
+
+    // Reset: every Character macro and shared-envelope param back to its neutral default, each as
+    // its own begin/change/end edit.
+    void resetCharacter()
+    {
+        for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody,
+                            kParamLoudAttack, kParamLoudDecay, kParamLoudSustain, kParamLoudRelease,
+                            kParamBrightAttack, kParamBrightDecay, kParamBrightSustain, kParamBrightRelease})
+        {
+            const float def = kParams[id].def;
+            editParameter(id, true);
+            setParameterValue(id, def);
+            editParameter(id, false);
+            parameterChanged(id, def);
+        }
+    }
+
     void updateMacroHighlight()
     {
-        fVoiceAlgoView->setHighlight(fHoverMacro >= 0 ? macroTargets(fHoverMacro) : 0);
+        fAlgoView->setHighlight(fHoverMacro >= 0 ? macroTargets(fHoverMacro) : 0);
     }
 
     // Operator captions: "Op N" plus its role in `algorithm` — "out" for a carrier, "mod K" for a
@@ -484,15 +541,17 @@ private:
     // Panels declared before their child controls so the children are destroyed first.
     std::unique_ptr<GroupBox>   fEngineGroup, fOpGroup;
     std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fResponseGroup, fChorusGroup, fGlobalGroup;
-    std::unique_ptr<GroupBox>   fSoundGroup, fCharGroup;      // Voice tab
+    std::unique_ptr<GroupBox>   fCharGroup;                   // Voice tab
     std::unique_ptr<Label>      fOpLabel[kFmOperators];
     std::unique_ptr<Knob>       fKnobs[kParamCount];          // (Ratio entries are RatioKnobs)
     RatioKnob*                  fRatioKnob[kFmOperators] = {}; // views into fKnobs, per operator
     std::unique_ptr<EnvelopeGraph> fOpEnv[kFmOperators], fFiltEnv;
     std::unique_ptr<AlgorithmView>   fAlgoView;
     std::unique_ptr<AlgorithmPicker> fAlgoPicker;
-    std::unique_ptr<AlgorithmView>   fVoiceAlgoView;   // the Voice tab's copy
     std::unique_ptr<TabBar>     fViewTab;
+    std::unique_ptr<EnvelopeGraph> fLoudEnv, fBrightEnv;   // Voice tab: shared envelopes
+    std::unique_ptr<Label>      fLoudLabel, fBrightLabel;
+    std::unique_ptr<TextButton> fCharReset;
     int                         fHoverMacro = -1;     // macro param under the mouse, or -1
     int                         fAlgorithm = static_cast<int>(kParams[kParamAlgorithm].def);
     EnvelopeGraph*              fEnvFor[kParamCount] = {};     // param → the graph that edits it
@@ -560,6 +619,11 @@ private:
         bind(EnvelopeGraph::kSustain, sustain);
         bind(EnvelopeGraph::kRelease, release);
         return env;
+    }
+
+    static bool isSharedEnvParam(uint32_t i)
+    {
+        return i >= kParamLoudAttack && i <= kParamBrightRelease;
     }
 
     static bool isDropdownParam(uint32_t i)
@@ -651,7 +715,7 @@ private:
         case kParamChorusMix: case kParamChorusRate: case kParamChorusDepth:
         case kParamChorusDelay: case kParamChorusFeedback:
             return fChorusGroup.get();
-        case kParamVelFloor: case kParamVelCurve:
+        case kParamVelFloor: case kParamVelCurve: case kParamTouch: case kParamKeyTrack:
             return fResponseGroup.get();
         case kParamBrightness: case kParamBite: case kParamGrit: case kParamBody:
             return fCharGroup.get();
@@ -687,7 +751,7 @@ private:
             return [](float v) { char b[16]; std::snprintf(b, sizeof(b), "%.2f Hz", std::exp2(v)); return std::string(b); };
         if (index == kParamDetune) // 0..1 → the engine's ±25 ct L/R split (FM6Op: ×50 ct total)
             return [](float v) { char b[16]; std::snprintf(b, sizeof(b), "%.1f ct", v * 50.0f); return std::string(b); };
-        if (index == kParamBrightness || index == kParamBody) // bipolar macros: signed, 0 = neutral
+        if (index == kParamBrightness || index == kParamBody || index == kParamKeyTrack) // bipolar: signed, 0 = neutral
             return [](float v) { char b[12]; std::snprintf(b, sizeof(b), std::fabs(v) < 0.005f ? "0.00" : "%+.2f", v); return std::string(b); };
         if (index == kParamChorusDelay)  return fmt("%.1f ms");
         if (index == kParamChorusDepth)  return fmt("%.2f ms");
@@ -826,13 +890,13 @@ private:
         // Knob sizes: module knobs full size, operator knobs smaller so six rows fit.
         const float knobD = std::fmax(30.0f, 54.0f * scale);
         const float opKnobD = std::fmax(22.0f, 36.0f * scale);
-        const float macroKnobD = std::fmax(48.0f, 84.0f * scale);
+        const float macroKnobD = std::fmax(40.0f, 60.0f * scale);
         for (uint32_t i = 0; i < kParamCount; ++i)
             if (fKnobs[i]) fKnobs[i]->setDiameter(opItem(i) >= 0 ? opKnobD
                                                   : (groupFor(i) == fCharGroup.get() ? macroKnobD : knobD),
                                                   txtScale);
 
-        GroupBox* allGroups[] = { fEngineGroup.get(), fOpGroup.get(), fSoundGroup.get(), fCharGroup.get(), fLpfGroup.get(),
+        GroupBox* allGroups[] = { fEngineGroup.get(), fOpGroup.get(), fCharGroup.get(), fLpfGroup.get(),
                                   fFiltEnvGroup.get(), fResponseGroup.get(), fChorusGroup.get(),
                                   fGlobalGroup.get() };
         for (GroupBox* g : allGroups)
@@ -844,8 +908,12 @@ private:
         for (auto& e : fOpEnv)
             e->setUiScale(txtScale);
         fFiltEnv->setUiScale(txtScale);
+        fLoudEnv->setUiScale(txtScale);
+        fBrightEnv->setUiScale(txtScale);
+        fLoudLabel->setUiScale(txtScale);
+        fBrightLabel->setUiScale(txtScale);
+        fCharReset->setUiScale(txtScale);
         fAlgoView->setUiScale(txtScale);
-        fVoiceAlgoView->setUiScale(txtScale);
         fAlgoPicker->setUiScale(txtScale);
         place(fAlgoPicker.get(), 0, 0, W, H);
         fMenu->setUiScale(txtScale);
@@ -876,19 +944,31 @@ private:
         placeGroup(fOpGroup.get(),      opX,  fmY, colL + fullW - opX, fmH);
         layoutEngine();
         layoutOperators();
-        // Voice tab: Sound where FM Engine is, Character where Operators is.
-        placeGroup(fSoundGroup.get(), colL, fmY, leftW, engH);
+        // Voice tab: Character where Operators is.
         placeGroup(fCharGroup.get(),  opX,  fmY, colL + fullW - opX, fmH);
         {
             int cx, cy, cw, ch;
-            fSoundGroup->contentBounds(cx, cy, cw, ch);
-            place(fVoiceAlgoView.get(), cx, cy + 3, cw, ch - 6);
             fCharGroup->contentBounds(cx, cy, cw, ch);
-            const int rowH = std::min(ch, static_cast<int>(150 * scale));
+            const int rowH = std::min(ch, static_cast<int>(115 * scale));
             const int cellW = cw / 4;
             int i = 0;
             for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody})
                 place(fKnobs[id].get(), cx + (i++) * cellW, cy + static_cast<int>(10 * scale), cellW, rowH);
+            // Reset: top-right corner of the panel's title strip.
+            const int rbW = static_cast<int>(64 * scale), rbH = static_cast<int>(20 * scale);
+            place(fCharReset.get(), opX + (colL + fullW - opX) - rbW - static_cast<int>(8 * scale),
+                  fmY + static_cast<int>(4 * scale), rbW, rbH);
+            // Shared envelopes, side by side under the knobs, each with a caption.
+            const int gap2  = static_cast<int>(14 * scale);
+            const int labH  = static_cast<int>(18 * scale);
+            const int envY  = cy + static_cast<int>(10 * scale) + rowH + static_cast<int>(24 * scale);
+            const int envH  = std::max(60, std::min(cy + ch - envY - labH - static_cast<int>(8 * scale),
+                                                    static_cast<int>(150 * scale)));
+            const int envW  = (cw - gap2) / 2;
+            place(fLoudLabel.get(),   cx,                envY, envW, labH);
+            place(fBrightLabel.get(), cx + envW + gap2,  envY, envW, labH);
+            place(fLoudEnv.get(),     cx,                envY + labH, envW, envH);
+            place(fBrightEnv.get(),   cx + envW + gap2,  envY + labH, envW, envH);
         }
         layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount, kParamLpfPressure});
         {
@@ -897,16 +977,16 @@ private:
             place(fFiltEnv.get(), cx, cy, cw, ch);
         }
 
-        // Bottom row: Response (2 dropdowns) | Chorus (5 knobs) | Global (2 dropdowns, Quality,
-        // Master), widths roughly by control count.
+        // Bottom row: Response (2 dropdowns + Touch, Key Track) | Chorus (5 knobs) | Global (2
+        // dropdowns, Quality, Master), widths roughly by control count.
         {
             const int avail = fullW - 2 * gap;
-            const int respW = avail * 6 / 26, chW = avail * 11 / 26;
+            const int respW = avail / 3, chW = avail / 3;
             int x = colL;
             placeGroup(fResponseGroup.get(), x, row1, respW, rowH); x += respW + gap;
             placeGroup(fChorusGroup.get(),   x, row1, chW,   rowH); x += chW + gap;
             placeGroup(fGlobalGroup.get(),   x, row1, colL + fullW - x, rowH);
-            layoutKnobRow(fResponseGroup.get(), {kParamVelFloor, kParamVelCurve});
+            layoutKnobRow(fResponseGroup.get(), {kParamVelFloor, kParamVelCurve, kParamTouch, kParamKeyTrack});
             layoutKnobRow(fChorusGroup.get(), {kParamChorusMix, kParamChorusRate, kParamChorusDepth,
                                                kParamChorusDelay, kParamChorusFeedback});
             layoutKnobRow(fGlobalGroup.get(), {kParamVoiceMode, kParamBendRange, kParamOversample,
@@ -968,22 +1048,25 @@ private:
         }
     }
 
-    // A pad-less panel: the listed controls (knob or dropdown) evenly across the content area.
+    // A pad-less panel: the listed controls (knob or dropdown) across the content area. Dropdowns
+    // get 1.3× a knob's width so their text clears the chevron.
     void layoutKnobRow(GroupBox* group, std::initializer_list<uint32_t> ids)
     {
         int cx, cy, cw, ch;
         group->contentBounds(cx, cy, cw, ch);
-        const int n = static_cast<int>(ids.size());
-        const int cellW = cw / n;
-        int i = 0;
+        constexpr float kDropWeight = 1.3f;
+        float units = 0.0f;
+        for (uint32_t id : ids) units += fDropdowns[id] ? kDropWeight : 1.0f;
+        float x = static_cast<float>(cx);
         for (uint32_t id : ids)
         {
             SubWidget* w = fKnobs[id] ? static_cast<SubWidget*>(fKnobs[id].get())
                                       : static_cast<SubWidget*>(fDropdowns[id].get());
+            const float cellW = cw * (fDropdowns[id] ? kDropWeight : 1.0f) / units;
             // Dropdowns only need their label + box height; centre them in the knob-height cell.
             const int dh = fDropdowns[id] ? std::min(ch, static_cast<int>(46 * fUiScale)) : ch;
-            place(w, cx + i * cellW, cy + (ch - dh) / 2, cellW, dh);
-            ++i;
+            place(w, static_cast<int>(x), cy + (ch - dh) / 2, static_cast<int>(cellW), dh);
+            x += cellW;
         }
     }
 

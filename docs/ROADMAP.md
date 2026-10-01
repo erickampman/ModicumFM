@@ -7,8 +7,8 @@ file records what's already in place for each and where the rest plugs in.
 | # | Idea | Status |
 |---|------|--------|
 | 1 | Role-based macros (Brightness, Bite, Grit, Body) | done (Voice tab → Character) |
-| 2 | Shared brightness envelope | not started |
-| 6 | Responsiveness (Touch, Key tracking, Realism) | Response panel + velocity → level done |
+| 2 | Shared brightness envelope | done (relative envelopes, Voice tab) |
+| 6 | Responsiveness (Touch, Key tracking, Realism) | done except Realism |
 | 5 | Instrument templates with their own knobs | not started |
 
 Suggested order: 1 → 2 → 6 → 5. Templates are mostly *curated settings of the macros*, so they
@@ -70,25 +70,29 @@ panel:
 Test: extend `pm_fm6op_test` with checks such as "Brightness > 0 raises the high-harmonic
 energy on algorithm 1 and leaves algorithm 32 (all carriers) unchanged".
 
-## 2 · Shared brightness envelope
+## 2 · Shared envelopes
 
-Add an **Envelope Mode** item: 0 = Per-operator (today's behaviour), 1 = Shared.
+**Done, as *relative* envelopes** (this replaced the original "Envelope Mode" plan, in which one
+shared envelope would have *replaced* every carrier's / modulator's own — that loses the per-operator
+differences good patches depend on, e.g. E.Piano's short tine vs. long body, and makes switching a
+preset to Shared change its sound).
 
-In Shared mode, add two FMEGs to `FM6OpState`, driven by the same note-on/off and legato code as
-the per-operator ones:
-
-- **Loudness** multiplies every carrier (`depth == 0`) and replaces its own envelope.
-- **Brightness** multiplies every modulator, weighted by depth.
-
-Each operator's own envelope stays available as an optional multiplier on the expert page.
-The two shared envelopes reuse `src/UI/EnvelopeGraph.hpp` (as the operator and filter envelopes
-already do), so the main panel shows two graphs instead of six.
+- Eight appended FM6Op items: Loudness (carriers) and Brightness (modulators) × Attack / Decay /
+  Release multipliers (×0.1–×10, neutral ×1) and a Sustain offset (−1..+1, neutral 0; + toward full,
+  − toward zero, so a sustain-0 pluck can be made to hold). Applied by role in the per-op hoist loop
+  of `ProcessFM6OpModule`, alongside Bite and Key Track. Neutral is bit-identical (tested).
+- UI: two `EnvelopeGraph`s in **relative mode** on the Voice tab. Each draws a representative
+  operator's envelope as it sounds — the loudest carrier / strongest modulator — fed in through
+  `setBase()`; a drag moves the effective point and stores the multiplier / offset. Brightness is
+  disabled on algorithms with no modulators. A **Reset** button returns the Character macros and
+  both envelopes to neutral.
 
 ## 6 · Responsiveness
 
-The **Response** panel exists. It holds velocity → level as two indexed FM6Op items (`velFloor`,
-`velCurve`, applied in the MIDI proc via `fmVelocityLevel`). The controls below go in the same
-panel. All inside FM6Op. The note and velocity are already captured in the MIDI proc (`st->f0`,
+**Done: velocity → level, Touch and Key Track** (Response panel). Velocity → level is two indexed
+FM6Op items applied in the MIDI proc (`fmVelocityLevel`); Touch and Key Track are applied per
+block in `ProcessFM6OpModule` next to the Character macros, and tested in `pm_fm6op_test`.
+**Realism** is still open. The original notes, all inside FM6Op: The note and velocity are already captured in the MIDI proc (`st->f0`,
 `st->velAmp`).
 
 - **Touch** (0..1): velocity scales the modulators (brightness). Today velocity only scales the
@@ -111,8 +115,8 @@ E-Piano: Hammer, Tine, Bark, Decay).
   The mapping runs DSP-side in `ModicumFMPlugin::applyParam`: a knob change writes the underlying
   VoiceManager params. That way template knobs automate like any other param, and the expert
   panel still shows the true values.
-- **UI:** on the Voice tab: the template dropdown + knobs go in the Sound panel, above the
-  algorithm diagram.
+- **UI:** on the Voice tab, in the Character panel (the space under the shared envelopes); the
+  FM Engine panel is shared by both tabs.
 - **Open question:** when a user edits an underlying param after tweaking a template knob, does
   the knob re-derive from the params, or stay where it is? The simplest rule is that knobs are
   relative offsets from the template's base patch, and choosing a template resets them.

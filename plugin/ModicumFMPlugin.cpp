@@ -189,6 +189,16 @@ private:
         case kParamBite:           return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBite);
         case kParamGrit:           return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemGrit);
         case kParamBody:           return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBody);
+        case kParamTouch:          return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemTouch);
+        case kParamKeyTrack:       return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemKeyTrack);
+        case kParamLoudAttack:     return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemLoudAttack);
+        case kParamLoudDecay:      return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemLoudDecay);
+        case kParamLoudSustain:    return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemLoudSustain);
+        case kParamLoudRelease:    return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemLoudRelease);
+        case kParamBrightAttack:   return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBrightAttack);
+        case kParamBrightDecay:    return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBrightDecay);
+        case kParamBrightSustain:  return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBrightSustain);
+        case kParamBrightRelease:  return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBrightRelease);
         default:                   return 0;
         }
     }

@@ -40,9 +40,13 @@ note pitch + pitch bend ──> FM6Op engine
 - **Voice tab / Character**: role-based macros — Brightness (modulator levels + high carriers), Bite (a harder,
   shorter modulator burst), Grit (feedback + top modulator), Body (carrier tilt + width) — applied in the
   engine on top of the operator settings, neutral by default; hovering one rings its target
-  operators in the Sound panel's diagram. The Operators tab (default) is the full engine.
+  operators in the FM Engine diagram. Shared **Loudness / Brightness envelopes** scale every
+  carrier's / modulator's envelope (times ×0.1–×10, sustain offset) and draw a representative
+  one; **Reset** returns all of it to neutral. The Operators tab (default) is the full engine.
 - **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve
-  (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices.
+  (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices; Touch
+  (velocity → modulator levels, i.e. brightness) and Key Track (note → modulator levels and
+  decay/release times), both neutral at 0.
 - **Global**: Poly / Mono, pitch-bend range (off … ±4 semitones), Quality, master level.
 - **Presets**: factory presets in `Presets/*.json`, baked into the plugin at build time —
   classic DX-style starting points: E.Piano, Tubular Bells, Organ, Bass, Brass, Pluck, Glass Pad,

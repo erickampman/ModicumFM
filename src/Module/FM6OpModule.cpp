@@ -100,6 +100,8 @@ static inline double egTick(FMEG& e, double atkInc, double decCoef, double sus, 
 
 // --- State ------------------------------------------------------------------
 
+static constexpr float kFMTouchPivot = 0.7f;
+
 struct FM6OpState {
     double sampleRate = 44100.0;
 
@@ -111,6 +113,7 @@ struct FM6OpState {
 
     double  f0       = 440.0; // Hz from the played note (Pitch-input fallback)
     float   velAmp   = 1.0f;
+    float   velNorm  = kFMTouchPivot; // raw note velocity 0..1, for Touch (pivot = no change)
     float   prevGate = 0.0f;  // for Gate-input edge detection
     uint8_t lastNote = 255;   // for same-pitch legato smoothing
 
@@ -211,6 +214,25 @@ static float fmVelocityLevel(uint32_t velocity16, int floorSel, int curveSel) {
     return (float)(floor + (1.0 - floor) * std::pow(v, p));
 }
 
+// --- Response: Touch and Key Track (constants above the State) ----------------------
+
+// Touch (0..1): velocity also scales every modulator, ×2^(touch·2·(v - pivot)) — at full Touch a
+// hard note (v = 1) is ~1.5× brighter and a soft one (v = 0.3) ~0.6× as bright; v = pivot is
+// unchanged. Key Track (-1..1), by octaves from middle C: modulators ×2^(-kt·0.6·oct) and every
+// operator's decay/release ×2^(-kt·0.5·oct) — at + higher notes are darker and die away faster,
+// like most acoustic instruments; at - the reverse. Both are exactly neutral at 0.
+
+// --- Shared (relative) envelopes -------------------------------------------------
+
+// "Loudness" acts on every carrier's envelope, "Brightness" on every modulator's: attack, decay
+// and release times are multiplied (×0.1..×10), and sustain is offset — + moves it toward full,
+// - toward zero — so a plucked (sustain 0) operator can be made to hold. Scaling all operators
+// of a role by the same factors keeps their relationships (E.Piano's tine stays shorter than its
+// body). Exactly neutral at ×1 / 0.
+static inline double fmSustainOffset(double sus, double offset) {
+    return offset >= 0.0 ? sus + (1.0 - sus) * offset : sus * (1.0 + offset);
+}
+
 // --- Role-based macros --------------------------------------------------------
 
 // The Character macros act on operators by ROLE in the current algorithm (FM6OpAlgorithms.hpp's
@@ -297,6 +319,7 @@ void MIDIFM6OpModule(const pm::UmpMessage& message, Module* module) {
         st->lastNote = note;
         st->f0 = 440.0 * std::exp2(((double)note - 69.0) / 12.0);
         if (!gateConn) {
+            st->velNorm = (float)message.velocity / 65535.0f;
             st->velAmp = fmVelocityLevel(message.velocity,
                                          module->getParamValueAsInt(FM6OpParamItemVelFloor),
                                          module->getParamValueAsInt(FM6OpParamItemVelCurve));
@@ -380,6 +403,20 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
     double ratioRaw[kFM6OpCount];
     for (int oi = 0; oi < kFM6OpCount; ++oi) { ratioRaw[oi] = module->getParamValue(opItem(oi, kRatio)); }
     const FMMacros macros = fmMacros(module, algo, ratioRaw);
+    // Response: Touch (velocity → modulators) and Key Track (note → modulators + decay times).
+    const double touch     = std::min(1.0, std::max(0.0, (double)module->getParamValue(FM6OpParamItemTouch)));
+    const double keyTrack  = std::min(1.0, std::max(-1.0, (double)module->getParamValue(FM6OpParamItemKeyTrack)));
+    const double keyOct    = st->lastNote == 255 ? 0.0 : ((double)st->lastNote - 60.0) / 12.0;
+    const double touchMod  = std::exp2(touch * 2.0 * ((double)st->velNorm - kFMTouchPivot));
+    const double keyMod    = std::exp2(-keyTrack * 0.6 * keyOct);
+    const double keyTime   = std::exp2(-keyTrack * 0.5 * keyOct);
+    // Shared envelopes: [0] carriers (Loudness), [1] modulators (Brightness).
+    const auto envMul = [&](uint8_t item) { return std::min(10.0, std::max(0.1, (double)module->getParamValue(item))); };
+    const double envAtk[2] = { envMul(FM6OpParamItemLoudAttack),  envMul(FM6OpParamItemBrightAttack) };
+    const double envDec[2] = { envMul(FM6OpParamItemLoudDecay),   envMul(FM6OpParamItemBrightDecay) };
+    const double envRel[2] = { envMul(FM6OpParamItemLoudRelease), envMul(FM6OpParamItemBrightRelease) };
+    const double envSus[2] = { std::min(1.0, std::max(-1.0, (double)module->getParamValue(FM6OpParamItemLoudSustain))),
+                               std::min(1.0, std::max(-1.0, (double)module->getParamValue(FM6OpParamItemBrightSustain))) };
     for (int oi = 0; oi < kFM6OpCount; ++oi) {
         const double ratio   = ratioRaw[oi];
         const double fineFac = std::exp2(module->getParamValue(opItem(oi, kFine)) / 1200.0);  // cents
@@ -387,7 +424,7 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
         baseLevel[oi]        = module->getParamValue(opItem(oi, kLevel));
         const bool modulator = !macros.roles.isCarrier(oi);
         if (modulator) {
-            double lvl = baseLevel[oi] * macros.brightScale * (1.0 + macros.bite);
+            double lvl = baseLevel[oi] * macros.brightScale * (1.0 + macros.bite) * touchMod * keyMod;
             if (oi == macros.gritOp) { lvl *= 1.0 + 1.5 * macros.grit; }
             baseLevel[oi] = std::min(lvl, std::max(baseLevel[oi], kFMMacroMaxLevel));
         } else {
@@ -416,13 +453,15 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
         // and hold voices long after they're inaudible).
         constexpr double kLn1000 = 6.907755278982137;
         // Bite shortens the modulators' attack/decay and lowers their sustain (no-op at 0).
+        // Shared envelopes scale by role (carrier → Loudness, modulator → Brightness).
         const double biteT = modulator ? macros.bite : 0.0;
-        const double atkSec = module->getParamValue(opItem(oi, kAttack)) * (1.0 - 0.8 * biteT);
-        const double decSec = std::max(0.001, module->getParamValue(opItem(oi, kDecay)) * (1.0 - 0.85 * biteT));
-        const double relSec = module->getParamValue(opItem(oi, kRelease));
+        const int    role  = modulator ? 1 : 0;
+        const double atkSec = module->getParamValue(opItem(oi, kAttack)) * (1.0 - 0.8 * biteT) * envAtk[role];
+        const double decSec = std::max(0.001, module->getParamValue(opItem(oi, kDecay)) * (1.0 - 0.85 * biteT) * keyTime * envDec[role]);
+        const double relSec = std::max(0.001, module->getParamValue(opItem(oi, kRelease)) * keyTime * envRel[role]);
         egAtkInc[oi]  = 1.0 / std::max(1.0, atkSec * sr);
         egDecCoef[oi] = 1.0 - std::exp(-kLn1000 / (decSec * sr));
-        egSus[oi]     = module->getParamValue(opItem(oi, kSustain)) * (1.0 - 0.7 * biteT);
+        egSus[oi]     = fmSustainOffset(module->getParamValue(opItem(oi, kSustain)) * (1.0 - 0.7 * biteT), envSus[role]);
         egRelCoef[oi] = 1.0 - std::exp(-kLn1000 / (relSec * sr));
         delaySamp[oi] = (double)module->getParamValue(opItem(oi, kDelay)) * sr;
     }
@@ -466,6 +505,7 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
             const float g = gatePtr[i];
             if (g >= 0.5f && st->prevGate < 0.5f) {              // rising: trigger
                 st->velAmp = std::min(1.0f, std::max(0.0f, g));
+                st->velNorm = st->velAmp;
                 for (int oi = 0; oi < kFM6OpCount; ++oi) { egTrigger(st->eg[oi], delaySamp[oi]); st->phase[0][oi] = st->phase[1][oi] = 0.0; st->prevOut[0][oi] = st->prevOut[1][oi] = 0.0; st->prevOut2[0][oi] = st->prevOut2[1][oi] = 0.0; }
                 if (osFactor > 1) { for (int ch = 0; ch < 2; ++ch) std::fill_n(st->osHist[ch], FM6OpState::FM_OS_TAPS, 0.0); }  // clean decimator start
             } else if (g < 0.5f && st->prevGate >= 0.5f) {       // falling: release

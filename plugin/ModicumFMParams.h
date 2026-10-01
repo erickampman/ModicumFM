@@ -81,6 +81,12 @@ enum ParamIndex {
    kParamBite,           //  0..1  modulator envelopes faster / lower
    kParamGrit,           //  0..1  feedback + top modulator
    kParamBody,           // -1..1  carrier tilt, low (+) vs high (-) ratio
+   // Response (appended; neutral at default)
+   kParamTouch,          //  0..1  velocity → modulator levels (brightness)
+   kParamKeyTrack,       // -1..1  note → modulator levels + decay/release times
+   // Shared (relative) envelopes — Voice tab. Times ×0.1..×10 (1 = unchanged), sustain -1..1 offset.
+   kParamLoudAttack, kParamLoudDecay, kParamLoudSustain, kParamLoudRelease,         // carriers
+   kParamBrightAttack, kParamBrightDecay, kParamBrightSustain, kParamBrightRelease, // modulators
    // (append new params here)
    kParamCount
 };
@@ -160,6 +166,18 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Bite",         "bite",     "",   0.0f,   1.0f,   0.0f,  false, false},
    {"Grit",         "grit",     "",   0.0f,   1.0f,   0.0f,  false, false},
    {"Body",         "body",     "",  -1.0f,   1.0f,   0.0f,  false, false},
+   // Response
+   {"Touch",        "touch",    "",   0.0f,   1.0f,   0.0f,  false, false},
+   {"Key Track",    "keytrack", "",  -1.0f,   1.0f,   0.0f,  false, false},
+   // Shared envelopes (neutral: ×1 times, 0 sustain offset)
+   {"Loud Attack",    "ldatt",  "x",  0.1f,  10.0f,   1.0f,  true,  false},
+   {"Loud Decay",     "lddec",  "x",  0.1f,  10.0f,   1.0f,  true,  false},
+   {"Loud Sustain",   "ldsus",  "",  -1.0f,   1.0f,   0.0f,  false, false},
+   {"Loud Release",   "ldrel",  "x",  0.1f,  10.0f,   1.0f,  true,  false},
+   {"Bright Attack",  "bratt",  "x",  0.1f,  10.0f,   1.0f,  true,  false},
+   {"Bright Decay",   "brdec",  "x",  0.1f,  10.0f,   1.0f,  true,  false},
+   {"Bright Sustain", "brsus",  "",  -1.0f,   1.0f,   0.0f,  false, false},
+   {"Bright Release", "brrel",  "x",  0.1f,  10.0f,   1.0f,  true,  false},
 };
 
 #undef MODICUMFM_FM_OP_SPECS

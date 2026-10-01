@@ -68,6 +68,7 @@ struct Style {
     float line     = 1.4f;
     bool  feedbackActive = true;  // draw the feedback loop bright (else dimmed)
     uint8_t highlightMask = 0;    // operators to ring (bit i = Op i+1), e.g. a macro's targets
+    float maxPitch = 1e9f;        // cap on grid spacing (px) so a big box doesn't zoom the diagram
 };
 
 inline Color withA(Color c, float a) { c.alpha = a; return c; }
@@ -89,8 +90,8 @@ inline void draw(NanoVG& vg, int a, float x, float y, float w, float h, const St
     // smaller spacing.
     const float cols = maxX + 1.6f, rows = maxY + 1.5f;
     float pX = w / cols, pY = h / rows;
-    pX = std::fmin(pX, 1.6f * pY);
-    pY = std::fmin(pY, 1.6f * pX);
+    pX = std::fmin(std::fmin(pX, 1.6f * pY), st.maxPitch);
+    pY = std::fmin(std::fmin(pY, 1.6f * pX), st.maxPitch);
     const float pitch = std::fmin(pX, pY);
     const float box   = pitch * 0.6f;
     const float gridW = (maxX + 1) * pX, gridH = (maxY + 1) * pY;
@@ -209,6 +210,7 @@ protected:
         algo_diagram::Style st;
         st.accent = fAccent; st.fontSize = 11.0f * s; st.line = 1.4f * s; st.feedbackActive = fFbOn;
         st.highlightMask = fHighlight;
+        st.maxPitch = 46.0f * s;
         const float pad = 6.0f * s;
         algo_diagram::draw(*this, fAlgo, pad, capH + pad * 0.5f, w - 2 * pad, h - capH - 1.5f * pad, st);
     }

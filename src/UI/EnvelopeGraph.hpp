@@ -16,6 +16,12 @@
 // under the mouse as times change never makes a point jump. A readout names the point and its
 // value while hovering or dragging. Edits go through ParamEditCallback (begin/change/end per
 // param, so hosts record automation like any knob).
+//
+// Relative mode (the Voice tab's shared Loudness / Brightness envelopes): the bound params are
+// MULTIPLIERS on a base envelope (times) and an OFFSET on its sustain. The graph draws the
+// effective envelope — base × multiplier, sustain base offset toward 1 (+) or 0 (-) — and a drag
+// moves the effective point and stores the multiplier / offset that produce it. setBase() feeds
+// in the base envelope (a representative operator's). Disabled: greyed out with a message.
 
 #ifndef MODICUMFM_ENVELOPEGRAPH_HPP
 #define MODICUMFM_ENVELOPEGRAPH_HPP
@@ -57,6 +63,25 @@ public:
     void setAccentColor(Color c) { fAccent = c; }
     void setUiScale(float s)     { fUiScale = s; }
 
+    // A slot's current param value (for a host reading an operator envelope's settings).
+    float value(Slot s) const { return fSlots[s].value; }
+
+    // Relative mode (see the header comment) and the base envelope it scales.
+    void setRelative(bool r) { fRelative = r; repaint(); }
+    void setBase(float attack, float decay, float sustain, float release)
+    {
+        fBase[kAttack] = attack; fBase[kDecay] = decay; fBase[kSustain] = sustain; fBase[kRelease] = release;
+        repaint();
+    }
+    // Disabled: greyed out, no interaction, `message` shown instead of a readout.
+    void setDisabled(bool d, const std::string& message = {})
+    {
+        if (d == fDisabled && message == fDisabledMsg) return;
+        fDisabled = d; fDisabledMsg = message;
+        if (d) { fDragPoint = fHoverPoint = -1; }
+        repaint();
+    }
+
 protected:
     void onNanoDisplay() override
     {
@@ -69,11 +94,22 @@ protected:
 
         // Envelope shape: (delay) flat → linear attack → exponential decay → sustain → exp release.
         // Stroked, then re-traced and closed along the baseline for the fill.
+        const Color accent = fDisabled ? Color(104, 108, 116) : fAccent;
         traceShape(g);
-        strokeColor(withA(fAccent, 0.95f)); strokeWidth(1.6f); stroke();
+        strokeColor(withA(accent, fDisabled ? 0.5f : 0.95f)); strokeWidth(1.6f); stroke();
         traceShape(g);
         closePath();
-        fillColor(withA(fAccent, 0.16f)); fill();
+        fillColor(withA(accent, fDisabled ? 0.07f : 0.16f)); fill();
+        if (fDisabled)
+        {
+            if (fHasFont && !fDisabledMsg.empty())
+            {
+                fontFace(NANOVG_DEJAVU_SANS_TTF); fontSize(12.0f * fUiScale);
+                textAlign(ALIGN_CENTER | ALIGN_MIDDLE); fillColor(Color(150, 156, 166));
+                text(w * 0.5f, getHeight() * 0.45f, fDisabledMsg.c_str(), nullptr);
+            }
+            return;
+        }
 
         // Points.
         for (int p = 0; p < kPointCount; ++p)
@@ -82,7 +118,7 @@ protected:
             float px, py;
             pointPos(g, p, px, py);
             const bool hot = (p == fDragPoint) || (fDragPoint < 0 && p == fHoverPoint);
-            const bool idleDelay = p == kPtDelay && fSlots[kDelay].value <= 0.0f && !hot;
+            const bool idleDelay = p == kPtDelay && display(kDelay) <= 0.0f && !hot;
             beginPath(); circle(px, py, (hot ? 5.0f : 3.6f) * fUiScale);
             fillColor(hot ? Color(244, 247, 250) : (idleDelay ? withA(fAccent, 0.35f) : fAccent));
             fill();
@@ -102,7 +138,7 @@ protected:
 
     bool onMouse(const MouseEvent& ev) override
     {
-        if (ev.button != 1)
+        if (ev.button != 1 || fDisabled)
             return false;
         if (ev.press)
         {
@@ -138,6 +174,8 @@ protected:
 
     bool onMotion(const MotionEvent& ev) override
     {
+        if (fDisabled)
+            return false;
         if (fDragPoint < 0)
         {
             // Hover: highlight the point under the mouse; never consume the event.
@@ -153,15 +191,17 @@ protected:
         const Slot timeSlot = pointTimeSlot(fDragPoint);
         if (dx != 0.0f)
         {
-            Param& sl = fSlots[timeSlot];
-            const float u = warp(sl.value) + dx * kWarpPerPixel / fUiScale * speed;
-            setSlotValue(timeSlot, unwarp(u));
+            // Move the EFFECTIVE time in compressed space; store the param that produces it.
+            const float u = warp(display(timeSlot)) + dx * kWarpPerPixel / fUiScale * speed;
+            const float t = unwarp(u);
+            setSlotValue(timeSlot, fRelative ? t / std::fmax(1e-4f, fBase[timeSlot]) : t);
         }
         if (fDragPoint == kPtDecay && dy != 0.0f)
         {
             const Geometry g = geometry();
             const float span = std::fmax(10.0f, g.bottom - g.top);
-            setSlotValue(kSustain, fSlots[kSustain].value - dy / span * speed);
+            const float target = clamp(display(kSustain) - dy / span * speed, 0.0f, 1.0f);
+            setSlotValue(kSustain, fRelative ? offsetFor(target) : target);
         }
         return true;
     }
@@ -177,6 +217,9 @@ private:
 
     modicumfm::ParamEditCallback* fCb;
     Param  fSlots[kSlotCount];
+    bool   fRelative = false, fDisabled = false;
+    std::string fDisabledMsg;
+    float  fBase[kSlotCount] = { 0.0f, 0.005f, 0.3f, 0.7f, 0.3f };   // relative mode's base envelope
     Color  fAccent { 60, 200, 90 };
     float  fUiScale = 1.0f;
     bool   fHasFont = false;
@@ -185,6 +228,27 @@ private:
     uint   fLastClickTime = 0;
 
     bool hasDelay() const { return fSlots[kDelay].id != kNoParam; }
+
+    // The value the graph draws: the param itself, or (relative mode) base × multiplier for a
+    // time / base offset by the param for the sustain.
+    float display(Slot s) const
+    {
+        const float v = fSlots[s].value;
+        if (!fRelative || s == kDelay) return v;
+        if (s == kSustain)
+        {
+            const float b = fBase[kSustain];
+            return v >= 0.0f ? b + (1.0f - b) * v : b * (1.0f + v);
+        }
+        return fBase[s] * v;
+    }
+    // Relative mode: the sustain offset that puts the effective sustain at `target`.
+    float offsetFor(float target) const
+    {
+        const float b = fBase[kSustain];
+        if (target >= b) return b < 0.9999f ? (target - b) / (1.0f - b) : 0.0f;
+        return b > 1e-4f ? target / b - 1.0f : 0.0f;
+    }
 
     static float clamp(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
     static float warp(float t)   { return std::log1p(std::fmax(0.0f, t) / kTau); }
@@ -210,9 +274,9 @@ private:
         const float minW = 7.0f * s;
 
         const int   n = hasDelay() ? 4 : 3;
-        const float u[4] = { hasDelay() ? warp(fSlots[kDelay].value) : 0.0f,
-                             warp(fSlots[kAttack].value), warp(fSlots[kDecay].value),
-                             warp(fSlots[kRelease].value) };
+        const float u[4] = { hasDelay() ? warp(display(kDelay)) : 0.0f,
+                             warp(display(kAttack)), warp(display(kDecay)),
+                             warp(display(kRelease)) };
         const float uSum  = u[0] + u[1] + u[2] + u[3] + 1e-6f;
         const float avail = std::fmax(0.0f, width - susW - n * minW);
         const auto  segW  = [&](int i) { return minW + avail * u[i] / uSum; };
@@ -228,7 +292,7 @@ private:
 
     void traceShape(const Geometry& g)
     {
-        const float sus = fSlots[kSustain].value;
+        const float sus = display(kSustain);
         const auto  yAt = [&](float level) { return g.bottom - level * (g.bottom - g.top); };
         beginPath();
         moveTo(g.x0, g.bottom);
@@ -249,7 +313,7 @@ private:
 
     void pointPos(const Geometry& g, int p, float& x, float& y) const
     {
-        const float susY = g.bottom - fSlots[kSustain].value * (g.bottom - g.top);
+        const float susY = g.bottom - display(kSustain) * (g.bottom - g.top);
         switch (p)
         {
         case kPtDelay:   x = g.xDelay;   y = g.bottom; break;
@@ -319,18 +383,28 @@ private:
         return b;
     }
 
+    // In relative mode each value is followed by its multiplier / offset, e.g. "Release 900 ms ×3.0".
+    std::string rel(Slot s) const
+    {
+        if (!fRelative) return "";
+        char b[16];
+        if (s == kSustain) std::snprintf(b, sizeof(b), " (%+.2f)", fSlots[s].value);
+        else               std::snprintf(b, sizeof(b), " \xC3\x97%.2g", fSlots[s].value);
+        return b;
+    }
+
     std::string readout(int p) const
     {
         switch (p)
         {
-        case kPtDelay:  return "Delay " + fmtTime(fSlots[kDelay].value);
-        case kPtAttack: return "Attack " + fmtTime(fSlots[kAttack].value);
+        case kPtDelay:  return "Delay " + fmtTime(display(kDelay));
+        case kPtAttack: return "Attack " + fmtTime(display(kAttack)) + rel(kAttack);
         case kPtDecay:
         {
-            char b[16]; std::snprintf(b, sizeof(b), "%.2f", fSlots[kSustain].value);
-            return "Decay " + fmtTime(fSlots[kDecay].value) + "  Sustain " + b;
+            char b[16]; std::snprintf(b, sizeof(b), "%.2f", display(kSustain));
+            return "Decay " + fmtTime(display(kDecay)) + rel(kDecay) + "  Sustain " + b + rel(kSustain);
         }
-        default:        return "Release " + fmtTime(fSlots[kRelease].value);
+        default:        return "Release " + fmtTime(display(kRelease)) + rel(kRelease);
         }
     }
 

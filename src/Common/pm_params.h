@@ -403,6 +403,14 @@ enum FM6OpParamItem : NSUInteger {
    FM6OpParamItemBite,            //  0..1: faster modulator attack/decay, lower modulator sustain
    FM6OpParamItemGrit,            //  0..1: more feedback + the highest-ratio modulator pushed harder
    FM6OpParamItemBody,            // -1..1: tilts carrier levels toward low-ratio (+) or high-ratio (-) carriers
+   // Response (neutral at default)
+   FM6OpParamItemTouch,           //  0..1: velocity also scales the modulators (play harder = brighter)
+   FM6OpParamItemKeyTrack,        // -1..1: + higher notes darker and faster-decaying; - the reverse
+   // Shared (relative) envelopes: carriers ("Loudness") and modulators ("Brightness"). Times are
+   // multipliers on every operator of that role (×0.1..×10, 1 = unchanged); sustain is an offset
+   // (-1..1, 0 = unchanged; + toward full, - toward zero).
+   FM6OpParamItemLoudAttack, FM6OpParamItemLoudDecay, FM6OpParamItemLoudSustain, FM6OpParamItemLoudRelease,
+   FM6OpParamItemBrightAttack, FM6OpParamItemBrightDecay, FM6OpParamItemBrightSustain, FM6OpParamItemBrightRelease,
    FM6OpParamItemCount_           // one past the last item — must stay <= MODULE_MAX_PARAMS + 1
 };
 

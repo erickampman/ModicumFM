@@ -88,14 +88,15 @@
 </div>
 
 <h2 class="sound">Voice and Operators</h2>
-<p>The <b>Voice | Operators</b> tabs at the top switch the main area between the simple controls
-(<b>Voice</b>) and the full engine (<b>Operators</b>, shown when the plugin opens). The filter,
-Response, Chorus and Global panels are on both.</p>
+<p>The <b>Voice | Operators</b> tabs at the top switch the large right-hand panel between the
+simple controls (<b>Voice</b>: Character) and the full engine (<b>Operators</b>, shown when the
+plugin opens). Every other panel — FM Engine, the filter, Response, Chorus and Global — is on
+both.</p>
 
 <h2 class="sound">Voice: Character</h2>
 <p>Four broad controls that reshape the whole sound at once. Each acts on operators by their
 <i>role</i> in the current algorithm, so it means the same thing whatever the algorithm. Hover a
-knob to see the operators it affects ringed in the Sound diagram. At the default (0) each leaves
+knob to see the operators it affects ringed in the FM Engine diagram. At the default (0) each leaves
 the sound exactly as the operators set it; double-click returns it there.</p>
 <dl>
   <dt>Brightness</dt><dd>Turns every modulator up (brighter, more harmonics) or down (purer,
@@ -113,8 +114,18 @@ the sound exactly as the operators set it; double-click returns it there.</p>
   far end. (The loud/soft balance needs carriers at different ratios; the width works on every
   sound.)</dd>
 </dl>
-<p>The <b>Sound</b> panel shows the algorithm diagram (click it to choose another), as on the
-Operators tab.</p>
+<p><b>Loudness envelope</b> and <b>Brightness envelope</b> (under the knobs) reshape every
+operator's envelope at once without opening the Operators tab: Loudness acts on all the carriers
+(how the sound swells and fades), Brightness on all the modulators (how the tone opens and closes).
+Each graph draws a representative operator's envelope — the loudest carrier, the strongest
+modulator — as it sounds now; drag its points as on any envelope graph. Behind the scenes the times
+are <i>multiplied</i> for every operator of that kind (the readout shows e.g. <code>×3.0</code>), so
+operators keep their differences — E.Piano's tine stays shorter than its body. Sustain is moved
+toward full (up) or toward zero (down), so even a plucked sound can be made to hold. Brightness is
+greyed out on algorithms with no modulators.</p>
+<p><b>Reset</b> (top right of the Character panel) returns the four knobs and both envelopes to
+neutral, so they no longer change the sound. Double-click any single knob or envelope point to
+reset just that one.</p>
 
 <h2 class="sound">FM Engine</h2>
 <p>Six sine-based operators. An <i>algorithm</i> decides which operators modulate which: a
@@ -183,7 +194,8 @@ Release are the time to fade by 60 dB.</p>
 </dl>
 
 <h2 class="env">Response</h2>
-<p>How note velocity sets each note's loudness.</p>
+<p>How the way you play shapes each note: velocity sets the loudness (Vel Floor, Vel Curve) and,
+with Touch, the tone; Key Track changes the tone and length up and down the keyboard.</p>
 <dl>
   <dt>Vel Floor</dt><dd>The loudness of the softest possible note, as a share of the loudest:
   <code>0%</code> (full velocity range) up to <code>75%</code>; <code>Fixed</code> ignores velocity
@@ -191,6 +203,12 @@ Release are the time to fade by 60 dB.</p>
   <dt>Vel Curve</dt><dd>How loudness grows between the floor and full: <code>Concave</code> gets
   loud early (light touch), <code>Linear</code> is even, <code>Convex</code> saves the loudest
   levels for hard playing (heavy touch).</dd>
+  <dt>Touch</dt><dd>Lets velocity change the <i>tone</i> as well as the loudness: play harder and
+  the sound gets brighter, softer and it gets mellower — what makes an electric piano or brass
+  patch feel alive. 0 = velocity only changes the loudness.</dd>
+  <dt>Key Track</dt><dd>Changes the sound across the keyboard. Turned up, higher notes get darker
+  and die away faster (like most acoustic instruments); turned down, the reverse. 0 = every note
+  the same. Middle C is the pivot.</dd>
 </dl>
 
 <h2 class="neutral">Chorus</h2>

@@ -5,6 +5,10 @@
 //   3. every algorithm sounds after a note, stays finite and within ±1 (carrier normalisation);
 //   4. feedback reaches the sound, including algorithm 4's cross-operator path (Op4 → Op6);
 //   5. velocity → level: Floor (y-intercept) and Concave / Linear / Convex curves;
+//   7. Response: Touch (velocity → brightness) and Key Track (note → brightness + decay), both
+//      neutral at 0;
+//   8. shared (relative) envelopes: Loudness scales carrier envelopes, Brightness modulator
+//      envelopes; neutral is bit-identical;
 //   6. the Character macros: neutral is bit-identical, and Brightness / Bite / Grit / Body move
 //      the brightness the right way on the operators their role selects.
 
@@ -68,9 +72,9 @@ static float play(Module* m, int blocks, bool& finite, float* sumOut = nullptr,
 }
 
 // Render a note (blocks × kN samples of L) for the macro tests.
-static std::vector<float> renderNote(Module* m, int blocks) {
+static std::vector<float> renderNote(Module* m, int blocks, uint8_t note = 57, uint16_t vel = 0xFFFF) {
    m->reset();
-   m->midiProc(pm::makeNoteOn(57, 0xFFFF), m);
+   m->midiProc(pm::makeNoteOn(note, vel), m);
    std::vector<float> out;
    static uint64_t callID = 100000;
    for (int b = 0; b < blocks; ++b) {
@@ -84,6 +88,24 @@ static double brightness(const std::vector<float>& x, size_t from, size_t to) {
    double d = 0, a = 0;
    for (size_t i = from + 1; i < to && i < x.size(); ++i) { d += std::fabs(x[i] - x[i - 1]); a += std::fabs(x[i]); }
    return a > 0 ? d / a : 0;
+}
+
+// Spectral centroid (Hz at 48 kHz) of 2048 samples from `from` — a plain DFT, Hann-windowed.
+// Tracks FM brightness monotonically where the difference proxy above can dip.
+static double centroidHz(const std::vector<float>& x, size_t from) {
+   const int N = 2048;
+   double num = 0, den = 0;
+   for (int k = 1; k < N / 2; ++k) {
+      double re = 0, im = 0;
+      for (int n = 0; n < N; ++n) {
+         const double w = 0.5 - 0.5 * std::cos(2 * M_PI * n / (N - 1));
+         const double v = x[from + n] * w, a = 2 * M_PI * k * n / N;
+         re += v * std::cos(a); im -= v * std::sin(a);
+      }
+      const double mag = std::sqrt(re * re + im * im);
+      num += mag * k * 48000.0 / N; den += mag;
+   }
+   return den > 0 ? num / den : 0;
 }
 
 int main() {
@@ -280,6 +302,122 @@ int main() {
    std::printf("body width (alg 16): L/R split neutral %.2f Hz  +1 %.2f Hz  -1 %.2f Hz\n", sNeutral, sWide, sMono);
    macros(0, 0, 0, 0);
    set(fm, FM6OpParamItemDetune, 0.0f);
+
+   // --- 7: Response: Touch and Key Track -------------------------------------------------------
+   // Algorithm 1 voice again: Op2 (level 0.4, sustaining) modulating carrier Op1.
+   set(fm, FM6OpParamItemAlgorithm, 0.0f);
+   for (uint8_t l : levels) set(fm, l, 0.0f);
+   set(fm, FM6OpParamItemOp1Level, 1.0f);
+   set(fm, FM6OpParamItemOp2Level, 0.4f);
+   set(fm, FM6OpParamItemOp2Ratio, 1.0f);
+   const auto response = [&](float touch, float kt) {
+      set(fm, FM6OpParamItemTouch, touch); set(fm, FM6OpParamItemKeyTrack, kt);
+   };
+   {
+      response(0, 0);
+      const std::vector<float> ref = renderNote(fm, 30, 72, 0x6000);
+      CHECK(renderNote(fm, 30, 72, 0x6000) == ref, "Touch / Key Track neutral: identical output");
+      // Touch off: velocity changes only the level, so the spectral centroid is the same.
+      const double offSoft = centroidHz(renderNote(fm, 30, 57, 0x3000), late0);
+      const double offHard = centroidHz(renderNote(fm, 30, 57, 0xFFFF), late0);
+      CHECK(std::fabs(offHard / offSoft - 1.0) < 0.02, "Touch 0: brightness independent of velocity");
+      // Touch 1 at velocity v must equal Touch off with the modulator level × 2^(2·(v - 0.7)):
+      // a soft note plays as if Op2 were turned down, a hard one as if turned up.
+      const auto maxDiff = [](const std::vector<float>& a, const std::vector<float>& b) {
+         float d = 0; for (size_t i = 0; i < a.size(); ++i) d = std::fmax(d, std::fabs(a[i] - b[i])); return d; };
+      for (uint16_t vel : {uint16_t(0x3000), uint16_t(0xFFFF)}) {
+         const double v = vel / 65535.0;
+         response(1, 0);
+         const std::vector<float> withTouch = renderNote(fm, 30, 57, vel);
+         response(0, 0);
+         set(fm, FM6OpParamItemOp2Level, static_cast<float>(0.4 * std::exp2(2.0 * (v - 0.7))));
+         const std::vector<float> asLevel = renderNote(fm, 30, 57, vel);
+         set(fm, FM6OpParamItemOp2Level, 0.4f);
+         CHECK(maxDiff(withTouch, asLevel) < 1e-4f, "Touch scales the modulators by velocity");
+         std::printf("touch @ velocity %.2f: modulator x%.2f, max diff vs equivalent level %.2g\n",
+                     v, std::exp2(2.0 * (v - 0.7)), maxDiff(withTouch, asLevel));
+      }
+      std::printf("touch off: centroid soft %.0f Hz, hard %.0f Hz\n", offSoft, offHard);
+
+      // Key Track: middle C unaffected; three octaves up darker and faster-decaying at +1.
+      response(0, 0);
+      const std::vector<float> c4 = renderNote(fm, 30, 60);
+      response(0, 1);
+      CHECK(renderNote(fm, 30, 60) == c4, "Key Track leaves middle C alone");
+      response(0, 0);
+      const std::vector<float> hi0 = renderNote(fm, 60, 96);
+      response(0, 1);
+      const std::vector<float> hi1 = renderNote(fm, 60, 96);
+      const double bHi0 = brightness(hi0, late0, late1), bHi1 = brightness(hi1, late0, late1);
+      CHECK(bHi1 < bHi0 * 0.9, "Key Track +: high notes darker");
+      // Decay: with a slow carrier decay (2 s to -60 dB, no sustain), the level ~0.5 s in.
+      set(fm, FM6OpParamItemOp1Decay, 2.0f); set(fm, FM6OpParamItemOp1Sustain, 0.0f);
+      const auto lvl = [](const std::vector<float>& x, size_t a, size_t b) {
+         double s2 = 0; for (size_t i = a; i < b; ++i) s2 += double(x[i]) * x[i]; return std::sqrt(s2 / (b - a)); };
+      response(0, 0);
+      const std::vector<float> d0 = renderNote(fm, 60, 96);
+      response(0, 1);
+      const std::vector<float> d1 = renderNote(fm, 60, 96);
+      const double r0 = lvl(d0, 45 * kN, 50 * kN) / lvl(d0, 1 * kN, 3 * kN);
+      const double r1 = lvl(d1, 45 * kN, 50 * kN) / lvl(d1, 1 * kN, 3 * kN);
+      CHECK(r1 < r0 * 0.5, "Key Track +: high notes decay faster");
+      std::printf("key track decay (note 96, 0.5 s in): kt0 %.3f  kt+1 %.3f of the start level\n", r0, r1);
+      set(fm, FM6OpParamItemOp1Decay, 0.3f); set(fm, FM6OpParamItemOp1Sustain, 0.7f);
+      std::printf("key track (note 96): brightness kt0 %.3f kt+1 %.3f\n", bHi0, bHi1);
+      response(0, 0);
+   }
+
+   // --- 8: shared (relative) envelopes ----------------------------------------------------------
+   {
+      const auto env = [&](float la, float ld, float ls, float lr, float ba, float bd, float bs, float br) {
+         set(fm, FM6OpParamItemLoudAttack, la);   set(fm, FM6OpParamItemLoudDecay, ld);
+         set(fm, FM6OpParamItemLoudSustain, ls);  set(fm, FM6OpParamItemLoudRelease, lr);
+         set(fm, FM6OpParamItemBrightAttack, ba); set(fm, FM6OpParamItemBrightDecay, bd);
+         set(fm, FM6OpParamItemBrightSustain, bs); set(fm, FM6OpParamItemBrightRelease, br);
+      };
+      const auto rms = [](const std::vector<float>& x, size_t a, size_t b) {
+         double s2 = 0; for (size_t i = a; i < b; ++i) s2 += double(x[i]) * x[i]; return std::sqrt(s2 / (b - a)); };
+      // Alg 1: carrier Op1 (attack 10 ms, decay 0.5 s → sustain 0.5), modulator Op2 (level 0.4,
+      // decay 0.3 s → sustain 0.7).
+      set(fm, FM6OpParamItemAlgorithm, 0.0f);
+      for (uint8_t l : levels) set(fm, l, 0.0f);
+      // (Modulator at ratio 3: a 1:1 pair folds sidebands onto DC, which changes the level.)
+      set(fm, FM6OpParamItemOp1Level, 1.0f); set(fm, FM6OpParamItemOp2Level, 0.4f);
+      set(fm, FM6OpParamItemOp2Ratio, 3.0f);
+      set(fm, FM6OpParamItemOp1Attack, 0.01f); set(fm, FM6OpParamItemOp1Decay, 0.5f);
+      set(fm, FM6OpParamItemOp1Sustain, 0.5f);
+      env(1, 1, 0, 1, 1, 1, 0, 1);
+      const std::vector<float> ref = renderNote(fm, 40);
+      CHECK(renderNote(fm, 40) == ref, "shared envelopes neutral: identical output");
+
+      // Loudness Attack ×10 (10 → 100 ms): the first ~20 ms are much quieter.
+      env(10, 1, 0, 1, 1, 1, 0, 1);
+      const std::vector<float> slow = renderNote(fm, 40);
+      CHECK(rms(slow, 0, 2 * kN) < rms(ref, 0, 2 * kN) * 0.5, "Loudness Attack ×10 slows the carriers' onset");
+
+      // Brightness Decay ×0.2: the modulator settles sooner, so ~60-100 ms in the tone is darker,
+      // while the carrier (Loudness untouched) keeps the same level.
+      env(1, 1, 0, 1, 1, 0.2f, -1, 1);   // and Brightness Sustain -1: modulator decays to zero
+      const std::vector<float> dark = renderNote(fm, 40);
+      CHECK(centroidHz(dark, 6 * kN) < centroidHz(ref, 6 * kN) * 0.8, "Brightness Decay/Sustain darken the held tone");
+      CHECK(std::fabs(rms(dark, 30 * kN, 40 * kN) / rms(ref, 30 * kN, 40 * kN) - 1.0) < 0.15,
+            "Brightness envelope leaves the loudness alone");
+
+      // Loudness Sustain +1 on a plucked carrier (sustain 0): the note now holds.
+      set(fm, FM6OpParamItemOp1Sustain, 0.0f); set(fm, FM6OpParamItemOp1Decay, 0.2f);
+      env(1, 1, 0, 1, 1, 1, 0, 1);
+      const std::vector<float> pluck = renderNote(fm, 40);
+      env(1, 1, 1, 1, 1, 1, 0, 1);
+      const std::vector<float> held = renderNote(fm, 40);
+      CHECK(rms(held, 30 * kN, 40 * kN) > rms(pluck, 30 * kN, 40 * kN) * 10.0, "Loudness Sustain +1 makes a pluck hold");
+      std::printf("shared env: attack x10 onset %.3f vs %.3f | bright dark centroid %.0f vs %.0f Hz | pluck %.4f held %.4f\n",
+                  rms(slow, 0, 2 * kN), rms(ref, 0, 2 * kN), centroidHz(dark, 6 * kN), centroidHz(ref, 6 * kN),
+                  rms(pluck, 30 * kN, 40 * kN), rms(held, 30 * kN, 40 * kN));
+      env(1, 1, 0, 1, 1, 1, 0, 1);
+      set(fm, FM6OpParamItemOp1Attack, 0.005f); set(fm, FM6OpParamItemOp1Decay, 0.3f);
+      set(fm, FM6OpParamItemOp1Sustain, 0.7f);
+      set(fm, FM6OpParamItemOp2Ratio, 1.0f);
+   }
 
    if (g_fails == 0)
       std::printf("ALL PASS\n");
