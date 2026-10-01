@@ -23,7 +23,8 @@ note pitch + pitch bend ──> FM6Op engine
 - **FM engine** (`FM6Op`):
   - The 32 DX7 algorithms, each with its own feedback path (a cross-operator loop in 4 and 6).
     Output is normalised by carrier count.
-  - Coarse/fine tune, stereo **Detune** (L/R up to ±25 cents), optional 2×/4× oversampling.
+  - Coarse/fine tune, stereo **Detune** (L/R up to ±25 cents), optional 2×/4× oversampling
+    (shown as Global → Quality).
   - Six operators, each with a wave (sine or a small harmonic stack), ratio, fine, level and a
     delay-ADSR envelope. Decay and release are times to fall 60 dB.
   - No VCA: the carriers' envelopes are the amp envelope, and a voice frees once it falls
@@ -34,7 +35,9 @@ note pitch + pitch bend ──> FM6Op engine
   fully open and unmodulated.
 - **Chorus**: mix, rate, depth, base delay, feedback. One LFO phase is shared by every voice, so
   all notes' choruses sweep together; L and R run 90° apart.
-- **Global**: Poly / Mono, pitch-bend range (off … ±4 semitones), master level.
+- **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve
+  (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices.
+- **Global**: Poly / Mono, pitch-bend range (off … ±4 semitones), Quality, master level.
 - **Presets**: factory presets in `Presets/*.json`, baked into the plugin at build time. In-UI
   help page (`Resources/help.html`).
 

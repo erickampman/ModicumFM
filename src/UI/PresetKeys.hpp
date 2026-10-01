@@ -90,6 +90,8 @@ static constexpr PresetKey kPresetKeys[kParamCount] = {
    {"Chorus", "depth"},
    {"Chorus", "baseDelay"},
    {"Chorus", "feedback"},
+   {"FM6Op", "velFloor"},
+   {"FM6Op", "velCurve"},
 };
 
 } // namespace fem

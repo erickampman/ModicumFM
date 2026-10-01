@@ -25,7 +25,7 @@ enum FmEngineOffset {
    kFmPitch,          // coarse transpose, semitones
    kFmFine,           // fine tune, cents
    kFmDetune,         // L/R stereo detune, 0..1
-   kFmOversample,     // 0 Off, 1 2x, 2 4x
+   kFmOversample,     // "Quality": 0 Normal (off), 1 High (2x), 2 Best (4x) — shown under Global
    kFmOpBase          // first operator item; operators follow, kFmOpCount items each
 };
 // Offsets within one operator (6 per engine).
@@ -73,6 +73,9 @@ enum ParamIndex {
    kParamChorusDepth,    // delay-mod depth (ms per unit LFO)
    kParamChorusDelay,    // base delay, ms
    kParamChorusFeedback,
+   // Response (appended)
+   kParamVelFloor,       // velocity → level y-intercept: 0% / 25% / 50% / 75% / 100% (fixed)
+   kParamVelCurve,       // velocity → level shape: Concave / Linear / Convex
    // (append new params here)
    kParamCount
 };
@@ -126,7 +129,7 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Pitch",        "pitch",    "st", -24.0f, 24.0f,  0.0f,  false, true },
    {"Fine",         "fine",     "ct", -100.0f, 100.0f, 0.0f, false, false},
    {"Detune",       "detune",   "",   0.0f,   1.0f,   0.1f,  false, false},
-   {"Oversample",   "ovs",      "",   0.0f,   2.0f,   0.0f,  false, true },
+   {"Quality",      "ovs",      "",   0.0f,   2.0f,   0.0f,  false, true },
    FEM_FM_OP_SPECS(1, 0.9f), FEM_FM_OP_SPECS(2, 0.35f), FEM_FM_OP_SPECS(3, 0.0f),
    FEM_FM_OP_SPECS(4, 0.0f), FEM_FM_OP_SPECS(5, 0.0f),  FEM_FM_OP_SPECS(6, 0.0f),
    // Low-pass filter (defaults fully open and unmodulated: the FM tone passes untouched)
@@ -144,6 +147,9 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Depth",        "chdepth",  "ms", 0.0f,   1.0f,   0.5f,  false, false},
    {"Delay",        "chdelay",  "ms", 5.0f,  30.0f,  10.0f,  false, false},
    {"Feedback",     "chfb",     "",   0.0f,   0.99f,  0.2f,  false, false},
+   // Response (defaults = full, linear velocity response: TwinFM's behaviour)
+   {"Velocity Floor", "velfloor", "", 0.0f,   4.0f,   0.0f,  false, true },
+   {"Velocity Curve", "velcurve", "", 0.0f,   2.0f,   1.0f,  false, true },
 };
 
 #undef FEM_FM_OP_SPECS

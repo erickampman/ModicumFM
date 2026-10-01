@@ -3,7 +3,8 @@
 //      evaluates each algorithm; feedback indices in range; at least one carrier);
 //   2. the role analysis (carriers / modulator depth) on a few known algorithms;
 //   3. every algorithm sounds after a note, stays finite and within ±1 (carrier normalisation);
-//   4. feedback reaches the sound, including algorithm 4's cross-operator path (Op4 → Op6).
+//   4. feedback reaches the sound, including algorithm 4's cross-operator path (Op4 → Op6);
+//   5. velocity → level: Floor (y-intercept) and Concave / Linear / Convex curves.
 
 #include "FM6OpAlgorithms.hpp"
 #include "Module.hpp"
@@ -43,9 +44,10 @@ static std::unique_ptr<Module> makeFM(ModuleFactory& factory, PitchConverter& pc
 static void set(Module* m, uint8_t item, float v) { m->params[item - 1] = v; } // items start at 1
 
 // Note on, render `blocks`, return peak |L| (and whether every sample was finite).
-static float play(Module* m, int blocks, bool& finite, float* sumOut = nullptr) {
+static float play(Module* m, int blocks, bool& finite, float* sumOut = nullptr,
+                  uint16_t velocity = 0xFFFF) {
    m->reset();
-   m->midiProc(pm::makeNoteOn(57, 0xFFFF), m);
+   m->midiProc(pm::makeNoteOn(57, velocity), m);
    float peak = 0.0f, sum = 0.0f;
    finite = true;
    static uint64_t callID = 1;
@@ -132,6 +134,33 @@ int main() {
    play(fm, 8, finite, &sumFb);
    CHECK(finite && std::fabs(sumFb - sumNoFb) > 0.01f * sumNoFb, "alg 4 cross-feedback changes the sound");
    std::printf("alg 4 |x| sum: fb 0 %.1f, fb 1 %.1f\n", sumNoFb, sumFb);
+
+   // --- 5: velocity → level -------------------------------------------------------------------
+   // Op1 alone (alg 32, no feedback) so peak level is just velocity gain × carrier level.
+   set(fm, FM6OpParamItemAlgorithm, 31.0f);
+   set(fm, FM6OpParamItemFeedback, 0.0f);
+   for (uint8_t l : levels) set(fm, l, 0.0f);
+   set(fm, FM6OpParamItemOp1Level, 1.0f);
+   const auto velPeak = [&](float floorSel, float curveSel, uint16_t vel) {
+      set(fm, FM6OpParamItemVelFloor, floorSel);
+      set(fm, FM6OpParamItemVelCurve, curveSel);
+      bool fin = false;
+      return play(fm, 8, fin, nullptr, vel);
+   };
+   const uint16_t half = 0x8000;
+   const float full    = velPeak(0, 1, 0xFFFF);
+   const float linear  = velPeak(0, 1, half);
+   const float concave = velPeak(0, 0, half);
+   const float convex  = velPeak(0, 2, half);
+   const float fixed   = velPeak(4, 1, half);
+   const float floor50 = velPeak(2, 1, 0x0001);
+   CHECK(std::fabs(linear / full - 0.5f) < 0.02f, "linear: half velocity = half level");
+   CHECK(std::fabs(concave / full - 0.707f) < 0.02f, "concave: half velocity = sqrt(0.5)");
+   CHECK(std::fabs(convex / full - 0.25f) < 0.02f, "convex: half velocity = 0.25");
+   CHECK(std::fabs(fixed / full - 1.0f) < 0.01f, "Fixed floor ignores velocity");
+   CHECK(std::fabs(floor50 / full - 0.5f) < 0.02f, "50% floor: softest note at half level");
+   std::printf("velocity @half: linear %.3f concave %.3f convex %.3f fixed %.3f (full %.3f)\n",
+               linear / full, concave / full, convex / full, fixed / full, full);
 
    if (g_fails == 0)
       std::printf("ALL PASS\n");

@@ -396,6 +396,8 @@ enum FM6OpParamItem : NSUInteger {
    FM6OpParamItemFeedbackDepth,   // feedback-mod input depth
    FM6OpParamItemOversample,      // anti-alias quality: 0 = Off, 1 = 2×, 2 = 4× (CPU cost only when on)
    // New items go here (append-only: presets and the plugin param table key off these).
+   FM6OpParamItemVelFloor,        // indexed: velocity-to-level y-intercept, 0% / 25% / 50% / 75% / 100% (fixed)
+   FM6OpParamItemVelCurve,        // indexed: velocity-to-level shape, 0 Concave / 1 Linear / 2 Convex
    FM6OpParamItemCount_           // one past the last item — must stay <= MODULE_MAX_PARAMS + 1
 };
 

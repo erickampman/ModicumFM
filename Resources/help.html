@@ -98,14 +98,14 @@ green) or <b>mod N</b> (a modulator N steps away from the output).</p>
   Low numbers are deep stacks (bright, complex); high numbers are mostly carriers (organ-like,
   additive; 32 is all six in parallel). Levels are balanced by the number of carriers, so
   switching algorithm doesn't jump the volume.</dd>
-  <dt>Feedback</dt><dd>One operator per algorithm modulates itself (in algorithms 4 and 6 a small
+  <dt>Feedback</dt><dd>Sits under the algorithm because the algorithm decides where it goes: one operator per algorithm modulates itself (in algorithms 4 and 6 a small
   loop of operators) — from a brighter sine toward a buzzy, saw-like tone.</dd>
   <dt>Pitch / Fine</dt><dd>Transpose the whole engine in semitones / cents.</dd>
   <dt>Detune</dt><dd>Stereo detune: left and right are tuned apart by up to 50 cents in total,
   for width and movement.</dd>
-  <dt>Oversample</dt><dd>Off / 2x / 4x. Reduces aliasing on bright, high-index patches at extra CPU
-  cost.</dd>
 </dl>
+
+<h2 class="sound">Operators</h2>
 <p>Each operator row:</p>
 <dl>
   <dt>Wave</dt><dd>Sine, or a small harmonic stack (<code>1+2</code>, <code>1+3</code>,
@@ -130,6 +130,17 @@ green) or <b>mod N</b> (a modulator N steps away from the output).</p>
   <dt>Attack / Decay / Sustain / Release</dt><dd>The filter envelope, triggered by each note.</dd>
 </dl>
 
+<h2 class="env">Response</h2>
+<p>How note velocity sets each note's loudness.</p>
+<dl>
+  <dt>Vel Floor</dt><dd>The loudness of the softest possible note, as a share of the loudest:
+  <code>0%</code> (full velocity range) up to <code>75%</code>; <code>Fixed</code> ignores velocity
+  entirely.</dd>
+  <dt>Vel Curve</dt><dd>How loudness grows between the floor and full: <code>Concave</code> gets
+  loud early (light touch), <code>Linear</code> is even, <code>Convex</code> saves the loudest
+  levels for hard playing (heavy touch).</dd>
+</dl>
+
 <h2 class="neutral">Chorus</h2>
 <dl>
   <dt>Mix</dt><dd>Dry / wet balance.</dd>
@@ -147,6 +158,8 @@ green) or <b>mod N</b> (a modulator N steps away from the output).</p>
   pitch without re-attacking the envelopes).</dd>
   <dt>Bend Range</dt><dd>Pitch-bend range, up to 4 semitones each way. <code>Off</code> ignores
   pitch bend.</dd>
+  <dt>Quality</dt><dd>Normal / High / Best: runs the FM engine at 1× / 2× / 4× the sample rate,
+  reducing harsh aliasing on bright, high-modulation sounds at extra CPU cost.</dd>
   <dt>Master</dt><dd>Output level.</dd>
 </dl>
 

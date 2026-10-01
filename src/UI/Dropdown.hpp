@@ -41,7 +41,7 @@ public:
     {
         fUiScale = s;
         fBoxH   = static_cast<int>(26 * s);
-        fInset  = static_cast<int>(12 * s);
+        fInset  = static_cast<int>(6 * s);
         fLabelH = static_cast<int>(16 * s);
     }
 
@@ -128,7 +128,7 @@ private:
     bool                     fHasFont = false;
     float                    fUiScale = 1.0f;
 
-    int fBoxH = 26, fInset = 12, fLabelH = 16;
+    int fBoxH = 26, fInset = 6, fLabelH = 16;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Dropdown)
 };

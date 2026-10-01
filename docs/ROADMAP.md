@@ -8,7 +8,7 @@ file records what's already in place for each and where the rest plugs in.
 |---|------|--------|
 | 1 | Role-based macros (Brightness, Bite, Grit, Body) | foundation only |
 | 2 | Shared brightness envelope | not started |
-| 6 | Responsiveness (Touch, Key tracking, Realism) | not started |
+| 6 | Responsiveness (Touch, Key tracking, Realism) | Response panel + velocity → level done |
 | 5 | Instrument templates with their own knobs | not started |
 
 Suggested order: 1 → 2 → 6 → 5. Templates are mostly *curated settings of the macros*, so they
@@ -37,7 +37,7 @@ come last.
 - **Room for new params.**
   - FM6Op module items are append-only: add new ones before `FM6OpParamItemCount_` in
     `pm_params.h`, with matching rows in `fm6OpConstants` (`pm_param_data.cpp`).
-    `MODULE_MAX_PARAMS` is 128 and the engine uses 93, and a `static_assert` guards the
+    `MODULE_MAX_PARAMS` is 128 and the engine uses 95, and a `static_assert` guards the
     limit.
   - Plugin params are append-only too: add before `kParamCount` in `plugin/FeMParams.h`, with a
     `kParams` spec row, a `kPresetKeys` row (`src/UI/PresetKeys.hpp`), a `vmAddress()` case in
@@ -80,7 +80,9 @@ That's 2 envelopes (10 knobs) on the main panel instead of 6 × 5 = 30.
 
 ## 6 · Responsiveness
 
-All inside FM6Op. The note and velocity are already captured in the MIDI proc (`st->f0`,
+The **Response** panel exists. It holds velocity → level as two indexed FM6Op items (`velFloor`,
+`velCurve`, applied in the MIDI proc via `fmVelocityLevel`). The controls below go in the same
+panel. All inside FM6Op. The note and velocity are already captured in the MIDI proc (`st->f0`,
 `st->velAmp`).
 
 - **Touch** (0..1): velocity scales the modulators (brightness). Today velocity only scales the

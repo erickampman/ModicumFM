@@ -3,7 +3,7 @@
 //
 //  Full per-sample 6-op PM engine: the 32 DX7-style algorithms (FM6OpAlgorithms.hpp) + one
 //  feedback path per algorithm + amp/freq CV inputs; operators use the harmonic-stack wavetables
-//  (sine.cpp). Grown from TwinFM's FM6OpModule: same envelopes, legato handling, stereo detune
+//  (sine.cpp). Grown from TwinFM's FM4OpModule: same envelopes, legato handling, stereo detune
 //  and oversampling, generalised from 4 to kFM6OpCount operators.
 //
 
@@ -195,6 +195,22 @@ const void SampleRateFM6OpModule(Module* module, double newSampleRate) {
     if (auto* st = static_cast<FM6OpState*>(module->state)) { st->sampleRate = newSampleRate; }
 }
 
+// --- Velocity -> level -------------------------------------------------------
+
+// The same curve family as PolygraphModular's VelocityConverter — level = floor + (1 - floor)·v^p
+// for v = velocity in 0..1 — but with a few fixed choices instead of continuous Min/Curve params.
+// Floor is the y-intercept (the level of the softest note; 100% ignores velocity). Concave (p < 1)
+// gets loud early in the key travel; Convex (p > 1) saves the loudest levels for hard playing.
+static constexpr double kFMVelFloor[5]    = { 0.0, 0.25, 0.5, 0.75, 1.0 };
+static constexpr double kFMVelExponent[3] = { 0.5, 1.0, 2.0 };   // Concave, Linear, Convex
+
+static float fmVelocityLevel(uint32_t velocity16, int floorSel, int curveSel) {
+    const double floor = kFMVelFloor[std::min(4, std::max(0, floorSel))];
+    const double p     = kFMVelExponent[std::min(2, std::max(0, curveSel))];
+    const double v     = (double)velocity16 / 65535.0;   // MIDI 2.0 16-bit
+    return (float)(floor + (1.0 - floor) * std::pow(v, p));
+}
+
 // --- MIDI -------------------------------------------------------------------
 
 void MIDIFM6OpModule(const pm::UmpMessage& message, Module* module) {
@@ -212,7 +228,9 @@ void MIDIFM6OpModule(const pm::UmpMessage& message, Module* module) {
         st->lastNote = note;
         st->f0 = 440.0 * std::exp2(((double)note - 69.0) / 12.0);
         if (!gateConn) {
-            st->velAmp = (float)message.velocity / 65535.0f;   // MIDI 2.0 16-bit
+            st->velAmp = fmVelocityLevel(message.velocity,
+                                         module->getParamValueAsInt(FM6OpParamItemVelFloor),
+                                         module->getParamValueAsInt(FM6OpParamItemVelCurve));
             const int legato = module->getParamValueAsInt(FM6OpParamItemRetrigger);
             // A voice-legato slide (mono, note routed to the still-sounding voice) sets
             // module->legatoContinuation — the same signal the simple oscillators use to skip their

@@ -1,8 +1,10 @@
-// FeMUI.cpp — UI side. Two rows under the top strip (logo, wordmark, preset menu, help):
+// FeMUI.cpp — UI side. Under the top strip (logo, wordmark, preset menu, help):
 //
-//   FM Engine: engine globals column | 6 operator rows (role caption, Wave, Ratio, Fine, Level,
-//              Delay/Attack/Decay/Sustain/Release)
-//   Low-Pass Filter | Filter Envelope | Chorus | Global (Voices, Bend Range, Master)
+//   FM Engine (Algorithm, Feedback, │ Operators: 6 rows (role caption, Wave, Ratio, Fine, Level,
+//     Pitch / Fine / Detune)        │   Delay/Attack/Decay/Sustain/Release)
+//   Low-Pass Filter                 │
+//   Filter Envelope                 │
+//   Response (velocity) | Chorus | Global (Voices, Bend Range, Quality, Master)
 //
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
 // operator's role in the current algorithm (carrier, or modulator N hops from the output) —
@@ -107,14 +109,16 @@ public:
                                true, false);
 
         // Per-module accent colours, following PM's category scheme.
-        fFmGroup       = makeGroup("FM Engine", colSound());
+        fEngineGroup   = makeGroup("FM Engine", colSound());
+        fOpGroup       = makeGroup("Operators", colSound());
         fLpfGroup      = makeGroup("Low-Pass Filter", colFilter());
         fFiltEnvGroup  = makeGroup("Filter Envelope", colFilter());
+        fResponseGroup = makeGroup("Response", colEnv());
         fChorusGroup   = makeGroup("Chorus", colNeutral());
         fGlobalGroup   = makeGroup("Global", colComb());
 
         for (uint32_t o = 0; o < kFmOperators; ++o)
-            fOpLabel[o] = std::make_unique<Label>(fFmGroup.get());
+            fOpLabel[o] = std::make_unique<Label>(fOpGroup.get());
         updateOpRoles(static_cast<int>(kParams[kParamAlgorithm].def));
 
         for (uint32_t i = 0; i < kParamCount; ++i)
@@ -302,8 +306,8 @@ protected:
 
 private:
     // Panels declared before their child controls so the children are destroyed first.
-    std::unique_ptr<GroupBox>   fFmGroup;
-    std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fChorusGroup, fGlobalGroup;
+    std::unique_ptr<GroupBox>   fEngineGroup, fOpGroup;
+    std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fResponseGroup, fChorusGroup, fGlobalGroup;
     std::unique_ptr<Label>      fOpLabel[kFmOperators];
     std::unique_ptr<Knob>       fKnobs[kParamCount];
     std::unique_ptr<Dropdown>   fDropdowns[kParamCount];
@@ -344,7 +348,7 @@ private:
 
     static bool isDropdownParam(uint32_t i)
     {
-        if (i == kParamVoiceMode || i == kParamBendRange)
+        if (i == kParamVoiceMode || i == kParamBendRange || i == kParamVelFloor || i == kParamVelCurve)
             return true;
         uint32_t k;
         if (!fmOffset(i, k))
@@ -357,6 +361,8 @@ private:
         if (i == kParamVoiceMode) return {"Mono", "Poly"};
         if (i == kParamBendRange)
             return {"Off", "0.5 st", "1 st", "1.5 st", "2 st", "2.5 st", "3 st", "3.5 st", "4 st"};
+        if (i == kParamVelFloor) return {"0%", "25%", "50%", "75%", "Fixed"}; // level of the softest note
+        if (i == kParamVelCurve) return {"Concave", "Linear", "Convex"};
         uint32_t k = 0;
         fmOffset(i, k);
         if (k == kFmAlgorithm)
@@ -376,7 +382,7 @@ private:
             }
             return names;
         }
-        if (k == kFmOversample) return {"Off", "2x", "4x"};
+        if (k == kFmOversample) return {"Normal", "High", "Best"}; // oversampling Off / 2x / 4x
         return {"Sine", "1+2", "1+3", "1+3+5", "1-4"}; // operator wave (harmonic stacks)
     }
 
@@ -406,7 +412,7 @@ private:
             case kFmPitch:      return "Pitch";
             case kFmFine:       return "Fine";
             case kFmDetune:     return "Detune";
-            case kFmOversample: return "Oversample";
+            case kFmOversample: return "Quality";
             default: break;
             }
         }
@@ -416,6 +422,8 @@ private:
         case kParamFiltDecay:   return "Decay";
         case kParamFiltSustain: return "Sustain";
         case kParamFiltRelease: return "Release";
+        case kParamVelFloor:    return "Vel Floor";
+        case kParamVelCurve:    return "Vel Curve";
         default: return kParams[i].name;
         }
     }
@@ -423,13 +431,18 @@ private:
     // Module-category accent colours (PM-inspired).
     static Color colSound()   { return Color(60, 200, 90); }   // oscillators (FM engines) — green
     static Color colFilter()  { return Color(170, 112, 226); } // filter — purple
+    static Color colEnv()     { return Color(220, 206, 72); }  // response (velocity) — muted yellow
     static Color colComb()    { return Color(242, 150, 46); }  // global — orange
     static Color colNeutral() { return Color(120, 190, 205); } // chorus — teal
 
     GroupBox* groupFor(uint32_t i) const
     {
         uint32_t k;
-        if (fmOffset(i, k)) return fFmGroup.get();
+        if (fmOffset(i, k))
+        {
+            if (k == kFmOversample) return fGlobalGroup.get(); // "Quality": a CPU/sound setting
+            return k < kFmOpBase ? fEngineGroup.get() : fOpGroup.get();
+        }
         switch (i)
         {
         case kParamLpfCutoff: case kParamLpfResonance: case kParamLpfEnvAmount: case kParamLpfPressure:
@@ -439,6 +452,8 @@ private:
         case kParamChorusMix: case kParamChorusRate: case kParamChorusDepth:
         case kParamChorusDelay: case kParamChorusFeedback:
             return fChorusGroup.get();
+        case kParamVelFloor: case kParamVelCurve:
+            return fResponseGroup.get();
         default:
             return fGlobalGroup.get(); // Voices, Bend Range, Master
         }
@@ -447,8 +462,9 @@ private:
     Color accentFor(uint32_t i) const
     {
         const GroupBox* g = groupFor(i);
-        if (g == fFmGroup.get())                              return colSound();
+        if (g == fEngineGroup.get() || g == fOpGroup.get())   return colSound();
         if (g == fLpfGroup.get() || g == fFiltEnvGroup.get()) return colFilter();
+        if (g == fResponseGroup.get())                        return colEnv();
         if (g == fChorusGroup.get())                          return colNeutral();
         return colComb();
     }
@@ -590,8 +606,9 @@ private:
         const int topPad = logoH + static_cast<int>(6 * scale);
         fTopPad = topPad;
 
-        // Rows: FM engine (tall: 6 operator rows), then one module row sized for one knob
-        // (label + sphere + value) plus the group title strip; the FM row gets the rest.
+        // Two columns over one bottom row. Left: FM Engine above the two filter panels (each one
+        // knob row high); right: the Operators panel, full height. Bottom: Response | Chorus |
+        // Global. Module rows are sized for one knob (label + sphere + value) + the title strip.
         const int totalH = H - 2 * m - gap - topPad;
         const int rowH   = static_cast<int>(130 * scale);
         const int fmH    = totalH - rowH;
@@ -599,6 +616,9 @@ private:
         const int fullW  = W - 2 * m;
         const int fmY    = m + topPad;
         const int row1   = fmY + fmH + gap;
+        const int leftW  = static_cast<int>(300 * scale);
+        const int opX    = colL + leftW + gap;
+        const int engH   = fmH - 2 * (rowH + gap);
 
         // Knob sizes: module knobs full size, operator knobs smaller so six rows fit.
         const float knobD = std::fmax(30.0f, 54.0f * scale);
@@ -606,8 +626,9 @@ private:
         for (uint32_t i = 0; i < kParamCount; ++i)
             if (fKnobs[i]) fKnobs[i]->setDiameter(opItem(i) >= 0 ? opKnobD : knobD, txtScale);
 
-        GroupBox* allGroups[] = { fFmGroup.get(), fLpfGroup.get(), fFiltEnvGroup.get(),
-                                  fChorusGroup.get(), fGlobalGroup.get() };
+        GroupBox* allGroups[] = { fEngineGroup.get(), fOpGroup.get(), fLpfGroup.get(),
+                                  fFiltEnvGroup.get(), fResponseGroup.get(), fChorusGroup.get(),
+                                  fGlobalGroup.get() };
         for (GroupBox* g : allGroups)
             g->setUiScale(txtScale);
         for (uint32_t i = 0; i < kParamCount; ++i)
@@ -630,25 +651,30 @@ private:
             fPresetDropdown->setAbsolutePos(titleX + titleW + gap, m / 2);
         }
 
-        // Row 0: the FM engine.
-        placeGroup(fFmGroup.get(), colL, fmY, fullW, fmH);
-        layoutFmEngine();
+        // Left column: FM Engine, Low-Pass Filter, Filter Envelope. Right: Operators.
+        placeGroup(fEngineGroup.get(),  colL, fmY,                         leftW, engH);
+        placeGroup(fLpfGroup.get(),     colL, fmY + engH + gap,            leftW, rowH);
+        placeGroup(fFiltEnvGroup.get(), colL, fmY + engH + rowH + 2 * gap, leftW, rowH);
+        placeGroup(fOpGroup.get(),      opX,  fmY, colL + fullW - opX, fmH);
+        layoutEngine();
+        layoutOperators();
+        layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount, kParamLpfPressure});
+        layoutKnobRow(fFiltEnvGroup.get(), {kParamFiltAttack, kParamFiltDecay, kParamFiltSustain, kParamFiltRelease});
 
-        // Row 1: Low-Pass Filter | Filter Envelope | Chorus | Global. Widths roughly follow
-        // control count, with extra for the long LPF labels and Global's two dropdowns.
+        // Bottom row: Response (2 dropdowns) | Chorus (5 knobs) | Global (2 dropdowns, Quality,
+        // Master), widths roughly by control count.
         {
-            const int avail = fullW - 3 * gap;
-            const int lpfW = avail * 9 / 36, envW = avail * 8 / 36, chW = avail * 10 / 36;
+            const int avail = fullW - 2 * gap;
+            const int respW = avail * 6 / 26, chW = avail * 11 / 26;
             int x = colL;
-            placeGroup(fLpfGroup.get(),     x, row1, lpfW, rowH); x += lpfW + gap;
-            placeGroup(fFiltEnvGroup.get(), x, row1, envW, rowH); x += envW + gap;
-            placeGroup(fChorusGroup.get(),  x, row1, chW,  rowH); x += chW + gap;
-            placeGroup(fGlobalGroup.get(),  x, row1, colL + fullW - x, rowH);
-            layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount, kParamLpfPressure});
-            layoutKnobRow(fFiltEnvGroup.get(), {kParamFiltAttack, kParamFiltDecay, kParamFiltSustain, kParamFiltRelease});
+            placeGroup(fResponseGroup.get(), x, row1, respW, rowH); x += respW + gap;
+            placeGroup(fChorusGroup.get(),   x, row1, chW,   rowH); x += chW + gap;
+            placeGroup(fGlobalGroup.get(),   x, row1, colL + fullW - x, rowH);
+            layoutKnobRow(fResponseGroup.get(), {kParamVelFloor, kParamVelCurve});
             layoutKnobRow(fChorusGroup.get(), {kParamChorusMix, kParamChorusRate, kParamChorusDepth,
                                                kParamChorusDelay, kParamChorusFeedback});
-            layoutKnobRow(fGlobalGroup.get(), {kParamVoiceMode, kParamBendRange, kParamMasterLevel});
+            layoutKnobRow(fGlobalGroup.get(), {kParamVoiceMode, kParamBendRange, kParamOversample,
+                                               kParamMasterLevel});
         }
 
         // Help button: far right of the top strip (the dev DUMP button sits just left of it).
@@ -665,43 +691,48 @@ private:
 #endif
     }
 
-    // The FM engine panel: a globals column (Algorithm; Feedback, Pitch / Fine, Detune;
-    // Oversample) on the left, then six operator rows — role caption, Wave dropdown, then Ratio,
-    // Fine, Level, Delay, Attack, Decay, Sustain, Release knobs.
-    void layoutFmEngine()
+    // FM Engine panel: Algorithm across the top, then Feedback (it belongs to the algorithm: one
+    // operator per algorithm feeds back), then the Tuning row — Pitch, Fine, Detune.
+    void layoutEngine()
     {
         int cx, cy, cw, ch;
-        fFmGroup->contentBounds(cx, cy, cw, ch);
-        const int gap   = static_cast<int>(12 * fUiScale);
+        fEngineGroup->contentBounds(cx, cy, cw, ch);
         const int dropH = static_cast<int>(46 * fUiScale);
+        place(fDropdowns[kParamAlgorithm].get(), cx, cy, cw, dropH);
+        const int rowH  = (ch - dropH) / 2;
+        const int cellW = cw / 3;
+        place(fKnobs[kParamFeedback].get(), cx, cy + dropH, cellW, rowH);
+        const int tuneY = cy + dropH + rowH;
+        place(fKnobs[kParamPitch].get(),  cx,             tuneY, cellW,             ch - dropH - rowH);
+        place(fKnobs[kParamFine].get(),   cx + cellW,     tuneY, cellW,             ch - dropH - rowH);
+        place(fKnobs[kParamDetune].get(), cx + 2 * cellW, tuneY, cw - 2 * cellW,    ch - dropH - rowH);
+    }
 
-        // Globals column.
-        const int gw = static_cast<int>(210 * fUiScale);
-        place(fDropdowns[fmParam(kFmAlgorithm)].get(), cx, cy, gw, dropH);
-        const int knobAreaH = ch - 2 * dropH;
-        const int kh = knobAreaH / 2, kw = gw / 2;
-        place(fKnobs[fmParam(kFmFeedback)].get(), cx,      cy + dropH,      kw,      kh);
-        place(fKnobs[fmParam(kFmPitch)].get(),    cx + kw, cy + dropH,      gw - kw, kh);
-        place(fKnobs[fmParam(kFmFine)].get(),     cx,      cy + dropH + kh, kw,      knobAreaH - kh);
-        place(fKnobs[fmParam(kFmDetune)].get(),   cx + kw, cy + dropH + kh, gw - kw, knobAreaH - kh);
-        place(fDropdowns[fmParam(kFmOversample)].get(), cx, cy + dropH + knobAreaH, gw, dropH);
-
-        // Operator rows.
-        const int ox     = cx + gw + gap;
-        const int ow     = cx + cw - ox;
+    // Operators panel: six rows — role caption, Wave dropdown, then Ratio, Fine, Level, Delay,
+    // Attack, Decay, Sustain, Release knobs.
+    void layoutOperators()
+    {
+        int cx, cy, cw, ch;
+        fOpGroup->contentBounds(cx, cy, cw, ch);
+        // The Wave dropdown needs room for "1+3+5" plus its chevron, so its column is 1.4 knob
+        // columns wide.
         const int labelW = static_cast<int>(80 * fUiScale);
-        const int cellW  = (ow - labelW) / static_cast<int>(kFmOpCount);
+        const int cellW  = static_cast<int>((cw - labelW) / (kFmOpCount - 1 + 1.4f));
+        const int waveW  = cw - labelW - static_cast<int>(kFmOpCount - 1) * cellW;
         const int rowH   = ch / static_cast<int>(kFmOperators);
         for (uint32_t o = 0; o < kFmOperators; ++o)
         {
             const int y = cy + static_cast<int>(o) * rowH;
-            place(fOpLabel[o].get(), ox, y, labelW, rowH);
+            place(fOpLabel[o].get(), cx, y, labelW, rowH);
+            int x = cx + labelW;
             for (uint32_t j = 0; j < kFmOpCount; ++j)
             {
                 const uint32_t id = fmOpParam(o, j);
                 SubWidget* w = fKnobs[id] ? static_cast<SubWidget*>(fKnobs[id].get())
                                           : static_cast<SubWidget*>(fDropdowns[id].get());
-                place(w, ox + labelW + static_cast<int>(j) * cellW, y, cellW, rowH);
+                const int width = j == kOpWave ? waveW : cellW;
+                place(w, x, y, width, rowH);
+                x += width;
             }
         }
     }

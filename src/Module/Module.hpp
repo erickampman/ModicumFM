@@ -33,7 +33,7 @@ class PitchConverter;
 // need a bunch for EDODiscretizer. Kind of a waste, since most are booleans,
 // but translating between bitfields and the underlying float values would get
 // kind of hairy if I were to go that route. 
-// 128: FM6OpParamItem numbers its items up to 93 (six 13-item operator blocks plus globals), with
+// 128: FM6OpParamItem numbers its items up to 95 (six 13-item operator blocks plus globals), with
 // headroom for appended macro items. Items pack into 8 bits of the param address, and the
 // `uint8_t i <= MODULE_MAX_PARAMS` loops in Voice.cpp need it below 255.
 constexpr int MODULE_MAX_PARAMS = 128;

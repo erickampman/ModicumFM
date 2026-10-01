@@ -183,6 +183,8 @@ private:
         case kParamChorusDepth:    return chorus(ChorusParamItemModDelayLevel);
         case kParamChorusDelay:    return chorus(ChorusParamItemBaseDelay);
         case kParamChorusFeedback: return chorus(ChorusParamItemFeedback);
+        case kParamVelFloor:       return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemVelFloor);
+        case kParamVelCurve:       return MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemVelCurve);
         default:                   return 0;
         }
     }
