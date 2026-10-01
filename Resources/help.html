@@ -110,8 +110,14 @@ green) or <b>mod N</b> (a modulator N steps away from the output).</p>
 <dl>
   <dt>Wave</dt><dd>Sine, or a small harmonic stack (<code>1+2</code>, <code>1+3</code>,
   <code>1+3+5</code>, <code>1-4</code>) for richer modulators and carriers.</dd>
-  <dt>Ratio / Fine</dt><dd>Operator frequency as a multiple of the note. Whole-number ratios give
-  harmonic tones; in-between ratios give bells and metallic sounds.</dd>
+  <dt>Ratio</dt><dd>Operator frequency as a multiple of the note. A plain drag (or the mouse
+  wheel) steps through the harmonic ratios 0.5, 1, 2 … 16, which give clean, pitched tones.
+  <b>Shift</b>-drag moves the ratio smoothly instead (hold <b>Ctrl</b> too for very fine steps;
+  Shift + wheel nudges it): small offsets make slow beating, larger in-between ratios such as
+  1.41 or 3.5 give bells and metallic sounds. Off-grid ratios show three decimals. Double-click
+  snaps back to the nearest harmonic ratio; double-click again for 1. (A fine-tune offset in
+  cents, from older presets or automation, shows as e.g. <code>+7c</code> and is cleared by
+  double-click.)</dd>
   <dt>Level</dt><dd>For a carrier, its loudness. For a modulator, the modulation index — how many
   harmonics it adds.</dd>
   <dt>Delay / Attack / Decay / Sustain / Release</dt><dd>The operator's own envelope. On a carrier

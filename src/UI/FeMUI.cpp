@@ -1,6 +1,6 @@
 // FeMUI.cpp — UI side. Under the top strip (logo, wordmark, preset menu, help):
 //
-//   FM Engine (Algorithm, Feedback, │ Operators: 6 rows (role caption, Wave, Ratio, Fine, Level,
+//   FM Engine (Algorithm, Feedback, │ Operators: 6 rows (role caption, Wave, Ratio, Level,
 //     Pitch / Fine / Detune)        │   Delay/Attack/Decay/Sustain/Release)
 //   Low-Pass Filter                 │
 //   Filter Envelope                 │
@@ -9,7 +9,8 @@
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
 // operator's role in the current algorithm (carrier, or modulator N hops from the output) —
 // the same role analysis the planned macros use (docs/ROADMAP.md). The UI is the callback for
-// all controls, routing by param index.
+// all controls, routing by param index. Each operator's Ratio is a RatioKnob, which also edits
+// that operator's Fine param (no Fine knob of its own).
 
 #include "DistrhoUI.hpp"
 
@@ -32,7 +33,9 @@
 #include "Logo.hpp"
 #include "PopupMenu.hpp"
 #include "PresetDump.hpp" // dev-only JSON patch dumper (no-op unless FEM_PRESET_DUMP=1)
+#include "ParamEdit.hpp"
 #include "PresetKeys.hpp"
+#include "RatioKnob.hpp"
 #include "TitleText.hpp"
 #include "FeMParams.h"
 #include "FM6OpAlgorithms.hpp" // algorithm table + operator roles (shared with the engine)
@@ -51,6 +54,7 @@ using DGL_NAMESPACE::Label;
 using DGL_NAMESPACE::Logo;
 using DGL_NAMESPACE::NanoSubWidget;
 using DGL_NAMESPACE::PopupMenu;
+using DGL_NAMESPACE::RatioKnob;
 using DGL_NAMESPACE::SubWidget;
 using DGL_NAMESPACE::TitleText;
 
@@ -97,7 +101,8 @@ private:
 class FeMUI : public UI,
               public Knob::Callback,
               public Dropdown::Callback,
-              public PopupMenu::Callback
+              public PopupMenu::Callback,
+              public ParamEditCallback
 {
 public:
     FeMUI()
@@ -123,6 +128,20 @@ public:
 
         for (uint32_t i = 0; i < kParamCount; ++i)
         {
+            if (opItem(i) == kOpFine)
+                continue; // edited through its operator's RatioKnob
+            if (opItem(i) == kOpRatio)
+            {
+                const uint32_t op = (i - fmOpParam(0, kOpRatio)) / kFmOpCount;
+                auto rk = std::make_unique<RatioKnob>(groupFor(i), this, i, fmOpParam(op, kOpFine));
+                rk->setLabel(labelFor(i));
+                rk->setAccentColor(accentFor(i));
+                rk->configure(kParams[i].min, kParams[i].max, kParams[i].logarithmic, kParams[i].def);
+                rk->setRatio(kParams[i].def);
+                fRatioKnob[op] = rk.get();
+                fKnobs[i] = std::move(rk);
+                continue;
+            }
             if (isDropdownParam(i))
             {
                 auto d = std::make_unique<Dropdown>(groupFor(i), this);
@@ -197,10 +216,17 @@ protected:
     {
         if (index >= kParamCount)
             return;
+        recordMirror(index, value);
+        if (opItem(index) == kOpRatio || opItem(index) == kOpFine)
+        {
+            RatioKnob* rk = fRatioKnob[(index - fmOpParam(0, 0)) / kFmOpCount];
+            if (opItem(index) == kOpRatio) rk->setRatio(value);
+            else                           rk->setFineCents(value);
+            return;
+        }
         if (fKnobs[index])     { fKnobs[index]->setRealValue(value, false); fKnobs[index]->repaint(); }
         if (fDropdowns[index]) fDropdowns[index]->setIndex(static_cast<int>(value));
         if (index == kParamAlgorithm) updateOpRoles(static_cast<int>(value));
-        recordMirror(index, value);
     }
 
     /* -- knob -> host ----------------------------------------------------- */
@@ -210,6 +236,15 @@ protected:
     {
         const uint32_t id = k->getId();
         if (kParams[id].integer) v = std::round(v); // e.g. engine Pitch in whole semitones
+        setParameterValue(id, v);
+        recordMirror(id, v);
+    }
+
+    /* -- composite widgets -> host (RatioKnob) ---------------------------- */
+    void paramEditBegin(uint32_t id) override { editParameter(id, true); }
+    void paramEditEnd(uint32_t id) override   { editParameter(id, false); }
+    void paramEditChange(uint32_t id, float v) override
+    {
         setParameterValue(id, v);
         recordMirror(id, v);
     }
@@ -309,7 +344,8 @@ private:
     std::unique_ptr<GroupBox>   fEngineGroup, fOpGroup;
     std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fResponseGroup, fChorusGroup, fGlobalGroup;
     std::unique_ptr<Label>      fOpLabel[kFmOperators];
-    std::unique_ptr<Knob>       fKnobs[kParamCount];
+    std::unique_ptr<Knob>       fKnobs[kParamCount];          // (Ratio entries are RatioKnobs)
+    RatioKnob*                  fRatioKnob[kFmOperators] = {}; // views into fKnobs, per operator
     std::unique_ptr<Dropdown>   fDropdowns[kParamCount];
     std::unique_ptr<Logo>       fLogo;
     std::unique_ptr<TitleText>  fTitleText;
@@ -708,24 +744,27 @@ private:
         place(fKnobs[kParamDetune].get(), cx + 2 * cellW, tuneY, cw - 2 * cellW,    ch - dropH - rowH);
     }
 
-    // Operators panel: six rows — role caption, Wave dropdown, then Ratio, Fine, Level, Delay,
-    // Attack, Decay, Sustain, Release knobs.
+    // Operators panel: six rows — role caption, Wave dropdown, then Ratio (+ hidden Fine), Level,
+    // Delay, Attack, Decay, Sustain, Release knobs.
     void layoutOperators()
     {
         int cx, cy, cw, ch;
         fOpGroup->contentBounds(cx, cy, cw, ch);
         // The Wave dropdown needs room for "1+3+5" plus its chevron, so its column is 1.4 knob
         // columns wide.
+        static constexpr uint32_t kColumns[] = {kOpWave, kOpRatio, kOpLevel, kOpDelay,
+                                                kOpAttack, kOpDecay, kOpSustain, kOpRelease};
+        constexpr int nKnobCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0])) - 1;
         const int labelW = static_cast<int>(80 * fUiScale);
-        const int cellW  = static_cast<int>((cw - labelW) / (kFmOpCount - 1 + 1.4f));
-        const int waveW  = cw - labelW - static_cast<int>(kFmOpCount - 1) * cellW;
+        const int cellW  = static_cast<int>((cw - labelW) / (nKnobCols + 1.4f));
+        const int waveW  = cw - labelW - nKnobCols * cellW;
         const int rowH   = ch / static_cast<int>(kFmOperators);
         for (uint32_t o = 0; o < kFmOperators; ++o)
         {
             const int y = cy + static_cast<int>(o) * rowH;
             place(fOpLabel[o].get(), cx, y, labelW, rowH);
             int x = cx + labelW;
-            for (uint32_t j = 0; j < kFmOpCount; ++j)
+            for (uint32_t j : kColumns)
             {
                 const uint32_t id = fmOpParam(o, j);
                 SubWidget* w = fKnobs[id] ? static_cast<SubWidget*>(fKnobs[id].get())

@@ -25,8 +25,9 @@ note pitch + pitch bend ──> FM6Op engine
     Output is normalised by carrier count.
   - Coarse/fine tune, stereo **Detune** (L/R up to ±25 cents), optional 2×/4× oversampling
     (shown as Global → Quality).
-  - Six operators, each with a wave (sine or a small harmonic stack), ratio, fine, level and a
-    delay-ADSR envelope. Decay and release are times to fall 60 dB.
+  - Six operators, each with a wave (sine or a small harmonic stack), ratio, level and a
+    delay-ADSR envelope. The Ratio knob snaps to harmonic ratios; Shift-drag is continuous
+    (the per-operator Fine param remains for presets/automation but has no knob). Decay and release are times to fall 60 dB.
   - No VCA: the carriers' envelopes are the amp envelope, and a voice frees once it falls
     silent.
   - The panel labels each operator's role in the current algorithm ("out" or "mod N").
