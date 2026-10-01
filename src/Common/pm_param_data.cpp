@@ -117,14 +117,14 @@ static const ModuleParamConstants fm6OpConstants[] = {
    {"body",          FM6OpParamItemBody,          0,  0, nullptr, -1.0f, 1.0f, 0.0f, 0},
    {"touch",         FM6OpParamItemTouch,         0,  0, nullptr, 0.0f, 1.0f, 0.0f, 0},  // response: neutral
    {"keyTrack",      FM6OpParamItemKeyTrack,      0,  0, nullptr, -1.0f, 1.0f, 0.0f, 0},
-   {"loudAttack",    FM6OpParamItemLoudAttack,    0,  0, nullptr, 0.1f, 10.0f, 1.0f, 0},  // shared envs: neutral
-   {"loudDecay",     FM6OpParamItemLoudDecay,     0,  0, nullptr, 0.1f, 10.0f, 1.0f, 0},
+   {"loudAttack",    FM6OpParamItemLoudAttack,    0,  0, nullptr, 0.01f, 1000.0f, 1.0f, 0},  // shared envs: neutral
+   {"loudDecay",     FM6OpParamItemLoudDecay,     0,  0, nullptr, 0.01f, 1000.0f, 1.0f, 0},
    {"loudSustain",   FM6OpParamItemLoudSustain,   0,  0, nullptr, -1.0f, 1.0f, 0.0f, 0},
-   {"loudRelease",   FM6OpParamItemLoudRelease,   0,  0, nullptr, 0.1f, 10.0f, 1.0f, 0},
-   {"brightAttack",  FM6OpParamItemBrightAttack,  0,  0, nullptr, 0.1f, 10.0f, 1.0f, 0},
-   {"brightDecay",   FM6OpParamItemBrightDecay,   0,  0, nullptr, 0.1f, 10.0f, 1.0f, 0},
+   {"loudRelease",   FM6OpParamItemLoudRelease,   0,  0, nullptr, 0.01f, 1000.0f, 1.0f, 0},
+   {"brightAttack",  FM6OpParamItemBrightAttack,  0,  0, nullptr, 0.01f, 1000.0f, 1.0f, 0},
+   {"brightDecay",   FM6OpParamItemBrightDecay,   0,  0, nullptr, 0.01f, 1000.0f, 1.0f, 0},
    {"brightSustain", FM6OpParamItemBrightSustain, 0,  0, nullptr, -1.0f, 1.0f, 0.0f, 0},
-   {"brightRelease", FM6OpParamItemBrightRelease, 0,  0, nullptr, 0.1f, 10.0f, 1.0f, 0},
+   {"brightRelease", FM6OpParamItemBrightRelease, 0,  0, nullptr, 0.01f, 1000.0f, 1.0f, 0},
 };
 #undef FM6OP_OP
 const ModuleParamConstantsGroup fm6OpConstantsGroup = {

@@ -403,6 +403,23 @@ int main() {
       CHECK(std::fabs(rms(dark, 30 * kN, 40 * kN) / rms(ref, 30 * kN, 40 * kN) - 1.0) < 0.15,
             "Brightness envelope leaves the loudness alone");
 
+      // Wide range: ×0.01 sharpens a 1 s attack to ~10 ms; ×500 stretches a 1 ms attack to ~0.5 s.
+      set(fm, FM6OpParamItemOp1Attack, 1.0f);
+      env(1, 1, 0, 1, 1, 1, 0, 1);
+      const std::vector<float> padAtk = renderNote(fm, 40);
+      env(0.01f, 1, 0, 1, 1, 1, 0, 1);
+      const std::vector<float> padSharp = renderNote(fm, 40);
+      CHECK(rms(padSharp, 2 * kN, 4 * kN) > rms(padAtk, 2 * kN, 4 * kN) * 5.0, "Loudness Attack ×0.01 sharpens a slow attack");
+      set(fm, FM6OpParamItemOp1Attack, 0.001f);
+      env(1, 1, 0, 1, 1, 1, 0, 1);
+      const std::vector<float> fastAtk = renderNote(fm, 40);
+      env(500, 1, 0, 1, 1, 1, 0, 1);
+      const std::vector<float> stretched = renderNote(fm, 40);
+      CHECK(rms(stretched, 0, 4 * kN) < rms(fastAtk, 0, 4 * kN) * 0.2, "Loudness Attack ×500 stretches a 1 ms attack");
+      std::printf("shared env range: 1 s attack x0.01 %.3f vs %.3f | 1 ms attack x500 %.3f vs %.3f (first ~40 ms)\n",
+                  rms(padSharp, 2 * kN, 4 * kN), rms(padAtk, 2 * kN, 4 * kN), rms(stretched, 0, 4 * kN), rms(fastAtk, 0, 4 * kN));
+      set(fm, FM6OpParamItemOp1Attack, 0.01f);
+
       // Loudness Sustain +1 on a plucked carrier (sustain 0): the note now holds.
       set(fm, FM6OpParamItemOp1Sustain, 0.0f); set(fm, FM6OpParamItemOp1Decay, 0.2f);
       env(1, 1, 0, 1, 1, 1, 0, 1);

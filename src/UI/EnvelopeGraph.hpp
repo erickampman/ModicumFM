@@ -18,7 +18,7 @@
 // param, so hosts record automation like any knob).
 //
 // Relative mode (the Voice tab's shared Loudness / Brightness envelopes): the bound params are
-// MULTIPLIERS on a base envelope (times) and an OFFSET on its sustain. The graph draws the
+// MULTIPLIERS on a base envelope (times, effective result capped like the engine's) and an OFFSET on its sustain. The graph draws the
 // effective envelope — base × multiplier, sustain base offset toward 1 (+) or 0 (-) — and a drag
 // moves the effective point and stores the multiplier / offset that produce it. setBase() feeds
 // in the base envelope (a representative operator's). Disabled: greyed out with a message.
@@ -193,7 +193,7 @@ protected:
         {
             // Move the EFFECTIVE time in compressed space; store the param that produces it.
             const float u = warp(display(timeSlot)) + dx * kWarpPerPixel / fUiScale * speed;
-            const float t = unwarp(u);
+            const float t = fRelative ? std::fmin(unwarp(u), kRelMaxTime[timeSlot]) : unwarp(u);
             setSlotValue(timeSlot, fRelative ? t / std::fmax(1e-4f, fBase[timeSlot]) : t);
         }
         if (fDragPoint == kPtDecay && dy != 0.0f)
@@ -220,6 +220,8 @@ private:
     bool   fRelative = false, fDisabled = false;
     std::string fDisabledMsg;
     float  fBase[kSlotCount] = { 0.0f, 0.005f, 0.3f, 0.7f, 0.3f };   // relative mode's base envelope
+    // Relative mode: effective times are capped like the engine's (operator limits).
+    static constexpr float kRelMaxTime[kSlotCount] = { 5.0f, 20.0f, 30.0f, 1.0f, 30.0f };
     Color  fAccent { 60, 200, 90 };
     float  fUiScale = 1.0f;
     bool   fHasFont = false;
@@ -240,7 +242,7 @@ private:
             const float b = fBase[kSustain];
             return v >= 0.0f ? b + (1.0f - b) * v : b * (1.0f + v);
         }
-        return fBase[s] * v;
+        return std::fmin(fBase[s] * v, kRelMaxTime[s]);
     }
     // Relative mode: the sustain offset that puts the effective sustain at `target`.
     float offsetFor(float target) const
@@ -389,7 +391,8 @@ private:
         if (!fRelative) return "";
         char b[16];
         if (s == kSustain) std::snprintf(b, sizeof(b), " (%+.2f)", fSlots[s].value);
-        else               std::snprintf(b, sizeof(b), " \xC3\x97%.2g", fSlots[s].value);
+        else               std::snprintf(b, sizeof(b), fSlots[s].value < 9.95f ? " \xC3\x97%.2g" : " \xC3\x97%.0f",
+                                         fSlots[s].value);
         return b;
     }
 

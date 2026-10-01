@@ -41,7 +41,7 @@ note pitch + pitch bend ──> FM6Op engine
   shorter modulator burst), Grit (feedback + top modulator), Body (carrier tilt + width) — applied in the
   engine on top of the operator settings, neutral by default; hovering one rings its target
   operators in the FM Engine diagram. Shared **Loudness / Brightness envelopes** scale every
-  carrier's / modulator's envelope (times ×0.1–×10, sustain offset) and draw a representative
+  carrier's / modulator's envelope (times ×0.01–×1000, capped at the operator limits; sustain offset) and draw a representative
   one; **Reset** returns all of it to neutral. The Operators tab (default) is the full engine.
 - **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve
   (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices; Touch

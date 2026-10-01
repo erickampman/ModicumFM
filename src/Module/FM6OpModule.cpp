@@ -225,7 +225,9 @@ static float fmVelocityLevel(uint32_t velocity16, int floorSel, int curveSel) {
 // --- Shared (relative) envelopes -------------------------------------------------
 
 // "Loudness" acts on every carrier's envelope, "Brightness" on every modulator's: attack, decay
-// and release times are multiplied (×0.1..×10), and sustain is offset — + moves it toward full,
+// and release times are multiplied (×0.01..×1000 — wide enough to sharpen a 1.5 s pad attack to
+// 15 ms or stretch a 1 ms pluck attack to a second), capped at the operator limits (attack 20 s,
+// decay/release 30 s), and sustain is offset — + moves it toward full,
 // - toward zero — so a plucked (sustain 0) operator can be made to hold. Scaling all operators
 // of a role by the same factors keeps their relationships (E.Piano's tine stays shorter than its
 // body). Exactly neutral at ×1 / 0.
@@ -411,7 +413,7 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
     const double keyMod    = std::exp2(-keyTrack * 0.6 * keyOct);
     const double keyTime   = std::exp2(-keyTrack * 0.5 * keyOct);
     // Shared envelopes: [0] carriers (Loudness), [1] modulators (Brightness).
-    const auto envMul = [&](uint8_t item) { return std::min(10.0, std::max(0.1, (double)module->getParamValue(item))); };
+    const auto envMul = [&](uint8_t item) { return std::min(1000.0, std::max(0.01, (double)module->getParamValue(item))); };
     const double envAtk[2] = { envMul(FM6OpParamItemLoudAttack),  envMul(FM6OpParamItemBrightAttack) };
     const double envDec[2] = { envMul(FM6OpParamItemLoudDecay),   envMul(FM6OpParamItemBrightDecay) };
     const double envRel[2] = { envMul(FM6OpParamItemLoudRelease), envMul(FM6OpParamItemBrightRelease) };
@@ -456,9 +458,9 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
         // Shared envelopes scale by role (carrier → Loudness, modulator → Brightness).
         const double biteT = modulator ? macros.bite : 0.0;
         const int    role  = modulator ? 1 : 0;
-        const double atkSec = module->getParamValue(opItem(oi, kAttack)) * (1.0 - 0.8 * biteT) * envAtk[role];
-        const double decSec = std::max(0.001, module->getParamValue(opItem(oi, kDecay)) * (1.0 - 0.85 * biteT) * keyTime * envDec[role]);
-        const double relSec = std::max(0.001, module->getParamValue(opItem(oi, kRelease)) * keyTime * envRel[role]);
+        const double atkSec = std::min(20.0, module->getParamValue(opItem(oi, kAttack)) * (1.0 - 0.8 * biteT) * envAtk[role]);
+        const double decSec = std::min(30.0, std::max(0.001, module->getParamValue(opItem(oi, kDecay)) * (1.0 - 0.85 * biteT) * keyTime * envDec[role]));
+        const double relSec = std::min(30.0, std::max(0.001, module->getParamValue(opItem(oi, kRelease)) * keyTime * envRel[role]));
         egAtkInc[oi]  = 1.0 / std::max(1.0, atkSec * sr);
         egDecCoef[oi] = 1.0 - std::exp(-kLn1000 / (decSec * sr));
         egSus[oi]     = fmSustainOffset(module->getParamValue(opItem(oi, kSustain)) * (1.0 - 0.7 * biteT), envSus[role]);

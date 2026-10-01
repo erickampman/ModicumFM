@@ -78,7 +78,7 @@ differences good patches depend on, e.g. E.Piano's short tine vs. long body, and
 preset to Shared change its sound).
 
 - Eight appended FM6Op items: Loudness (carriers) and Brightness (modulators) × Attack / Decay /
-  Release multipliers (×0.1–×10, neutral ×1) and a Sustain offset (−1..+1, neutral 0; + toward full,
+  Release multipliers (×0.01–×1000, neutral ×1; results capped at the operator limits, attack 20 s, decay/release 30 s — wide enough to sharpen a 1.5 s pad attack to 15 ms or stretch a 1 ms pluck attack to 1 s) and a Sustain offset (−1..+1, neutral 0; + toward full,
   − toward zero, so a sustain-0 pluck can be made to hold). Applied by role in the per-op hoist loop
   of `ProcessFM6OpModule`, alongside Bite and Key Track. Neutral is bit-identical (tested).
 - UI: two `EnvelopeGraph`s in **relative mode** on the Voice tab. Each draws a representative
