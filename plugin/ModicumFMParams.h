@@ -146,7 +146,7 @@ static constexpr ParamSpec kParams[kParamCount] = {
    // Low-pass filter (defaults fully open and unmodulated: the FM tone passes untouched)
    {"Cutoff",       "cutoff",   "oct", -6.0f,  5.4f,  5.4f,  false, false},
    {"Resonance",    "reso",     "",   1.0f,  20.0f,   1.0f,  false, false},
-   {"Env Amount",   "fenvamt",  "oct", -8.0f,  8.0f,  0.0f,  false, false},
+   {"Env Amount",   "fenvamt",  "oct", -12.0f, 12.0f, 0.0f,  false, false}, // ±12 oct: closed → fully open from any cutoff
    {"Pressure",     "pressure", "oct", -8.0f,  8.0f,  0.0f,  false, false},
    {"F Attack",     "fatt",     "s",  0.001f, 10.0f,  0.005f, true, false},
    {"F Decay",      "fdec",     "s",  0.001f, 10.0f,  0.5f,  true,  false},
