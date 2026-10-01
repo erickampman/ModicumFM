@@ -2,8 +2,8 @@
 // Left-aligned and vertically centred in its box, DPF's bundled DejaVu Sans like the GroupBox
 // titles. Not interactive.
 
-#ifndef FEM_LABEL_HPP
-#define FEM_LABEL_HPP
+#ifndef MODICUMFM_LABEL_HPP
+#define MODICUMFM_LABEL_HPP
 
 #include "NanoVG.hpp"
 
@@ -47,4 +47,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // FEM_LABEL_HPP
+#endif // MODICUMFM_LABEL_HPP

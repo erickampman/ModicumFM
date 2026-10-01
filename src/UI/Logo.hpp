@@ -2,8 +2,8 @@
 // source image's own aspect ratio (never stretched). A click opens unlikelyware.com in the
 // system's default browser.
 
-#ifndef FEM_LOGO_HPP
-#define FEM_LOGO_HPP
+#ifndef MODICUMFM_LOGO_HPP
+#define MODICUMFM_LOGO_HPP
 
 #include "NanoVG.hpp"
 
@@ -84,4 +84,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // FEM_LOGO_HPP
+#endif // MODICUMFM_LOGO_HPP

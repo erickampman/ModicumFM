@@ -8,8 +8,8 @@
 //  numerator feed-forward (x[n-1], x[n-2]) for stage 2.
 //
 
-#ifndef FEM_BUTTERLOW4_HPP
-#define FEM_BUTTERLOW4_HPP
+#ifndef MODICUMFM_BUTTERLOW4_HPP
+#define MODICUMFM_BUTTERLOW4_HPP
 
 #include <cmath>
 
@@ -97,4 +97,4 @@ private:
     double          q_;
 };
 
-#endif // FEM_BUTTERLOW4_HPP
+#endif // MODICUMFM_BUTTERLOW4_HPP

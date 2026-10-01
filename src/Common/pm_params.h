@@ -306,7 +306,7 @@ enum VoiceStealAlgorithm : NSUInteger {
 
 // Per-parameter constants (portable): the source for CLAP clap_param_info generation.
 
-// --- FeM voice modules (ported from PolygraphModularUnified) ---
+// --- ModicumFM voice modules (ported from PolygraphModularUnified) ---
 enum LFOParamWave : NSUInteger {
    LFOParamWaveSine = 0,
    LFOParamWaveTriangle,

@@ -56,7 +56,7 @@ void VoiceManager::reset() {
 void VoiceManager::buildDefaultPatch(Voice& voice)
 {
 #if HAS_DEFAULT_PATCH
-    // FeM voice:
+    // ModicumFM voice:
     //   PitchConverter + PitchBend --(Combine 2, Add)--> FM6Op pitch
     //   FM6Op --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = channel pressure)
     //   --> Chorus (delay mod = SharedLFO, one phase across all voices) --> Final

@@ -4,8 +4,8 @@
 //  changing modulation signal can't make the IIR filter jump (and ring/blow up).
 //
 
-#ifndef FEM_FMSLEWLIMITER_HPP
-#define FEM_FMSLEWLIMITER_HPP
+#ifndef MODICUMFM_FMSLEWLIMITER_HPP
+#define MODICUMFM_FMSLEWLIMITER_HPP
 
 #include <algorithm>
 
@@ -35,4 +35,4 @@ private:
     }
 };
 
-#endif // FEM_FMSLEWLIMITER_HPP
+#endif // MODICUMFM_FMSLEWLIMITER_HPP

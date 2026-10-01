@@ -11,8 +11,8 @@
 // automatic layout tangles on algorithms like 16, 18 and 22. Routing, carriers and the feedback
 // path themselves come from the engine's table (FM6OpAlgorithms.hpp), so they can't drift apart.
 
-#ifndef FEM_ALGORITHMDIAGRAM_HPP
-#define FEM_ALGORITHMDIAGRAM_HPP
+#ifndef MODICUMFM_ALGORITHMDIAGRAM_HPP
+#define MODICUMFM_ALGORITHMDIAGRAM_HPP
 
 #include "NanoVG.hpp"
 #include "FM6OpAlgorithms.hpp"
@@ -351,4 +351,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // FEM_ALGORITHMDIAGRAM_HPP
+#endif // MODICUMFM_ALGORITHMDIAGRAM_HPP

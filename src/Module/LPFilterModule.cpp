@@ -1,5 +1,5 @@
 //
-//  LPFilterModule.cpp — 24 dB/oct Butterworth low-pass (FeM port of PM's LPFilterModule).
+//  LPFilterModule.cpp — 24 dB/oct Butterworth low-pass (ModicumFM port of PM's LPFilterModule).
 //
 //  Two cascaded DF1 biquads (ButterLow4) per channel. Coefficients are recomputed once per
 //  16-sample control block: cutoff = pitchConverter->pitchToFrequency(pitch + freq-mods), Q is

@@ -1,4 +1,4 @@
-// pm_factory_test — builds the whole FeM module set through ModuleFactory + the
+// pm_factory_test — builds the whole ModicumFM module set through ModuleFactory + the
 // getModuleInitSpecs() registry, places them in a ModuleMap (as a Voice will), and confirms an
 // FM6Op among them sounds when sent a note. Proves the factory/spec glue off Apple.
 
@@ -40,7 +40,7 @@ int main() {
    }
    CHECK(map.allModules().size() == 10, "10 modules built into the map");
 
-   // Every module of the FeM voice is present.
+   // Every module of the ModicumFM voice is present.
    const AUParameterAddress expected[] = {
       pitchConverter1Address, pitchBend1Address, combine2Address, fm6Op1Address, lpf1Address,
       adsr1Address, channelPressure1Address, chorus1Address, sharedLFO1Address, finalAddress};

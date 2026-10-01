@@ -1,4 +1,4 @@
-// pm_module_specs.cpp — the FeM module registry. getModuleInitSpecs() lists exactly the modules
+// pm_module_specs.cpp — the ModicumFM module registry. getModuleInitSpecs() lists exactly the modules
 // the fixed voice instantiates (wired in VoiceManager::buildDefaultPatch). Each entry: {address,
 // param group, init/deinit/process/midi/param/reset/sampleRate procs[, shared-state create proc]}.
 

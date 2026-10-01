@@ -11,8 +11,8 @@
 // presets / automation, shows in the readout when non-zero ("2.00 +7c"), and double-click clears
 // it. Both params are edited through ParamEditCallback so the host sees begin/change/end gestures.
 
-#ifndef FEM_RATIOKNOB_HPP
-#define FEM_RATIOKNOB_HPP
+#ifndef MODICUMFM_RATIOKNOB_HPP
+#define MODICUMFM_RATIOKNOB_HPP
 
 #include "Knob.hpp"
 #include "ParamEdit.hpp"
@@ -28,7 +28,7 @@ class RatioKnob : public Knob
 public:
     // The base Knob's own callback is never used: all of its event-handler entry points are
     // overridden below, so it is constructed with none.
-    RatioKnob(Widget* parent, fem::ParamEditCallback* cb, uint32_t ratioId, uint32_t fineId)
+    RatioKnob(Widget* parent, modicumfm::ParamEditCallback* cb, uint32_t ratioId, uint32_t fineId)
         : Knob(parent, nullptr), fCb(cb), fRatioId(ratioId), fFineId(fineId)
     {
         setId(ratioId);
@@ -125,7 +125,7 @@ private:
                                                  9, 10, 11, 12, 13, 14, 15, 16};
     static constexpr double kPixelsPerStep = 10.0;
 
-    fem::ParamEditCallback* fCb;
+    modicumfm::ParamEditCallback* fCb;
     uint32_t fRatioId, fFineId;
     float    fRatio = 1.0f, fFineCents = 0.0f;
     bool     fDragging = false, fFineMode = false;
@@ -198,4 +198,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // FEM_RATIOKNOB_HPP
+#endif // MODICUMFM_RATIOKNOB_HPP

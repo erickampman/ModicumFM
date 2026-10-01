@@ -1,9 +1,9 @@
-// TitleText.hpp — the "FeM" wordmark: "Fe" and "M" drawn in two accent colors using the
+// TitleText.hpp — the "ModicumFM" wordmark: "Modicum" and "FM" drawn in two accent colors using the
 // embedded Almendra display font (see EmbeddedResources.hpp / Resources/Almendra-Regular.ttf).
 // Sits between the logo and the Preset dropdown in the top strip. Not interactive.
 
-#ifndef FEM_TITLETEXT_HPP
-#define FEM_TITLETEXT_HPP
+#ifndef MODICUMFM_TITLETEXT_HPP
+#define MODICUMFM_TITLETEXT_HPP
 
 #include "NanoVG.hpp"
 
@@ -46,12 +46,12 @@ protected:
 private:
     Color fColorA, fColorB;
     float fFontSize = 48.0f;
-    const std::string fPartA = "Fe";
-    const std::string fPartB = "M";
+    const std::string fPartA = "Modicum";
+    const std::string fPartB = "FM";
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TitleText)
 };
 
 END_NAMESPACE_DGL
 
-#endif // FEM_TITLETEXT_HPP
+#endif // MODICUMFM_TITLETEXT_HPP

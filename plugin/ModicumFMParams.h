@@ -1,4 +1,4 @@
-// FeMParams.h — the plugin's parameter table, shared by the DSP and UI.
+// ModicumFMParams.h — the plugin's parameter table, shared by the DSP and UI.
 //
 // Voice: one FM6Op engine → LPF (filter ADSR + channel pressure on cutoff) → chorus (shared LFO)
 // → master level. Pitch bend reaches the engine. The operator envelopes shape the amplitude.
@@ -11,12 +11,12 @@
 // automation key off these positions. New params (macros, templates, … — see docs/ROADMAP.md)
 // go immediately before kParamCount; never reorder or remove existing ones.
 
-#ifndef FEM_PARAMS_H
-#define FEM_PARAMS_H
+#ifndef MODICUMFM_PARAMS_H
+#define MODICUMFM_PARAMS_H
 
 #include <cstdint>
 
-namespace fem {
+namespace modicumfm {
 
 // Offsets within the FM engine block.
 enum FmEngineOffset {
@@ -44,7 +44,7 @@ enum FmOpOffset {
 constexpr uint32_t kFmOperators        = 6;
 constexpr uint32_t kFmEngineParamCount = kFmOpBase + kFmOperators * kFmOpCount; // 60
 
-#define FEM_FM_OP_PARAMS(O) \
+#define MODICUMFM_FM_OP_PARAMS(O) \
    kParamOp##O##Wave, kParamOp##O##Ratio, kParamOp##O##Fine, kParamOp##O##Level, \
    kParamOp##O##Delay, kParamOp##O##Attack, kParamOp##O##Decay, \
    kParamOp##O##Sustain, kParamOp##O##Release
@@ -56,8 +56,8 @@ enum ParamIndex {
    kParamMasterLevel,
    // FM engine
    kParamAlgorithm, kParamFeedback, kParamPitch, kParamFine, kParamDetune, kParamOversample,
-   FEM_FM_OP_PARAMS(1), FEM_FM_OP_PARAMS(2), FEM_FM_OP_PARAMS(3),
-   FEM_FM_OP_PARAMS(4), FEM_FM_OP_PARAMS(5), FEM_FM_OP_PARAMS(6),
+   MODICUMFM_FM_OP_PARAMS(1), MODICUMFM_FM_OP_PARAMS(2), MODICUMFM_FM_OP_PARAMS(3),
+   MODICUMFM_FM_OP_PARAMS(4), MODICUMFM_FM_OP_PARAMS(5), MODICUMFM_FM_OP_PARAMS(6),
    // Low-pass filter
    kParamLpfCutoff,      // octaves re 440 Hz
    kParamLpfResonance,
@@ -80,7 +80,7 @@ enum ParamIndex {
    kParamCount
 };
 
-#undef FEM_FM_OP_PARAMS
+#undef MODICUMFM_FM_OP_PARAMS
 
 static_assert(kParamLpfCutoff - kParamAlgorithm == kFmEngineParamCount, "engine block size");
 static_assert(kParamOp2Wave - kParamOp1Wave == kFmOpCount, "operator block size");
@@ -107,7 +107,7 @@ struct ParamSpec {
    bool        integer;
 };
 
-#define FEM_FM_OP_SPECS(O, LVL) \
+#define MODICUMFM_FM_OP_SPECS(O, LVL) \
    {"Op" #O " Wave",    "op" #O "wave", "",   0.0f,   4.0f,  0.0f,   false, true }, \
    {"Op" #O " Ratio",   "op" #O "rat",  "",   0.5f,  16.0f,  1.0f,   true,  false}, \
    {"Op" #O " Fine",    "op" #O "fine", "ct", -100.0f, 100.0f, 0.0f, false, false}, \
@@ -130,8 +130,8 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Fine",         "fine",     "ct", -100.0f, 100.0f, 0.0f, false, false},
    {"Detune",       "detune",   "",   0.0f,   1.0f,   0.1f,  false, false},
    {"Quality",      "ovs",      "",   0.0f,   2.0f,   0.0f,  false, true },
-   FEM_FM_OP_SPECS(1, 0.9f), FEM_FM_OP_SPECS(2, 0.35f), FEM_FM_OP_SPECS(3, 0.0f),
-   FEM_FM_OP_SPECS(4, 0.0f), FEM_FM_OP_SPECS(5, 0.0f),  FEM_FM_OP_SPECS(6, 0.0f),
+   MODICUMFM_FM_OP_SPECS(1, 0.9f), MODICUMFM_FM_OP_SPECS(2, 0.35f), MODICUMFM_FM_OP_SPECS(3, 0.0f),
+   MODICUMFM_FM_OP_SPECS(4, 0.0f), MODICUMFM_FM_OP_SPECS(5, 0.0f),  MODICUMFM_FM_OP_SPECS(6, 0.0f),
    // Low-pass filter (defaults fully open and unmodulated: the FM tone passes untouched)
    {"Cutoff",       "cutoff",   "oct", -6.0f,  5.4f,  5.4f,  false, false},
    {"Resonance",    "reso",     "",   1.0f,  20.0f,   1.0f,  false, false},
@@ -152,8 +152,8 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Velocity Curve", "velcurve", "", 0.0f,   2.0f,   1.0f,  false, true },
 };
 
-#undef FEM_FM_OP_SPECS
+#undef MODICUMFM_FM_OP_SPECS
 
-} // namespace fem
+} // namespace modicumfm
 
-#endif // FEM_PARAMS_H
+#endif // MODICUMFM_PARAMS_H

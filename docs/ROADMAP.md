@@ -1,6 +1,6 @@
-# FeM roadmap — hiding FM complexity
+# ModicumFM roadmap — hiding FM complexity
 
-FeM is one 6-operator FM engine with a full "expert" operator panel. The plan is to layer
+ModicumFM is one 6-operator FM engine with a full "expert" operator panel. The plan is to layer
 simpler controls on top of it without taking the expert panel away. Four ideas are planned; this
 file records what's already in place for each and where the rest plugs in.
 
@@ -39,9 +39,9 @@ come last.
     `pm_params.h`, with matching rows in `fm6OpConstants` (`pm_param_data.cpp`).
     `MODULE_MAX_PARAMS` is 128 and the engine uses 95, and a `static_assert` guards the
     limit.
-  - Plugin params are append-only too: add before `kParamCount` in `plugin/FeMParams.h`, with a
+  - Plugin params are append-only too: add before `kParamCount` in `plugin/ModicumFMParams.h`, with a
     `kParams` spec row, a `kPresetKeys` row (`src/UI/PresetKeys.hpp`), a `vmAddress()` case in
-    `FeMPlugin.cpp` and a place in the UI layout. DPF uses the index as the host-facing id, so
+    `ModicumFMPlugin.cpp` and a place in the UI layout. DPF uses the index as the host-facing id, so
     never reorder.
   - Presets load by `"module.item"` name, and missing keys keep their current value. So old
     presets stay valid as params are added. Give every new param a neutral default (one that
@@ -102,8 +102,8 @@ E-Piano: Hammer, Tine, Bark, Decay).
 - **Data:** `Templates/*.json`, compiled in by a `gen_templates.py` step, the same way
   `gen_presets.py` handles `Presets/*.json`. Each file holds the base patch (same schema as a
   preset) and the knob list: `{name, targets: [{key: "FM6Op.op2Level", from, to, curve}]}`.
-- **Params:** append **Template** (index) and **Template Knob 1..6** (0..1) to `FeMParams.h`.
-  The mapping runs DSP-side in `FeMPlugin::applyParam`: a knob change writes the underlying
+- **Params:** append **Template** (index) and **Template Knob 1..6** (0..1) to `ModicumFMParams.h`.
+  The mapping runs DSP-side in `ModicumFMPlugin::applyParam`: a knob change writes the underlying
   VoiceManager params. That way template knobs automate like any other param, and the expert
   panel still shows the true values.
 - **UI:** a "Voice" page with a template dropdown and the knobs, alongside the operator page.

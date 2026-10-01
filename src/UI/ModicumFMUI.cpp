@@ -1,4 +1,4 @@
-// FeMUI.cpp — UI side. Under the top strip (logo, wordmark, preset menu, help):
+// ModicumFMUI.cpp — UI side. Under the top strip (logo, wordmark, preset menu, help):
 //
 //   FM Engine (algorithm diagram +  │ Operators: 6 rows (role caption, Wave, Ratio, Level,
 //     Feedback; Pitch/Fine/Detune)  │   envelope graph)
@@ -36,19 +36,19 @@
 #include "Label.hpp"
 #include "Logo.hpp"
 #include "PopupMenu.hpp"
-#include "PresetDump.hpp" // dev-only JSON patch dumper (no-op unless FEM_PRESET_DUMP=1)
+#include "PresetDump.hpp" // dev-only JSON patch dumper (no-op unless MODICUMFM_PRESET_DUMP=1)
 #include "ParamEdit.hpp"
 #include "PresetKeys.hpp"
 #include "RatioKnob.hpp"
 #include "TitleText.hpp"
-#include "FeMParams.h"
+#include "ModicumFMParams.h"
 #include "FM6OpAlgorithms.hpp" // algorithm table + operator roles (shared with the engine)
 
 START_NAMESPACE_DISTRHO
 
 #include "extra/WebView.hpp" // native WebView overlay (WKWebView/WebKitGTK/WebView2), for Help
 
-using namespace fem;
+using namespace modicumfm;
 using DGL_NAMESPACE::AlgorithmPicker;
 using DGL_NAMESPACE::AlgorithmView;
 using DGL_NAMESPACE::Color;
@@ -65,7 +65,7 @@ using DGL_NAMESPACE::RatioKnob;
 using DGL_NAMESPACE::SubWidget;
 using DGL_NAMESPACE::TitleText;
 
-#if FEM_PRESET_DUMP
+#if MODICUMFM_PRESET_DUMP
 // Dev-only "DUMP" button: a plain left-click writes the patch JSON. A button (not a keystroke or
 // modifier-click) so it works identically in every host on macOS and Linux — Ctrl-click is a
 // right-click on macOS, and hosts often don't forward key events to a plugin UI at all.
@@ -105,14 +105,14 @@ private:
 };
 #endif
 
-class FeMUI : public UI,
+class ModicumFMUI : public UI,
               public Knob::Callback,
               public Dropdown::Callback,
               public PopupMenu::Callback,
               public ParamEditCallback
 {
 public:
-    FeMUI()
+    ModicumFMUI()
         : UI(DISTRHO_UI_DEFAULT_WIDTH, DISTRHO_UI_DEFAULT_HEIGHT)
     {
         // Lock the aspect ratio to the design ratio so no host can hand the plugin a
@@ -187,10 +187,10 @@ public:
                                 kParamFiltAttack, kParamFiltDecay, kParamFiltSustain,
                                 kParamFiltRelease);
 
-#if FEM_PRESET_DUMP
+#if MODICUMFM_PRESET_DUMP
         fDumpBtn = std::make_unique<DumpButton>(this, [this] {
             const std::string p = dumpPresetToFile(fMirror);
-            std::fprintf(stderr, "[FeM] patch %s %s\n",
+            std::fprintf(stderr, "[ModicumFM] patch %s %s\n",
                          p.empty() ? "dump FAILED" : "dumped to", p.c_str());
         });
 #endif
@@ -198,7 +198,7 @@ public:
         fLogo = std::make_unique<Logo>(this, EmbeddedResources::Unlikelyware_Final_ColorData,
                                         EmbeddedResources::Unlikelyware_Final_ColorDataSize);
 
-        // Wordmark: "Fe" + "M" in two accent colours sampled from the logo, Almendra (embedded,
+        // Wordmark: "Modicum" + "FM" in two accent colours sampled from the logo, Almendra (embedded,
         // matches the unlikelyware.com brand face).
         fTitleText = std::make_unique<TitleText>(this, EmbeddedResources::Almendra_RegularData,
                                                   EmbeddedResources::Almendra_RegularDataSize,
@@ -226,12 +226,12 @@ public:
         fMenu = std::make_unique<PopupMenu>(this, this);
 
         layout();
-#if FEM_PRESET_DUMP
+#if MODICUMFM_PRESET_DUMP
         for (uint32_t i = 0; i < kParamCount; ++i) fMirror[i] = kParams[i].def;
 #endif
     }
 
-    ~FeMUI() override
+    ~ModicumFMUI() override
     {
         if (fHelpWebView != nullptr)
             webViewDestroy(fHelpWebView);
@@ -408,7 +408,7 @@ private:
     // Sentinel dropdown id, distinct from every real ParamIndex, so dropdownClicked()/
     // menuSelected() can tell the preset selector apart from a per-param dropdown.
     static constexpr uint32_t kPresetDropdownId = kParamCount;
-#if FEM_PRESET_DUMP
+#if MODICUMFM_PRESET_DUMP
     std::unique_ptr<DumpButton> fDumpBtn;
 #endif
     float                       fUiScale = 1.0f; // set each layout() pass
@@ -604,7 +604,7 @@ private:
     }
 
     // Patch-value mirror for the dev-only JSON dumper: no-op (and no member) in release builds.
-#if FEM_PRESET_DUMP
+#if MODICUMFM_PRESET_DUMP
     float fMirror[kParamCount];
     void recordMirror(uint32_t id, float v) { if (id < kParamCount) fMirror[id] = v; }
 #else
@@ -636,7 +636,7 @@ private:
         const char* tmp = std::getenv("TMPDIR");
         std::string dir = (tmp && *tmp) ? tmp : "/tmp";
         if (!dir.empty() && dir.back() != '/') dir += '/';
-        return dir + "fem-help.html";
+        return dir + "modicumfm-help.html";
     }
 
     // The WebView needs a real file:// URL, not an in-memory buffer, so the embedded HTML bytes
@@ -791,7 +791,7 @@ private:
         const int helpW = static_cast<int>(34 * scale), helpH = static_cast<int>(28 * scale);
         fHelpButton->setSize(static_cast<uint>(helpW), static_cast<uint>(helpH));
         fHelpButton->setAbsolutePos(W - helpW - m, (topPad - helpH) / 2 + m / 2);
-#if FEM_PRESET_DUMP
+#if MODICUMFM_PRESET_DUMP
         if (fDumpBtn)
         {
             const int bw = static_cast<int>(58 * scale), bh = static_cast<int>(18 * scale);
@@ -869,12 +869,12 @@ private:
 
     void placeGroup(GroupBox* g, int x, int y, int w, int h) { place(g, x, y, w, h); }
 
-    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FeMUI)
+    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ModicumFMUI)
 };
 
 UI* createUI()
 {
-    return new FeMUI();
+    return new ModicumFMUI();
 }
 
 END_NAMESPACE_DISTRHO

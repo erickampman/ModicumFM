@@ -69,7 +69,7 @@ const ModuleParamConstantsGroup pitchConverterModuleConstantsGroup = {
    sizeof(pitchConverterConstants) / sizeof(pitchConverterConstants[0]), pitchConverterConstants};
 
 
-// --- FeM voice modules (tables ported from PolygraphModularUnified; unit/valueStrings/
+// --- ModicumFM voice modules (tables ported from PolygraphModularUnified; unit/valueStrings/
 // paramInfo left 0 like the rest of this file) ---
 
 #define FM6OP_OP(N, LVL) \

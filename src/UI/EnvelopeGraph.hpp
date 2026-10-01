@@ -17,8 +17,8 @@
 // value while hovering or dragging. Edits go through ParamEditCallback (begin/change/end per
 // param, so hosts record automation like any knob).
 
-#ifndef FEM_ENVELOPEGRAPH_HPP
-#define FEM_ENVELOPEGRAPH_HPP
+#ifndef MODICUMFM_ENVELOPEGRAPH_HPP
+#define MODICUMFM_ENVELOPEGRAPH_HPP
 
 #include "NanoVG.hpp"
 #include "ParamEdit.hpp"
@@ -36,7 +36,7 @@ public:
     enum Slot { kDelay = 0, kAttack, kDecay, kSustain, kRelease, kSlotCount };
     static constexpr uint32_t kNoParam = 0xffffffffu;
 
-    EnvelopeGraph(Widget* parent, fem::ParamEditCallback* cb)
+    EnvelopeGraph(Widget* parent, modicumfm::ParamEditCallback* cb)
         : NanoSubWidget(parent), fCb(cb)
     {
         fHasFont = loadSharedResources();
@@ -175,7 +175,7 @@ private:
     static constexpr float kWarpPerPixel = 0.035f;  // ~230 px across 1 ms .. 30 s
     static constexpr int   kCurveSteps   = 16;
 
-    fem::ParamEditCallback* fCb;
+    modicumfm::ParamEditCallback* fCb;
     Param  fSlots[kSlotCount];
     Color  fAccent { 60, 200, 90 };
     float  fUiScale = 1.0f;
@@ -339,4 +339,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // FEM_ENVELOPEGRAPH_HPP
+#endif // MODICUMFM_ENVELOPEGRAPH_HPP

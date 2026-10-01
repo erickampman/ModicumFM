@@ -1,14 +1,14 @@
 // PresetDump.hpp — DEV-ONLY. Writes the current patch as module-nested JSON (PM-style) to a
-// timestamped file in $HOME. Compiled in only when FEM_PRESET_DUMP=1 (see CMake option); the
+// timestamped file in $HOME. Compiled in only when MODICUMFM_PRESET_DUMP=1 (see CMake option); the
 // UI triggers it on a keystroke. Uses the kPresetKeys mapping (module-instance, item pair per
 // param) from PresetKeys.hpp, shared with the always-on preset loader.
 
-#ifndef FEM_PRESETDUMP_HPP
-#define FEM_PRESETDUMP_HPP
+#ifndef MODICUMFM_PRESETDUMP_HPP
+#define MODICUMFM_PRESETDUMP_HPP
 
-#if FEM_PRESET_DUMP
+#if MODICUMFM_PRESET_DUMP
 
-#include "FeMParams.h"
+#include "ModicumFMParams.h"
 #include "PresetKeys.hpp"
 
 #include <cmath>
@@ -19,7 +19,7 @@
 #include <ctime>
 #include <string>
 
-namespace fem {
+namespace modicumfm {
 
 // Emit modules in this order (signal-flow-ish); every module in kPresetKeys must appear here.
 static constexpr const char* kPresetModuleOrder[] = {
@@ -36,11 +36,11 @@ inline std::string buildPresetJson(const float* values, const char* name = "Unti
 
    std::string j;
    j += "{\n";
-   j += "  \"app\": { \"name\": \"FeM\", \"version\": \"0.1.0\" },\n";
-   j += "  \"plugin\": { \"format\": \"clap\", \"id\": \"com.unlikelyware.fem\" },\n";
+   j += "  \"app\": { \"name\": \"ModicumFM\", \"version\": \"0.1.0\" },\n";
+   j += "  \"plugin\": { \"format\": \"clap\", \"id\": \"com.unlikelyware.modicumfm\" },\n";
    j += "  \"meta\": { \"author\": \"\", \"createdAt\": \"" + std::string(iso)
         + "\", \"name\": \"" + name + "\" },\n";
-   j += "  \"schema\": \"fem.preset\",\n";
+   j += "  \"schema\": \"modicumfm.preset\",\n";
    j += "  \"schemaVersion\": 1,\n";
    j += "  \"state\": {\n";
    j += "    \"parameterState\": {\n";
@@ -74,12 +74,12 @@ inline std::string buildPresetJson(const float* values, const char* name = "Unti
    return j;
 }
 
-// Write the patch to $HOME/fem-preset-<epoch>.json. Returns the path, or "" on failure.
+// Write the patch to $HOME/modicumfm-preset-<epoch>.json. Returns the path, or "" on failure.
 inline std::string dumpPresetToFile(const float* values)
 {
    const std::string json = buildPresetJson(values);
    const char* home = std::getenv("HOME");
-   std::string path = std::string(home ? home : ".") + "/fem-preset-"
+   std::string path = std::string(home ? home : ".") + "/modicumfm-preset-"
                     + std::to_string(static_cast<long long>(std::time(nullptr))) + ".json";
    FILE* f = std::fopen(path.c_str(), "w");
    if (f == nullptr)
@@ -89,7 +89,7 @@ inline std::string dumpPresetToFile(const float* values)
    return path;
 }
 
-} // namespace fem
+} // namespace modicumfm
 
-#endif // FEM_PRESET_DUMP
-#endif // FEM_PRESETDUMP_HPP
+#endif // MODICUMFM_PRESET_DUMP
+#endif // MODICUMFM_PRESETDUMP_HPP

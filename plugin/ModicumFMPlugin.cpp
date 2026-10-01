@@ -1,4 +1,4 @@
-// FeMPlugin.cpp — DSP side: DPF Plugin wrapper around the vendored PolygraphModular
+// ModicumFMPlugin.cpp — DSP side: DPF Plugin wrapper around the vendored PolygraphModular
 // voice engine. DPF hands us MIDI 1.0 events + a parameter interface and generates the CLAP
 // (VST3/LV2) wrapper; all the synthesis is the VoiceManager the self-tests exercise.
 //
@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <memory>
 
-#include "FeMParams.h"
+#include "ModicumFMParams.h"
 
 #include "ParamAddressMacros.h"
 #include "VoiceManager.hpp"
@@ -25,17 +25,17 @@
 
 START_NAMESPACE_DISTRHO
 
-using namespace fem;
+using namespace modicumfm;
 
 // Engine chunk length inside run(). Modules read their mod inputs (filter envelope, pressure,
 // LFO) once per chunk, so this is the control rate: 64 samples ≈ 1.3 ms at 48 kHz keeps a snappy
 // filter envelope smooth, where a full MODULE_BUFF_SIZE (512) chunk would step every ~11 ms.
 static constexpr uint32_t kControlChunk = 64;
 
-class FeMPlugin : public Plugin
+class ModicumFMPlugin : public Plugin
 {
 public:
-    FeMPlugin()
+    ModicumFMPlugin()
         : Plugin(kParamCount, 0, 0) // params, programs, states
     {
         for (uint32_t i = 0; i < kParamCount; ++i)
@@ -45,7 +45,7 @@ public:
 
 protected:
     /* -- information ------------------------------------------------------ */
-    const char* getLabel()       const override { return "FeM"; }
+    const char* getLabel()       const override { return "ModicumFM"; }
     const char* getDescription() const override
     {
         return "A 6-operator FM synth built on the PolygraphModular voice engine.";
@@ -54,7 +54,7 @@ protected:
     const char* getHomePage() const override { return "https://www.unlikelyware.com"; }
     const char* getLicense()  const override { return "MIT"; }
     uint32_t    getVersion()  const override { return d_version(0, 1, 0); }
-    int64_t     getUniqueId() const override { return d_cconst('F', 'e', 'M', '6'); }
+    int64_t     getUniqueId() const override { return d_cconst('M', 'd', 'F', 'M'); }
 
     /* -- init ------------------------------------------------------------- */
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override
@@ -270,12 +270,12 @@ private:
         }
     }
 
-    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FeMPlugin)
+    DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ModicumFMPlugin)
 };
 
 Plugin* createPlugin()
 {
-    return new FeMPlugin();
+    return new ModicumFMPlugin();
 }
 
 END_NAMESPACE_DISTRHO

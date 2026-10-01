@@ -1,4 +1,4 @@
-// DistrhoPluginInfo.h — compile-time description of the FeM plugin for DPF.
+// DistrhoPluginInfo.h — compile-time description of the ModicumFM plugin for DPF.
 // DPF reads these macros to generate the CLAP (and, if enabled, VST3/LV2) wrapper around
 // our Plugin/UI subclasses. IS_SYNTH gives it a note-input port + the CLAP "instrument"
 // feature, and pulls in MIDI input automatically.
@@ -7,12 +7,12 @@
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
 #define DISTRHO_PLUGIN_BRAND       "Unlikelyware"
-#define DISTRHO_PLUGIN_NAME        "FeM"
-#define DISTRHO_PLUGIN_URI         "https://unlikelyware.com/fem"
-#define DISTRHO_PLUGIN_CLAP_ID     "com.unlikelyware.fem"
+#define DISTRHO_PLUGIN_NAME        "ModicumFM"
+#define DISTRHO_PLUGIN_URI         "https://unlikelyware.com/modicumfm"
+#define DISTRHO_PLUGIN_CLAP_ID     "com.unlikelyware.modicumfm"
 #define DISTRHO_PLUGIN_CLAP_FEATURES "instrument", "synthesizer", "stereo"
 #define DISTRHO_PLUGIN_BRAND_ID    Unlk
-#define DISTRHO_PLUGIN_UNIQUE_ID   FeM6
+#define DISTRHO_PLUGIN_UNIQUE_ID   MdFM
 
 #define DISTRHO_PLUGIN_HAS_UI          1
 #define DISTRHO_PLUGIN_IS_SYNTH        1   // note input + CLAP "instrument"; enables MIDI in

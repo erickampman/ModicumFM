@@ -3,12 +3,12 @@
 // The UI implements it with DPF's editParameter(begin) / setParameterValue / editParameter(end),
 // so hosts see a proper begin/change/end gesture per param for automation recording.
 
-#ifndef FEM_PARAMEDIT_HPP
-#define FEM_PARAMEDIT_HPP
+#ifndef MODICUMFM_PARAMEDIT_HPP
+#define MODICUMFM_PARAMEDIT_HPP
 
 #include <cstdint>
 
-namespace fem {
+namespace modicumfm {
 
 class ParamEditCallback
 {
@@ -19,6 +19,6 @@ public:
     virtual void paramEditEnd(uint32_t paramId) = 0;
 };
 
-} // namespace fem
+} // namespace modicumfm
 
-#endif // FEM_PARAMEDIT_HPP
+#endif // MODICUMFM_PARAMEDIT_HPP

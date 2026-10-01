@@ -11,8 +11,8 @@
 // still reach the nested controls: the default Widget::onMouse forwards to subwidgets, and
 // this box does not override it.
 
-#ifndef FEM_GROUPBOX_HPP
-#define FEM_GROUPBOX_HPP
+#ifndef MODICUMFM_GROUPBOX_HPP
+#define MODICUMFM_GROUPBOX_HPP
 
 #include "NanoVG.hpp"
 
@@ -121,4 +121,4 @@ private:
 
 END_NAMESPACE_DGL
 
-#endif // FEM_GROUPBOX_HPP
+#endif // MODICUMFM_GROUPBOX_HPP

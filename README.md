@@ -1,4 +1,4 @@
-# FeM
+# ModicumFM
 
 A cross-platform **CLAP 6-operator FM synth** from Unlikelyware. One DX7-style FM engine per
 voice, with stereo L/R detune, into a resonant filter and a chorus. Built on the vendored
@@ -58,12 +58,12 @@ The engine (`src/`) mirrors PolygraphModular's structure; the DPF plugin assembl
 
 ```
 plugin/               the DPF plugin definition (the CLAP wrapper is generated from these)
-                        DistrhoPluginInfo.h (plugin flags), FeMParams.h (shared param
-                        table, append-only), FeMPlugin.cpp (DSP: MIDI + params → VoiceManager)
+                        DistrhoPluginInfo.h (plugin flags), ModicumFMParams.h (shared param
+                        table, append-only), ModicumFMPlugin.cpp (DSP: MIDI + params → VoiceManager)
 src/UI/               the plugin GUI (reusable NanoVG widgets + the panel)
                         Knob, RatioKnob, EnvelopeGraph, AlgorithmDiagram (view + picker), Dropdown, PopupMenu, TabBar, GroupBox,
                         Label, TitleText, Logo, HelpButton; ParamEdit.hpp (multi-param edits); PresetKeys / PresetDump (preset menu + dev-only JSON dumper);
-                        FeMUI.cpp — the panel
+                        ModicumFMUI.cpp — the panel
 src/Common/           shim + MIDI + params + utilities
                         pm_compat.h (Apple→portable), pm_midi.* (spec UMP + MIDI-1 decode, incl.
                         pitch bend / channel pressure), clap_ump.h, pm_params.h / pm_param_data.* /
@@ -103,12 +103,12 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure     # see TESTING.md for the full suite
 ```
 
-Produces `build/bin/FeM.clap`. A post-build step symlinks it into `~/.clap` (Linux) or
+Produces `build/bin/ModicumFM.clap`. A post-build step symlinks it into `~/.clap` (Linux) or
 `~/Library/Audio/Plug-Ins/CLAP/` (macOS), so any CLAP host picks up the freshest build after a
 rescan. Validate with [`clap-validator`](https://github.com/free-audio/clap-validator). Test
 details in [TESTING.md](TESTING.md).
 
-Configure options: `-DFEM_WERROR=ON` (warnings as errors), `-DFEM_PRESET_DUMP=ON`
+Configure options: `-DMODICUMFM_WERROR=ON` (warnings as errors), `-DMODICUMFM_PRESET_DUMP=ON`
 (dev-only DUMP button that writes the current patch as JSON to `$HOME`).
 
 ## License

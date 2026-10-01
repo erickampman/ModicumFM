@@ -1,14 +1,14 @@
 // PresetKeys.hpp — the plugin-param <-> preset-JSON-field mapping, shared by the dev-only JSON
 // dumper (PresetDump.hpp) and the always-on preset loader (GeneratedPresets.h resolution in
-// FeMUI.cpp). Kept in its own always-compiled header (not gated by FEM_PRESET_DUMP)
+// ModicumFMUI.cpp). Kept in its own always-compiled header (not gated by MODICUMFM_PRESET_DUMP)
 // since preset loading must work in every build, not just dev builds.
 
-#ifndef FEM_PRESETKEYS_HPP
-#define FEM_PRESETKEYS_HPP
+#ifndef MODICUMFM_PRESETKEYS_HPP
+#define MODICUMFM_PRESETKEYS_HPP
 
-#include "FeMParams.h"
+#include "ModicumFMParams.h"
 
-namespace fem {
+namespace modicumfm {
 
 struct PresetKey { const char* module; const char* item; };
 
@@ -94,6 +94,6 @@ static constexpr PresetKey kPresetKeys[kParamCount] = {
    {"FM6Op", "velCurve"},
 };
 
-} // namespace fem
+} // namespace modicumfm
 
-#endif // FEM_PRESETKEYS_HPP
+#endif // MODICUMFM_PRESETKEYS_HPP

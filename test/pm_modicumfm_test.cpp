@@ -1,4 +1,4 @@
-// pm_fem_test — the FeM voice end to end through the VoiceManager's default patch
+// pm_modicumfm_test — the ModicumFM voice end to end through the VoiceManager's default patch
 // (FM6Op → LPF (ADSR 1 + channel pressure) → Chorus → Final):
 //   1. a note sounds, at the note's pitch (operators 2-6 muted → operator 1 is a pure sine);
 //   2. full pitch bend raises it by the bend range (default 4 quarter-tones = 2 semitones);
