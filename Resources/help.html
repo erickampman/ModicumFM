@@ -120,11 +120,23 @@ green) or <b>mod N</b> (a modulator N steps away from the output).</p>
   double-click.)</dd>
   <dt>Level</dt><dd>For a carrier, its loudness. For a modulator, the modulation index — how many
   harmonics it adds.</dd>
-  <dt>Delay / Attack / Decay / Sustain / Release</dt><dd>The operator's own envelope. On a carrier
-  it is the loudness contour; on a modulator it shapes the <i>timbre</i> over time (e.g. a bright
-  attack that mellows). Decay and Release are the time to fade by 60 dB. A voice is freed once
-  its carriers have faded out.</dd>
+  <dt>Envelope</dt><dd>The operator's own envelope, drawn as a graph. On a carrier it is the
+  loudness contour; on a modulator it shapes the <i>timbre</i> over time (e.g. a bright attack that
+  mellows). A voice is freed once its carriers have faded out.</dd>
 </dl>
+<p>Envelope graphs (operators and the filter envelope) are edited by dragging their points:</p>
+<dl>
+  <dt>Delay</dt><dd>(operators only) the end of the flat start — drag sideways to make the
+  operator come in late. Dimmed while it is zero.</dd>
+  <dt>Attack</dt><dd>the peak — drag sideways.</dd>
+  <dt>Decay / Sustain</dt><dd>the corner into the held part — sideways sets the decay time,
+  up/down the sustain level.</dd>
+  <dt>Release</dt><dd>the end — drag sideways.</dd>
+</dl>
+<p>Hold <b>Ctrl</b> while dragging for fine changes. <b>Shift</b>-click or double-click a point to
+reset it. Hovering or dragging shows the point's value. The time axis is compressed so very short
+and very long stages both fit; the flat part in the middle stands for the held note. Decay and
+Release are the time to fade by 60 dB.</p>
 
 <h2 class="filter">Low-Pass Filter + Filter Envelope</h2>
 <dl>
@@ -133,7 +145,8 @@ green) or <b>mod N</b> (a modulator N steps away from the output).</p>
   <dt>Env Amount</dt><dd>How far (in octaves) the Filter Envelope moves the cutoff; negative
   values sweep it down.</dd>
   <dt>Pressure</dt><dd>How far (in octaves) channel pressure / aftertouch moves the cutoff.</dd>
-  <dt>Attack / Decay / Sustain / Release</dt><dd>The filter envelope, triggered by each note.</dd>
+  <dt>Filter Envelope</dt><dd>Triggered by each note; a graph edited like the operator envelopes
+  (above), without the Delay point.</dd>
 </dl>
 
 <h2 class="env">Response</h2>

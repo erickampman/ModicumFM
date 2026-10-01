@@ -76,7 +76,8 @@ the per-operator ones:
 - **Brightness** multiplies every modulator, weighted by depth.
 
 Each operator's own envelope stays available as an optional multiplier on the expert page.
-That's 2 envelopes (10 knobs) on the main panel instead of 6 × 5 = 30.
+The two shared envelopes reuse `src/UI/EnvelopeGraph.hpp` (as the operator and filter envelopes
+already do), so the main panel shows two graphs instead of six.
 
 ## 6 · Responsiveness
 

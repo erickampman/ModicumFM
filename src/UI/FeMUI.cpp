@@ -1,16 +1,17 @@
 // FeMUI.cpp — UI side. Under the top strip (logo, wordmark, preset menu, help):
 //
 //   FM Engine (Algorithm, Feedback, │ Operators: 6 rows (role caption, Wave, Ratio, Level,
-//     Pitch / Fine / Detune)        │   Delay/Attack/Decay/Sustain/Release)
+//     Pitch / Fine / Detune)        │   envelope graph)
 //   Low-Pass Filter                 │
-//   Filter Envelope                 │
+//   Filter Envelope (graph)         │
 //   Response (velocity) | Chorus | Global (Voices, Bend Range, Quality, Master)
 //
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
 // operator's role in the current algorithm (carrier, or modulator N hops from the output) —
 // the same role analysis the planned macros use (docs/ROADMAP.md). The UI is the callback for
 // all controls, routing by param index. Each operator's Ratio is a RatioKnob, which also edits
-// that operator's Fine param (no Fine knob of its own).
+// that operator's Fine param (no Fine knob of its own). Envelopes are EnvelopeGraphs (draggable
+// points) rather than knobs.
 
 #include "DistrhoUI.hpp"
 
@@ -24,6 +25,7 @@
 #include <vector>
 
 #include "Dropdown.hpp"
+#include "EnvelopeGraph.hpp"
 #include "EmbeddedResources.hpp" // build-time codegen from Resources/* (see dpf/utils/res2c.py)
 #include "GeneratedPresets.h"    // build-time codegen from Presets/*.json (see tools/gen_presets.py)
 #include "GroupBox.hpp"
@@ -47,6 +49,7 @@ START_NAMESPACE_DISTRHO
 using namespace fem;
 using DGL_NAMESPACE::Color;
 using DGL_NAMESPACE::Dropdown;
+using DGL_NAMESPACE::EnvelopeGraph;
 using DGL_NAMESPACE::GroupBox;
 using DGL_NAMESPACE::HelpButton;
 using DGL_NAMESPACE::Knob;
@@ -128,8 +131,8 @@ public:
 
         for (uint32_t i = 0; i < kParamCount; ++i)
         {
-            if (opItem(i) == kOpFine)
-                continue; // edited through its operator's RatioKnob
+            if (opItem(i) == kOpFine || isEnvelopeParam(i))
+                continue; // edited through its operator's RatioKnob / an EnvelopeGraph
             if (opItem(i) == kOpRatio)
             {
                 const uint32_t op = (i - fmOpParam(0, kOpRatio)) / kFmOpCount;
@@ -162,6 +165,15 @@ public:
             knob->setFormatter(formatterFor(i));
             fKnobs[i] = std::move(knob);
         }
+
+        // Envelope graphs: one per operator (with Delay) and the filter envelope (without).
+        for (uint32_t o = 0; o < kFmOperators; ++o)
+            fOpEnv[o] = makeEnvelope(fOpGroup.get(), colSound(), fmOpParam(o, kOpDelay),
+                                     fmOpParam(o, kOpAttack), fmOpParam(o, kOpDecay),
+                                     fmOpParam(o, kOpSustain), fmOpParam(o, kOpRelease));
+        fFiltEnv = makeEnvelope(fFiltEnvGroup.get(), colFilter(), EnvelopeGraph::kNoParam,
+                                kParamFiltAttack, kParamFiltDecay, kParamFiltSustain,
+                                kParamFiltRelease);
 
 #if FEM_PRESET_DUMP
         fDumpBtn = std::make_unique<DumpButton>(this, [this] {
@@ -224,6 +236,7 @@ protected:
             else                           rk->setFineCents(value);
             return;
         }
+        if (fEnvFor[index])    { fEnvFor[index]->setParamValue(index, value); return; }
         if (fKnobs[index])     { fKnobs[index]->setRealValue(value, false); fKnobs[index]->repaint(); }
         if (fDropdowns[index]) fDropdowns[index]->setIndex(static_cast<int>(value));
         if (index == kParamAlgorithm) updateOpRoles(static_cast<int>(value));
@@ -346,6 +359,8 @@ private:
     std::unique_ptr<Label>      fOpLabel[kFmOperators];
     std::unique_ptr<Knob>       fKnobs[kParamCount];          // (Ratio entries are RatioKnobs)
     RatioKnob*                  fRatioKnob[kFmOperators] = {}; // views into fKnobs, per operator
+    std::unique_ptr<EnvelopeGraph> fOpEnv[kFmOperators], fFiltEnv;
+    EnvelopeGraph*              fEnvFor[kParamCount] = {};     // param → the graph that edits it
     std::unique_ptr<Dropdown>   fDropdowns[kParamCount];
     std::unique_ptr<Logo>       fLogo;
     std::unique_ptr<TitleText>  fTitleText;
@@ -380,6 +395,36 @@ private:
         if (!fmOffset(i, k) || k < kFmOpBase)
             return -1;
         return static_cast<int>((k - kFmOpBase) % kFmOpCount);
+    }
+
+    // Envelope times/levels are edited on an EnvelopeGraph, not knobs.
+    static bool isEnvelopeParam(uint32_t i)
+    {
+        const int item = opItem(i);
+        if (item == kOpDelay || item == kOpAttack || item == kOpDecay || item == kOpSustain
+            || item == kOpRelease)
+            return true;
+        return i == kParamFiltAttack || i == kParamFiltDecay || i == kParamFiltSustain
+            || i == kParamFiltRelease;
+    }
+
+    std::unique_ptr<EnvelopeGraph> makeEnvelope(GroupBox* parent, Color accent, uint32_t delay,
+                                                 uint32_t attack, uint32_t decay, uint32_t sustain,
+                                                 uint32_t release)
+    {
+        auto env = std::make_unique<EnvelopeGraph>(parent, this);
+        env->setAccentColor(accent);
+        const auto bind = [&](EnvelopeGraph::Slot slot, uint32_t id) {
+            if (id == EnvelopeGraph::kNoParam) return;
+            env->setSlot(slot, id, kParams[id].min, kParams[id].max, kParams[id].def);
+            fEnvFor[id] = env.get();
+        };
+        bind(EnvelopeGraph::kDelay, delay);
+        bind(EnvelopeGraph::kAttack, attack);
+        bind(EnvelopeGraph::kDecay, decay);
+        bind(EnvelopeGraph::kSustain, sustain);
+        bind(EnvelopeGraph::kRelease, release);
+        return env;
     }
 
     static bool isDropdownParam(uint32_t i)
@@ -671,6 +716,9 @@ private:
             if (fDropdowns[i]) fDropdowns[i]->setUiScale(txtScale);
         for (auto& l : fOpLabel)
             l->setUiScale(txtScale);
+        for (auto& e : fOpEnv)
+            e->setUiScale(txtScale);
+        fFiltEnv->setUiScale(txtScale);
         fMenu->setUiScale(txtScale);
         fPresetDropdown->setUiScale(txtScale);
 
@@ -695,7 +743,11 @@ private:
         layoutEngine();
         layoutOperators();
         layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount, kParamLpfPressure});
-        layoutKnobRow(fFiltEnvGroup.get(), {kParamFiltAttack, kParamFiltDecay, kParamFiltSustain, kParamFiltRelease});
+        {
+            int cx, cy, cw, ch;
+            fFiltEnvGroup->contentBounds(cx, cy, cw, ch);
+            place(fFiltEnv.get(), cx, cy, cw, ch);
+        }
 
         // Bottom row: Response (2 dropdowns) | Chorus (5 knobs) | Global (2 dropdowns, Quality,
         // Master), widths roughly by control count.
@@ -744,35 +796,26 @@ private:
         place(fKnobs[kParamDetune].get(), cx + 2 * cellW, tuneY, cw - 2 * cellW,    ch - dropH - rowH);
     }
 
-    // Operators panel: six rows — role caption, Wave dropdown, then Ratio (+ hidden Fine), Level,
-    // Delay, Attack, Decay, Sustain, Release knobs.
+    // Operators panel: six rows — role caption, Wave dropdown, Ratio (+ hidden Fine) and Level
+    // knobs, then the envelope graph across the rest of the row.
     void layoutOperators()
     {
         int cx, cy, cw, ch;
         fOpGroup->contentBounds(cx, cy, cw, ch);
-        // The Wave dropdown needs room for "1+3+5" plus its chevron, so its column is 1.4 knob
-        // columns wide.
-        static constexpr uint32_t kColumns[] = {kOpWave, kOpRatio, kOpLevel, kOpDelay,
-                                                kOpAttack, kOpDecay, kOpSustain, kOpRelease};
-        constexpr int nKnobCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0])) - 1;
         const int labelW = static_cast<int>(80 * fUiScale);
-        const int cellW  = static_cast<int>((cw - labelW) / (nKnobCols + 1.4f));
-        const int waveW  = cw - labelW - nKnobCols * cellW;
+        const int cellW  = static_cast<int>(78 * fUiScale);
+        const int waveW  = static_cast<int>(cellW * 1.4f);
         const int rowH   = ch / static_cast<int>(kFmOperators);
+        const int envPad = static_cast<int>(6 * fUiScale);
         for (uint32_t o = 0; o < kFmOperators; ++o)
         {
             const int y = cy + static_cast<int>(o) * rowH;
-            place(fOpLabel[o].get(), cx, y, labelW, rowH);
-            int x = cx + labelW;
-            for (uint32_t j : kColumns)
-            {
-                const uint32_t id = fmOpParam(o, j);
-                SubWidget* w = fKnobs[id] ? static_cast<SubWidget*>(fKnobs[id].get())
-                                          : static_cast<SubWidget*>(fDropdowns[id].get());
-                const int width = j == kOpWave ? waveW : cellW;
-                place(w, x, y, width, rowH);
-                x += width;
-            }
+            int x = cx;
+            place(fOpLabel[o].get(), x, y, labelW, rowH);                   x += labelW;
+            place(fDropdowns[fmOpParam(o, kOpWave)].get(), x, y, waveW, rowH); x += waveW;
+            place(fKnobs[fmOpParam(o, kOpRatio)].get(), x, y, cellW, rowH);    x += cellW;
+            place(fKnobs[fmOpParam(o, kOpLevel)].get(), x, y, cellW, rowH);    x += cellW;
+            place(fOpEnv[o].get(), x + envPad, y + envPad, cx + cw - x - envPad, rowH - 2 * envPad);
         }
     }
 

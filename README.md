@@ -26,7 +26,7 @@ note pitch + pitch bend ──> FM6Op engine
   - Coarse/fine tune, stereo **Detune** (L/R up to ±25 cents), optional 2×/4× oversampling
     (shown as Global → Quality).
   - Six operators, each with a wave (sine or a small harmonic stack), ratio, level and a
-    delay-ADSR envelope. The Ratio knob snaps to harmonic ratios; Shift-drag is continuous
+    delay-ADSR envelope, edited as a draggable graph (as is the filter envelope). The Ratio knob snaps to harmonic ratios; Shift-drag is continuous
     (the per-operator Fine param remains for presets/automation but has no knob). Decay and release are times to fall 60 dB.
   - No VCA: the carriers' envelopes are the amp envelope, and a voice frees once it falls
     silent.
@@ -60,8 +60,8 @@ plugin/               the DPF plugin definition (the CLAP wrapper is generated f
                         DistrhoPluginInfo.h (plugin flags), FeMParams.h (shared param
                         table, append-only), FeMPlugin.cpp (DSP: MIDI + params → VoiceManager)
 src/UI/               the plugin GUI (reusable NanoVG widgets + the panel)
-                        Knob, Dropdown, PopupMenu, TabBar, GroupBox, Label, TitleText, Logo,
-                        HelpButton; PresetKeys / PresetDump (preset menu + dev-only JSON dumper);
+                        Knob, RatioKnob, EnvelopeGraph, Dropdown, PopupMenu, TabBar, GroupBox,
+                        Label, TitleText, Logo, HelpButton; ParamEdit.hpp (multi-param edits); PresetKeys / PresetDump (preset menu + dev-only JSON dumper);
                         FeMUI.cpp — the panel
 src/Common/           shim + MIDI + params + utilities
                         pm_compat.h (Apple→portable), pm_midi.* (spec UMP + MIDI-1 decode, incl.
