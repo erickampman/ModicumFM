@@ -1,7 +1,7 @@
 // FeMUI.cpp — UI side. Under the top strip (logo, wordmark, preset menu, help):
 //
-//   FM Engine (Algorithm, Feedback, │ Operators: 6 rows (role caption, Wave, Ratio, Level,
-//     Pitch / Fine / Detune)        │   envelope graph)
+//   FM Engine (algorithm diagram +  │ Operators: 6 rows (role caption, Wave, Ratio, Level,
+//     Feedback; Pitch/Fine/Detune)  │   envelope graph)
 //   Low-Pass Filter                 │
 //   Filter Envelope (graph)         │
 //   Response (velocity) | Chorus | Global (Voices, Bend Range, Quality, Master)
@@ -11,7 +11,8 @@
 // the same role analysis the planned macros use (docs/ROADMAP.md). The UI is the callback for
 // all controls, routing by param index. Each operator's Ratio is a RatioKnob, which also edits
 // that operator's Fine param (no Fine knob of its own). Envelopes are EnvelopeGraphs (draggable
-// points) rather than knobs.
+// points) rather than knobs. The algorithm is shown as a diagram (AlgorithmView); clicking it
+// opens a full-window AlgorithmPicker of all 32.
 
 #include "DistrhoUI.hpp"
 
@@ -24,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "AlgorithmDiagram.hpp"
 #include "Dropdown.hpp"
 #include "EnvelopeGraph.hpp"
 #include "EmbeddedResources.hpp" // build-time codegen from Resources/* (see dpf/utils/res2c.py)
@@ -47,6 +49,8 @@ START_NAMESPACE_DISTRHO
 #include "extra/WebView.hpp" // native WebView overlay (WKWebView/WebKitGTK/WebView2), for Help
 
 using namespace fem;
+using DGL_NAMESPACE::AlgorithmPicker;
+using DGL_NAMESPACE::AlgorithmView;
 using DGL_NAMESPACE::Color;
 using DGL_NAMESPACE::Dropdown;
 using DGL_NAMESPACE::EnvelopeGraph;
@@ -131,8 +135,8 @@ public:
 
         for (uint32_t i = 0; i < kParamCount; ++i)
         {
-            if (opItem(i) == kOpFine || isEnvelopeParam(i))
-                continue; // edited through its operator's RatioKnob / an EnvelopeGraph
+            if (opItem(i) == kOpFine || isEnvelopeParam(i) || i == kParamAlgorithm)
+                continue; // edited through a RatioKnob / an EnvelopeGraph / the AlgorithmView
             if (opItem(i) == kOpRatio)
             {
                 const uint32_t op = (i - fmOpParam(0, kOpRatio)) / kFmOpCount;
@@ -165,6 +169,14 @@ public:
             knob->setFormatter(formatterFor(i));
             fKnobs[i] = std::move(knob);
         }
+
+        // Algorithm diagram (click → picker, wheel → step).
+        fAlgoView = std::make_unique<AlgorithmView>(
+            fEngineGroup.get(), [this] { fAlgoPicker->open(fAlgorithm); },
+            [this](int d) { chooseAlgorithm(std::clamp(fAlgorithm + d, 0, kFM6OpAlgorithms - 1)); });
+        fAlgoView->setAccentColor(colSound());
+        fAlgoView->setAlgorithm(fAlgorithm);
+        fAlgoView->setFeedbackActive(kParams[kParamFeedback].def > 0.0f);
 
         // Envelope graphs: one per operator (with Delay) and the filter envelope (without).
         for (uint32_t o = 0; o < kFmOperators; ++o)
@@ -208,7 +220,10 @@ public:
         // Help: toggles a native WebView overlay showing the bundled help.html.
         fHelpButton = std::make_unique<HelpButton>(this, [this] { toggleHelp(); });
 
-        fMenu = std::make_unique<PopupMenu>(this, this); // created last → draws on top
+        // Overlays, created last so they draw (and take events) on top.
+        fAlgoPicker = std::make_unique<AlgorithmPicker>(this, [this](int a) { chooseAlgorithm(a); });
+        fAlgoPicker->setAccentColor(colSound());
+        fMenu = std::make_unique<PopupMenu>(this, this);
 
         layout();
 #if FEM_PRESET_DUMP
@@ -239,7 +254,8 @@ protected:
         if (fEnvFor[index])    { fEnvFor[index]->setParamValue(index, value); return; }
         if (fKnobs[index])     { fKnobs[index]->setRealValue(value, false); fKnobs[index]->repaint(); }
         if (fDropdowns[index]) fDropdowns[index]->setIndex(static_cast<int>(value));
-        if (index == kParamAlgorithm) updateOpRoles(static_cast<int>(value));
+        if (index == kParamAlgorithm) showAlgorithm(static_cast<int>(value));
+        if (index == kParamFeedback)  fAlgoView->setFeedbackActive(value > 0.0f);
     }
 
     /* -- knob -> host ----------------------------------------------------- */
@@ -251,6 +267,7 @@ protected:
         if (kParams[id].integer) v = std::round(v); // e.g. engine Pitch in whole semitones
         setParameterValue(id, v);
         recordMirror(id, v);
+        if (id == kParamFeedback) fAlgoView->setFeedbackActive(v > 0.0f);
     }
 
     /* -- composite widgets -> host (RatioKnob) ---------------------------- */
@@ -279,7 +296,23 @@ protected:
         editParameter(id, false);
         recordMirror(id, static_cast<float>(index));
         if (fDropdowns[id]) fDropdowns[id]->setIndex(index);
-        if (id == kParamAlgorithm) updateOpRoles(index);
+    }
+
+    // Algorithm chosen in the UI (picker or wheel) → host, as one gesture.
+    void chooseAlgorithm(int a)
+    {
+        if (a == fAlgorithm) return;
+        editParameter(kParamAlgorithm, true);
+        setParameterValue(kParamAlgorithm, static_cast<float>(a));
+        editParameter(kParamAlgorithm, false);
+        recordMirror(kParamAlgorithm, static_cast<float>(a));
+        showAlgorithm(a);
+    }
+    void showAlgorithm(int a)
+    {
+        fAlgorithm = std::clamp(a, 0, kFM6OpAlgorithms - 1);
+        fAlgoView->setAlgorithm(fAlgorithm);
+        updateOpRoles(fAlgorithm);
     }
 
     // Operator captions: "Op N" plus its role in `algorithm` — "out" for a carrier, "mod K" for a
@@ -360,6 +393,9 @@ private:
     std::unique_ptr<Knob>       fKnobs[kParamCount];          // (Ratio entries are RatioKnobs)
     RatioKnob*                  fRatioKnob[kFmOperators] = {}; // views into fKnobs, per operator
     std::unique_ptr<EnvelopeGraph> fOpEnv[kFmOperators], fFiltEnv;
+    std::unique_ptr<AlgorithmView>   fAlgoView;
+    std::unique_ptr<AlgorithmPicker> fAlgoPicker;
+    int                         fAlgorithm = static_cast<int>(kParams[kParamAlgorithm].def);
     EnvelopeGraph*              fEnvFor[kParamCount] = {};     // param → the graph that edits it
     std::unique_ptr<Dropdown>   fDropdowns[kParamCount];
     std::unique_ptr<Logo>       fLogo;
@@ -434,7 +470,7 @@ private:
         uint32_t k;
         if (!fmOffset(i, k))
             return false;
-        return k == kFmAlgorithm || k == kFmOversample || opItem(i) == kOpWave;
+        return k == kFmOversample || opItem(i) == kOpWave;
     }
 
     static std::vector<std::string> choicesFor(uint32_t i)
@@ -446,23 +482,6 @@ private:
         if (i == kParamVelCurve) return {"Concave", "Linear", "Convex"};
         uint32_t k = 0;
         fmOffset(i, k);
-        if (k == kFmAlgorithm)
-        {
-            // "12 · out 1,3": algorithm number, then its carriers (the rest are modulators).
-            std::vector<std::string> names;
-            for (int a = 0; a < kFM6OpAlgorithms; ++a)
-            {
-                std::string n = std::to_string(a + 1) + " \xC2\xB7 out ";
-                for (int o = 0, first = 1; o < kFM6OpCount; ++o)
-                    if (kFM6OpAlgos[a].carrierMask & (1u << o))
-                    {
-                        n += (first ? "" : ",") + std::to_string(o + 1);
-                        first = 0;
-                    }
-                names.push_back(n);
-            }
-            return names;
-        }
         if (k == kFmOversample) return {"Normal", "High", "Best"}; // oversampling Off / 2x / 4x
         return {"Sine", "1+2", "1+3", "1+3+5", "1-4"}; // operator wave (harmonic stacks)
     }
@@ -719,6 +738,9 @@ private:
         for (auto& e : fOpEnv)
             e->setUiScale(txtScale);
         fFiltEnv->setUiScale(txtScale);
+        fAlgoView->setUiScale(txtScale);
+        fAlgoPicker->setUiScale(txtScale);
+        place(fAlgoPicker.get(), 0, 0, W, H);
         fMenu->setUiScale(txtScale);
         fPresetDropdown->setUiScale(txtScale);
 
@@ -779,21 +801,22 @@ private:
 #endif
     }
 
-    // FM Engine panel: Algorithm across the top, then Feedback (it belongs to the algorithm: one
-    // operator per algorithm feeds back), then the Tuning row — Pitch, Fine, Detune.
+    // FM Engine panel: the algorithm diagram with Feedback beside it (the algorithm decides which
+    // operator feeds back, and the diagram draws that loop), then the Tuning row — Pitch, Fine,
+    // Detune.
     void layoutEngine()
     {
         int cx, cy, cw, ch;
         fEngineGroup->contentBounds(cx, cy, cw, ch);
-        const int dropH = static_cast<int>(46 * fUiScale);
-        place(fDropdowns[kParamAlgorithm].get(), cx, cy, cw, dropH);
-        const int rowH  = (ch - dropH) / 2;
-        const int cellW = cw / 3;
-        place(fKnobs[kParamFeedback].get(), cx, cy + dropH, cellW, rowH);
-        const int tuneY = cy + dropH + rowH;
-        place(fKnobs[kParamPitch].get(),  cx,             tuneY, cellW,             ch - dropH - rowH);
-        place(fKnobs[kParamFine].get(),   cx + cellW,     tuneY, cellW,             ch - dropH - rowH);
-        place(fKnobs[kParamDetune].get(), cx + 2 * cellW, tuneY, cw - 2 * cellW,    ch - dropH - rowH);
+        const int topH = static_cast<int>(ch * 0.58f);
+        const int fbW  = static_cast<int>(84 * fUiScale);
+        const int gap  = static_cast<int>(6 * fUiScale);
+        place(fAlgoView.get(), cx, cy + gap / 2, cw - fbW - gap, topH - gap);
+        place(fKnobs[kParamFeedback].get(), cx + cw - fbW, cy, fbW, topH);
+        const int tuneY = cy + topH, tuneH = ch - topH, cellW = cw / 3;
+        place(fKnobs[kParamPitch].get(),  cx,             tuneY, cellW,          tuneH);
+        place(fKnobs[kParamFine].get(),   cx + cellW,     tuneY, cellW,          tuneH);
+        place(fKnobs[kParamDetune].get(), cx + 2 * cellW, tuneY, cw - 2 * cellW, tuneH);
     }
 
     // Operators panel: six rows — role caption, Wave dropdown, Ratio (+ hidden Fine) and Level

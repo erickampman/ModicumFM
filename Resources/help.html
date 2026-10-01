@@ -93,12 +93,16 @@
 operator row's caption shows its role in the current algorithm: <b>out</b> (a carrier, shown in
 green) or <b>mod N</b> (a modulator N steps away from the output).</p>
 <dl>
-  <dt>Algorithm</dt><dd>Operator routing — the 32 classic six-operator algorithms, numbered 1–32.
-  The menu lists each one's carriers (<code>out 1,3</code>); every other operator is a modulator.
+  <dt>Algorithm</dt><dd>Operator routing — the 32 classic six-operator algorithms, shown as a
+  diagram: <b>filled</b> boxes are carriers (heard, joined by the output line at the bottom),
+  <b>outlined</b> boxes are modulators, stacked above the operators they modulate. The small loop
+  marks the feedback path. Click the diagram to choose from all 32 (click outside the chooser or
+  press Esc to close it); the mouse wheel over it steps to the previous / next algorithm.
   Low numbers are deep stacks (bright, complex); high numbers are mostly carriers (organ-like,
   additive; 32 is all six in parallel). Levels are balanced by the number of carriers, so
   switching algorithm doesn't jump the volume.</dd>
-  <dt>Feedback</dt><dd>Sits under the algorithm because the algorithm decides where it goes: one operator per algorithm modulates itself (in algorithms 4 and 6 a small
+  <dt>Feedback</dt><dd>Sits beside the diagram because the algorithm decides where it goes (the
+  loop lights up when Feedback is above zero): one operator per algorithm modulates itself (in algorithms 4 and 6 a small
   loop of operators) — from a brighter sine toward a buzzy, saw-like tone.</dd>
   <dt>Pitch / Fine</dt><dd>Transpose the whole engine in semitones / cents.</dd>
   <dt>Detune</dt><dd>Stereo detune: left and right are tuned apart by up to 50 cents in total,

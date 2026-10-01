@@ -30,7 +30,8 @@ note pitch + pitch bend ──> FM6Op engine
     (the per-operator Fine param remains for presets/automation but has no knob). Decay and release are times to fall 60 dB.
   - No VCA: the carriers' envelopes are the amp envelope, and a voice frees once it falls
     silent.
-  - The panel labels each operator's role in the current algorithm ("out" or "mod N").
+  - The algorithm is shown as a diagram (click for a picker of all 32), and the panel labels
+    each operator's role in the current algorithm ("out" or "mod N").
 - **LPF**: 24 dB/oct Butterworth with resonance compensation. The filter envelope and channel
   pressure each move the cutoff by an adjustable number of octaves. By default the filter is
   fully open and unmodulated.
@@ -60,7 +61,7 @@ plugin/               the DPF plugin definition (the CLAP wrapper is generated f
                         DistrhoPluginInfo.h (plugin flags), FeMParams.h (shared param
                         table, append-only), FeMPlugin.cpp (DSP: MIDI + params → VoiceManager)
 src/UI/               the plugin GUI (reusable NanoVG widgets + the panel)
-                        Knob, RatioKnob, EnvelopeGraph, Dropdown, PopupMenu, TabBar, GroupBox,
+                        Knob, RatioKnob, EnvelopeGraph, AlgorithmDiagram (view + picker), Dropdown, PopupMenu, TabBar, GroupBox,
                         Label, TitleText, Logo, HelpButton; ParamEdit.hpp (multi-param edits); PresetKeys / PresetDump (preset menu + dev-only JSON dumper);
                         FeMUI.cpp — the panel
 src/Common/           shim + MIDI + params + utilities
