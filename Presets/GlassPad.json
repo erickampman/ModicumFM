@@ -1,0 +1,11 @@
+{
+  "meta": {"name": "Glass Pad"},
+  "state": {"parameterState": {
+    "Global": {"voiceMode": "1", "bendRange": "4"},
+    "FM6Op": {"algorithm": "4", "feedback": "0", "pitch": "0", "fine": "0", "detune": "0.3", "oversample": "0", "velFloor": "0", "velCurve": "1", "op1Wave": "0", "op1Ratio": "1", "op1Fine": "0", "op1Level": "0.8", "op1Delay": "0", "op1Attack": "1.2", "op1Decay": "2.0", "op1Sustain": "0.8", "op1Release": "2.5", "op2Wave": "0", "op2Ratio": "2", "op2Fine": "0", "op2Level": "0.35", "op2Delay": "0", "op2Attack": "1.5", "op2Decay": "3.0", "op2Sustain": "0.6", "op2Release": "2.5", "op3Wave": "0", "op3Ratio": "1", "op3Fine": "7", "op3Level": "0.7", "op3Delay": "0", "op3Attack": "1.5", "op3Decay": "2.0", "op3Sustain": "0.8", "op3Release": "3.0", "op4Wave": "0", "op4Ratio": "5", "op4Fine": "0", "op4Level": "0.3", "op4Delay": "0", "op4Attack": "2.0", "op4Decay": "3.0", "op4Sustain": "0.6", "op4Release": "3.0", "op5Wave": "0", "op5Ratio": "2", "op5Fine": "0", "op5Level": "0.45", "op5Delay": "0", "op5Attack": "1.8", "op5Decay": "2.0", "op5Sustain": "0.7", "op5Release": "3.0", "op6Wave": "0", "op6Ratio": "7.02", "op6Fine": "0", "op6Level": "0.28", "op6Delay": "0", "op6Attack": "2.5", "op6Decay": "3.0", "op6Sustain": "0.7", "op6Release": "3.0"},
+    "LPF": {"frequency": "5.4", "q": "1", "envAmount": "0", "pressure": "0"},
+    "FilterEnv": {"attack": "0.005", "decay": "0.5", "sustain": "0.4", "release": "0.5"},
+    "Chorus": {"mix": "0.5", "rate": "-1.5", "depth": "0.7", "baseDelay": "10", "feedback": "0.2"},
+    "Final": {"level": "0.7"}
+  }}
+}

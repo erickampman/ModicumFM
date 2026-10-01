@@ -40,7 +40,9 @@ note pitch + pitch bend ──> FM6Op engine
 - **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve
   (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices.
 - **Global**: Poly / Mono, pitch-bend range (off … ±4 semitones), Quality, master level.
-- **Presets**: factory presets in `Presets/*.json`, baked into the plugin at build time. In-UI
+- **Presets**: factory presets in `Presets/*.json`, baked into the plugin at build time —
+  classic DX-style starting points: E.Piano, Tubular Bells, Organ, Bass, Brass, Pluck, Glass Pad,
+  Drowning With Chowning, plus Init. In-UI
   help page (`Resources/help.html`).
 
 MIDI notes are sample-accurate: `run()` splits rendering at each event's frame offset, then
