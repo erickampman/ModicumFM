@@ -1,0 +1,11 @@
+{
+  "meta": {"name": "Harmonica"},
+  "state": {"parameterState": {
+    "Global": {"voiceMode": "1", "bendRange": "4"},
+    "FM6Op": {"algorithm": "4", "feedback": "0.4", "pitch": "0", "fine": "0", "detune": "0.05", "oversample": "0", "velFloor": "0", "velCurve": "1", "brightness": "0", "bite": "0", "grit": "0", "body": "0", "touch": "0.7", "keyTrack": "0", "loudAttack": "1", "loudDecay": "1", "loudSustain": "0", "loudRelease": "1", "brightAttack": "1", "brightDecay": "1", "brightSustain": "0", "brightRelease": "1", "op1Wave": "2", "op1Ratio": "1", "op1Fine": "-12", "op1Level": "0.35", "op1Delay": "0", "op1Attack": "0.08", "op1Decay": "0.9", "op1Sustain": "0.08", "op1Release": "0.12", "op2Wave": "0", "op2Ratio": "0.99", "op2Fine": "-12", "op2Level": "0.3", "op2Delay": "0", "op2Attack": "0.1", "op2Decay": "0.8", "op2Sustain": "0.7", "op2Release": "0.12", "op3Wave": "2", "op3Ratio": "1.006", "op3Fine": "12", "op3Level": "0.35", "op3Delay": "0", "op3Attack": "0.08", "op3Decay": "0.9", "op3Sustain": "0.08", "op3Release": "0.12", "op4Wave": "0", "op4Ratio": "1", "op4Fine": "12", "op4Level": "0.3", "op4Delay": "0", "op4Attack": "0.1", "op4Decay": "0.8", "op4Sustain": "0.7", "op4Release": "0.12", "op5Wave": "3", "op5Ratio": "1", "op5Fine": "0", "op5Level": "0.45", "op5Delay": "0", "op5Attack": "0.08", "op5Decay": "2.0", "op5Sustain": "0.95", "op5Release": "0.12", "op6Wave": "4", "op6Ratio": "1.986", "op6Fine": "0", "op6Level": "0.25", "op6Delay": "0", "op6Attack": "0.1", "op6Decay": "0.8", "op6Sustain": "0.7", "op6Release": "0.12"},
+    "LPF": {"frequency": "2.2", "q": "1.8", "envAmount": "1.0", "pressure": "3.0"},
+    "FilterEnv": {"attack": "0.06", "decay": "0.4", "sustain": "0.7", "release": "0.15"},
+    "Chorus": {"mix": "0.0", "rate": "-1", "depth": "0.5", "baseDelay": "10", "feedback": "0.2"},
+    "Final": {"level": "0.85"}
+  }}
+}

@@ -50,7 +50,14 @@ note pitch + pitch bend ──> FM6Op engine
 - **Global**: Poly / Mono, pitch-bend range (off … ±4 semitones), Quality, master level.
 - **Presets**: factory presets in `Presets/*.json`, baked into the plugin at build time —
   classic DX-style starting points: E.Piano, Tubular Bells, Organ, Bass, Brass, Pluck, Glass Pad,
-  Drowning With Chowning, plus Init. (Organ: four drawbars on algorithm 31 plus a dedicated chiff carrier.) In-UI
+  Drowning With Chowning, plus Init. (Organ: four drawbars on algorithm 31 plus a dedicated chiff carrier.)
+  A second set leans on the non-sine operator waves: Marimba, Clav, Square Bass, Hollow Lead, Warm
+  Strings, Slow Bloom (delayed modulators that bloom in), Steel Drum and Gong. A third set spreads
+  across algorithms and features: Harpsichord (fixed velocity), Music Box (Pitch +12), Breath Flute
+  (feedback noise as breath; aftertouch opens the filter), Koto, Choir (all six carriers plus breath),
+  Harmonica (three detuned reeds; the outer two fade so the beating settles, slightly-off
+  modulators keep it moving; aftertouch "blows harder"), Laser Sweep (FX) and Grit Keys (driven by the
+  Character macros). In-UI
   help page (`Resources/help.html`).
 
 MIDI notes are sample-accurate: `run()` splits rendering at each event's frame offset, then

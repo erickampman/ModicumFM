@@ -1,0 +1,11 @@
+{
+  "meta": {"name": "Laser Sweep"},
+  "state": {"parameterState": {
+    "Global": {"voiceMode": "1", "bendRange": "4"},
+    "FM6Op": {"algorithm": "2", "feedback": "0.5", "pitch": "0", "fine": "0", "detune": "0.2", "oversample": "2", "velFloor": "0", "velCurve": "1", "brightness": "0", "bite": "0", "grit": "0", "body": "0", "touch": "0", "keyTrack": "0", "loudAttack": "1", "loudDecay": "1", "loudSustain": "0", "loudRelease": "1", "brightAttack": "2.0", "brightDecay": "1", "brightSustain": "0", "brightRelease": "2.0", "op1Wave": "4", "op1Ratio": "1", "op1Fine": "0", "op1Level": "0.55", "op1Delay": "0", "op1Attack": "0.01", "op1Decay": "3.0", "op1Sustain": "0.8", "op1Release": "1.0", "op2Wave": "0", "op2Ratio": "1.5", "op2Fine": "0", "op2Level": "0.8", "op2Delay": "0", "op2Attack": "1.2", "op2Decay": "2.0", "op2Sustain": "0.4", "op2Release": "1.0", "op3Wave": "0", "op3Ratio": "3.5", "op3Fine": "0", "op3Level": "0.3", "op3Delay": "0", "op3Attack": "0.6", "op3Decay": "1.5", "op3Sustain": "0.5", "op3Release": "1.0", "op4Wave": "1", "op4Ratio": "0.5", "op4Fine": "0", "op4Level": "0.4", "op4Delay": "0", "op4Attack": "0.01", "op4Decay": "4.0", "op4Sustain": "0.6", "op4Release": "1.5", "op5Wave": "0", "op5Ratio": "2.03", "op5Fine": "0", "op5Level": "0.5", "op5Delay": "0", "op5Attack": "1.5", "op5Decay": "2.5", "op5Sustain": "0.3", "op5Release": "1.5", "op6Wave": "0", "op6Ratio": "5", "op6Fine": "0", "op6Level": "0.4", "op6Delay": "0", "op6Attack": "0.8", "op6Decay": "1.0", "op6Sustain": "0.5", "op6Release": "1.0"},
+    "LPF": {"frequency": "4.5", "q": "12", "envAmount": "-5.0", "pressure": "0"},
+    "FilterEnv": {"attack": "0.01", "decay": "2.5", "sustain": "0.0", "release": "1.0"},
+    "Chorus": {"mix": "0.4", "rate": "1.0", "depth": "0.6", "baseDelay": "8", "feedback": "0.5"},
+    "Final": {"level": "0.8"}
+  }}
+}

@@ -1,0 +1,11 @@
+{
+  "meta": {"name": "Clav"},
+  "state": {"parameterState": {
+    "Global": {"voiceMode": "1", "bendRange": "4"},
+    "FM6Op": {"algorithm": "4", "feedback": "0.2", "pitch": "0", "fine": "0", "detune": "0.05", "oversample": "0", "velFloor": "0", "velCurve": "1", "brightness": "0", "bite": "0", "grit": "0", "body": "0", "touch": "0.7", "keyTrack": "0.3", "loudAttack": "1", "loudDecay": "1", "loudSustain": "0", "loudRelease": "1", "brightAttack": "1", "brightDecay": "1", "brightSustain": "0", "brightRelease": "1", "op1Wave": "4", "op1Ratio": "1", "op1Fine": "0", "op1Level": "0.6", "op1Delay": "0", "op1Attack": "0.001", "op1Decay": "2.5", "op1Sustain": "0.35", "op1Release": "0.05", "op2Wave": "0", "op2Ratio": "3", "op2Fine": "0", "op2Level": "0.22", "op2Delay": "0", "op2Attack": "0.001", "op2Decay": "0.25", "op2Sustain": "0.05", "op2Release": "0.05", "op3Wave": "2", "op3Ratio": "2", "op3Fine": "0", "op3Level": "0.4", "op3Delay": "0", "op3Attack": "0.001", "op3Decay": "1.2", "op3Sustain": "0.2", "op3Release": "0.05", "op4Wave": "0", "op4Ratio": "1", "op4Fine": "0", "op4Level": "0.15", "op4Delay": "0", "op4Attack": "0.001", "op4Decay": "0.15", "op4Sustain": "0.0", "op4Release": "0.05", "op5Wave": "0", "op5Ratio": "1", "op5Fine": "0", "op5Level": "0.0", "op5Delay": "0", "op5Attack": "0.001", "op5Decay": "0.3", "op5Sustain": "0.0", "op5Release": "0.05", "op6Wave": "0", "op6Ratio": "1", "op6Fine": "0", "op6Level": "0.0", "op6Delay": "0", "op6Attack": "0.001", "op6Decay": "0.3", "op6Sustain": "0.0", "op6Release": "0.05"},
+    "LPF": {"frequency": "1.5", "q": "2.5", "envAmount": "4.0", "pressure": "0"},
+    "FilterEnv": {"attack": "0.001", "decay": "0.35", "sustain": "0.25", "release": "0.05"},
+    "Chorus": {"mix": "0.1", "rate": "-1", "depth": "0.5", "baseDelay": "10", "feedback": "0.2"},
+    "Final": {"level": "0.7"}
+  }}
+}
