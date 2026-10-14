@@ -5,7 +5,7 @@
 //     Feedback; Pitch/Fine/Detune)  │   envelope graph)
 //   Low-Pass Filter                 │
 //   Filter Envelope (graph)         │
-//   Response (velocity) | Chorus | Global (Voices, Bend Range, Quality, Master)
+//   Response (velocity) | Chorus | Global (Voices, MPE, Bend Range, Quality, Master)
 //
 // The Voice tab swaps the Operators panel for the simple layer, Character: the role-based macros
 // Brightness, Bite, Grit, Body, and the shared Loudness / Brightness envelopes, which scale every
@@ -732,7 +732,7 @@ private:
         case kParamBrightness: case kParamBite: case kParamGrit: case kParamBody:
             return fCharGroup.get();
         default:
-            return fGlobalGroup.get(); // Voices, Bend Range, Master
+            return fGlobalGroup.get(); // Voices, MPE, Bend Range, Master
         }
     }
 
@@ -887,10 +887,12 @@ private:
 
         // Two columns over one bottom row. Left: FM Engine above the two filter panels (each one
         // knob row high); right: the Operators panel, full height. Bottom: Response | Chorus |
-        // Global. Module rows are sized for one knob (label + sphere + value) + the title strip.
+        // Global. Module rows are sized for one knob (label + sphere + value) + the title strip; the
+        // bottom row is taller, for two dropdowns stacked in one column.
         const int totalH = H - 2 * m - gap - topPad;
         const int rowH   = static_cast<int>(130 * scale);
-        const int fmH    = totalH - rowH;
+        const int botH   = static_cast<int>(150 * scale);
+        const int fmH    = totalH - botH;
         const int colL   = m;
         const int fullW  = W - 2 * m;
         const int fmY    = m + topPad;
@@ -989,20 +991,20 @@ private:
             place(fFiltEnv.get(), cx, cy, cw, ch);
         }
 
-        // Bottom row: Response (2 dropdowns + Touch, Key Track) | Chorus (5 knobs) | Global (2
-        // dropdowns, Quality, Master), widths roughly by control count.
+        // Bottom row: Response (Vel Floor over Vel Curve, Touch, Key Track) | Chorus (5 knobs) |
+        // Global (Voices over MPE, Bend Range over Quality, Master), widths roughly by control count.
         {
             const int avail = fullW - 2 * gap;
             const int respW = avail / 3, chW = avail / 3;
             int x = colL;
-            placeGroup(fResponseGroup.get(), x, row1, respW, rowH); x += respW + gap;
-            placeGroup(fChorusGroup.get(),   x, row1, chW,   rowH); x += chW + gap;
-            placeGroup(fGlobalGroup.get(),   x, row1, colL + fullW - x, rowH);
-            layoutKnobRow(fResponseGroup.get(), {kParamVelFloor, kParamVelCurve, kParamTouch, kParamKeyTrack});
+            placeGroup(fResponseGroup.get(), x, row1, respW, botH); x += respW + gap;
+            placeGroup(fChorusGroup.get(),   x, row1, chW,   botH); x += chW + gap;
+            placeGroup(fGlobalGroup.get(),   x, row1, colL + fullW - x, botH);
+            layoutColumns(fResponseGroup.get(), {{kParamVelFloor, kParamVelCurve}, {kParamTouch}, {kParamKeyTrack}});
             layoutKnobRow(fChorusGroup.get(), {kParamChorusMix, kParamChorusRate, kParamChorusDepth,
                                                kParamChorusDelay, kParamChorusFeedback});
-            layoutKnobRow(fGlobalGroup.get(), {kParamVoiceMode, kParamBendRange, kParamOversample,
-                                               kParamMasterLevel});
+            layoutColumns(fGlobalGroup.get(), {{kParamVoiceMode, kParamMpe}, {kParamBendRange, kParamOversample},
+                                               {kParamMasterLevel}});
         }
 
         // Help button: far right of the top strip (the dev DUMP button sits just left of it).
@@ -1078,6 +1080,43 @@ private:
             // Dropdowns only need their label + box height; centre them in the knob-height cell.
             const int dh = fDropdowns[id] ? std::min(ch, static_cast<int>(46 * fUiScale)) : ch;
             place(w, static_cast<int>(x), cy + (ch - dh) / 2, static_cast<int>(cellW), dh);
+            x += cellW;
+        }
+    }
+
+    // Like layoutKnobRow, but each column may stack several dropdowns, one above the other (a knob
+    // column holds one knob, full height).
+    void layoutColumns(GroupBox* group, std::initializer_list<std::initializer_list<uint32_t>> columns)
+    {
+        int cx, cy, cw, ch;
+        group->contentBounds(cx, cy, cw, ch);
+        constexpr float kDropWeight = 1.3f;
+        const auto weight = [this](std::initializer_list<uint32_t> col) {
+            return fDropdowns[*col.begin()] ? kDropWeight : 1.0f;
+        };
+        float units = 0.0f;
+        for (const auto& col : columns) units += weight(col);
+        const int dropH = static_cast<int>(46 * fUiScale);
+        const int vgap  = static_cast<int>(4 * fUiScale);
+        float x = static_cast<float>(cx);
+        for (const auto& col : columns)
+        {
+            const float cellW = cw * weight(col) / units;
+            if (fKnobs[*col.begin()])
+            {
+                place(fKnobs[*col.begin()].get(), static_cast<int>(x), cy, static_cast<int>(cellW), ch);
+            }
+            else
+            {
+                const int n = static_cast<int>(col.size());
+                const int dh = std::min(dropH, (ch - (n - 1) * vgap) / n);
+                int y = cy + (ch - n * dh - (n - 1) * vgap) / 2;
+                for (uint32_t id : col)
+                {
+                    place(fDropdowns[id].get(), static_cast<int>(x), y, static_cast<int>(cellW), dh);
+                    y += dh + vgap;
+                }
+            }
             x += cellW;
         }
     }

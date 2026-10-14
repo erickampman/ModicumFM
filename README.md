@@ -47,7 +47,7 @@ note pitch + pitch bend ──> FM6Op engine
   (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices; Touch
   (velocity → modulator levels, i.e. brightness) and Key Track (note → modulator levels and
   decay/release times), both neutral at 0.
-- **Global**: Poly / Mono, pitch-bend range (off … ±4 semitones), Quality, master level.
+- **Global**: Poly / Mono, MPE (off / on), pitch-bend range (off … ±4 semitones), Quality, master level.
 - **MIDI 2.0 pitch** (from PlainOldSynth, via IFSynth): notes match on note + channel + group, so the
   same key on two channels is two notes, and per-note messages reach only the note they name.
   - **Channel bend** is tracked per channel; each note follows its own channel's.
@@ -81,7 +81,14 @@ falls silent at the end of the carriers' release (or is stolen, or leaves the mo
 note-off, so Bitwig keeps its per-voice modulation running through the release. The voice-info
 extension reports 10 voices (1 in Mono) and supports overlapping notes on one key.
 
-Next: MPE input, and pressure and timbre as modulation sources; see
+**MPE** (lower zone), switched on in the Global box; off by default, and presets leave it alone
+since it describes the controller, not the sound. Member channels 2–16 bend ±48, and the master
+channel's bend (the Bend Range param) adds to every member note. **RPN 0** (MIDI 1.0 CC
+101/100/6/38, or the MIDI 2.0 registered controller) sets a channel's bend range; under MPE, any
+member sets all members. Ranges reset on the MPE Configuration Message and when the switch flips,
+and like RC 7 they survive `reset()`. Pressure and timbre are not routed yet.
+
+Next: pressure and timbre as modulation sources; see
 [docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).
 
 ## Layout

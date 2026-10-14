@@ -1,7 +1,7 @@
 # ModicumFM: MIDI 2.0 / MPE / CLAP port
 
 Written 2026-10-14 to start the port of PlainOldSynth's 2026-10-09..12 work; kept up to date as it
-goes. Status: **steps 0, 6, 4, 5, 1, 1+, 2 and NOTE_END done.**
+goes. Status: **steps 0, 6, 4, 5, 1, 1+, 2, NOTE_END and 7 done.**
 
 The same work was done first in three sibling repos; port from them rather than re-deriving:
 
@@ -44,7 +44,7 @@ number, kept for cross-reference.
 | 1+ | Per-note range follows the channel; RC 7 kept across `reset()`; Pitch 7.25 | IFSynth `3967e15`, POS `69b455e` | **Done** (see row 1). The Bend Range param is the channel range and the per-note default. RPN 0 comes with step 7, as in IFSynth. |
 | 2 | CLAP note ids; note expressions (tuning as Pitch 7.25) | IFSynth `153a6d0` | **Done**: the patch applied as is. Pressure and brightness expressions reach the engine as poly pressure and per-note #74, but nothing in the voice reads them until step 3 (ChannelPressure is channel-wide). Host tests as IFSynth's, minus its Osc 2 check. |
 | — | CLAP NOTE_END + voice-info | IFSynth `406a452` | **Done**: NOTE_END when the voice frees (Final silent; ~0.35 s for a 0.3 s carrier release in the host test). Three plugin.cpp hunks placed by hand (applyVoiceMode, the process loop, get_extension). |
-| 7 | MPE switch (lower zone) + RPN 0 | IFSynth `de5f654` | Decided: Off/On in Global, kept out of presets. Restack the Global dropdowns into two rows so everything fits; the bottom row gets taller. |
+| 7 | MPE switch (lower zone) + RPN 0 | IFSynth `de5f654` | **Done**: `kParamMpe` appended (Off/On, Global, kept out of presets). Global is now Voices over MPE, Bend Range over Quality, then Master; Response stacks Vel Floor over Vel Curve (the author asked for both). The bottom row is 150 px instead of 130 and the default editor 840 px high instead of 820, so the upper panels keep their size. Checked in REAPER on a Retina screen (2026-10-14). Engine hunks of `PitchBendConverterModule.cpp`, `pm_params.h`, `pm_param_data.cpp` placed by hand (context drift only). |
 | — | Released notes (MPE §3.3.3) | IFSynth `209008b`, POS `228facb` | Also freeze member-channel pressure at release (ChannelPressure exists here). |
 | 8 | `pm::scaleUp`; MIDI 2.0 velocity-0 note-on is a note-on | IFSynth `2f30d3d` | Decided: skip POS's Velocity loudness dropdown; the Response panel already covers it. |
 | — | CC 123 / 120 per channel | POS `a3b94c7` | All Sound Off resets FM6Op envelopes, LPF, chorus, never `Voice::reset`. |

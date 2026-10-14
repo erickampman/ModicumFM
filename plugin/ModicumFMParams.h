@@ -87,6 +87,8 @@ enum ParamIndex {
    // Shared (relative) envelopes — Voice tab. Times ×0.01..×1000 (1 = unchanged), sustain -1..1 offset.
    kParamLoudAttack, kParamLoudDecay, kParamLoudSustain, kParamLoudRelease,         // carriers
    kParamBrightAttack, kParamBrightDecay, kParamBrightSustain, kParamBrightRelease, // modulators
+   // MIDI input (appended). Controller setup, not sound: presets leave it alone.
+   kParamMpe,            // MPE input, lower zone: member bend ±48 + the master channel's bend
    // (append new params here)
    kParamCount
 };
@@ -178,6 +180,8 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Bright Decay",   "brdec",  "x",  0.01f, 1000.0f,   1.0f,  true,  false},
    {"Bright Sustain", "brsus",  "",  -1.0f,   1.0f,   0.0f,  false, false},
    {"Bright Release", "brrel",  "x",  0.01f, 1000.0f,   1.0f,  true,  false},
+   // MIDI input
+   {"MPE",            "mpe",    "",    0.0f,    1.0f,   0.0f,  false, true },
 };
 
 #undef MODICUMFM_FM_OP_SPECS
@@ -192,6 +196,7 @@ static constexpr const char* kBendRangeChoices[] = { "Off", "0.5 st", "1 st", "1
                                                      "2.5 st", "3 st", "3.5 st", "4 st", nullptr };
 static constexpr const char* kVelFloorChoices[]  = { "0%", "25%", "50%", "75%", "Fixed", nullptr }; // level of the softest note
 static constexpr const char* kVelCurveChoices[]  = { "Concave", "Linear", "Convex", nullptr };
+static constexpr const char* kMpeChoices[]       = { "Off", "On", nullptr };
 static constexpr const char* kQualityChoices[]   = { "Normal", "High", "Best", nullptr };            // oversampling Off / 2x / 4x
 static constexpr const char* kOpWaveChoices[]    = { "Sine", "1+2", "1+3", "1+3+5", "1-4", nullptr }; // harmonic stacks
 
@@ -212,6 +217,7 @@ constexpr const char* const* choicesFor(uint32_t index)
    case kParamVelFloor:   return kVelFloorChoices;
    case kParamVelCurve:   return kVelCurveChoices;
    case kParamOversample: return kQualityChoices;
+   case kParamMpe:        return kMpeChoices;
    default:               return nullptr;
    }
 }
@@ -289,7 +295,8 @@ static_assert(symbolIs(kParamBrightAttack,   "bratt"));
 static_assert(symbolIs(kParamBrightDecay,    "brdec"));
 static_assert(symbolIs(kParamBrightSustain,  "brsus"));
 static_assert(symbolIs(kParamBrightRelease,  "brrel"));
-static_assert(kParamBrightRelease + 1 == kParamCount, "a new parameter needs its symbolIs line above");
+static_assert(symbolIs(kParamMpe,            "mpe"));
+static_assert(kParamMpe + 1 == kParamCount, "a new parameter needs its symbolIs line above");
 
 // Every dropdown's labels must cover its range exactly: integer, min 0, one label per step up to max.
 constexpr bool choicesMatchRange(uint32_t index)

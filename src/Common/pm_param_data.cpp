@@ -149,6 +149,7 @@ const ModuleParamConstantsGroup channelPressureConstantsGroup = {
 
 static const ModuleParamConstants pitchBendConverterConstants[] = {
    {"quarterTones", PitchBendConverterParamItemQuarterTones, 0, 0, nullptr, 0.0f, 8.0f, 4.0f, 0},
+   {"mpe",          PitchBendConverterParamItemMPE,          0, 0, nullptr, 0.0f, 1.0f, 0.0f, 0},
 };
 const ModuleParamConstantsGroup pitchBendConverterConstantsGroup = {
    const_cast<char*>("Pitch Bend"), sizeof(pitchBendConverterConstants) / sizeof(pitchBendConverterConstants[0]), pitchBendConverterConstants};

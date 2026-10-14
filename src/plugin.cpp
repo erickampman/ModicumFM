@@ -220,6 +220,7 @@ AUParameterAddress vmAddress(uint32_t index) {
     const auto chorus = [](uint8_t item) { return MODULE_PARAM_ADDRESS(ModuleParamKindChorus, ModuleInstance1, item); };
     switch (index) {
     case kParamBendRange:      return pitchBend1RangeAddress;
+    case kParamMpe:            return MODULE_PARAM_ADDRESS(ModuleParamKindPitchBendConverter, ModuleInstance1, PitchBendConverterParamItemMPE);
     case kParamMasterLevel:    return MODULE_PARAM_ADDRESS(ModuleParamKindFinalOutput, ModuleInstance1, FinalOutputParamItemLevel);
     case kParamLpfCutoff:      return lpf(LPFParamItemPitch);
     case kParamLpfResonance:   return lpf(LPFParamItemQ);
