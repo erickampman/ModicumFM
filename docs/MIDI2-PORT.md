@@ -51,6 +51,15 @@ number, kept for cross-reference.
 | 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | UI-visible; design to agree with the author. |
 | L | Linux: position-independent static libs; Linux CI | IFSynth `e5a32e3`, POS `linux.yml` | |
 
+## Planned after the port: mono glide
+
+The author wants glide for mono (2026-10-14). UI-visible (a new param and control), so agree the
+placement and range first. Wiring, as IFSynth: PitchConverter → **Slew** → Combine 2 input 1, with
+the PitchBendConverter staying on input 2, so the bend (and Pitch 7.25, applied in the bend
+converter) joins after the glide and is never smeared by it. Mono only: in poly force the slew
+near-instant, or each new voice slides up from its rest pitch. Bring back IFSynth's host test
+"a bend bypasses the glide" (`ifs_clap_host_test.cpp`).
+
 ## Open decisions (ask the author)
 
 1. VST3 / AUv2 through clap-wrapper: proposed later, not in this port.
