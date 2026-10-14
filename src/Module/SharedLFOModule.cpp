@@ -117,9 +117,47 @@ struct SharedLFOState : ModuleSharedState {
 
 ModuleSharedState* CreateSharedLFOState() { return new SharedLFOState(); }
 
+// Per Voice mode: this voice's own phase (module->mOmegaL), restarted at note-on.
+static void renderPerVoice(Module* module, uint32_t count) {
+    float* outL = module->output.first->data;
+    float* outR = module->output.second->data;
+    const float freqParam = module->paramByEnum(SharedLFOParamItemPitch);   // octaves; 0 = 1 Hz
+    const int   wave      = (int)(module->paramByEnum(SharedLFOParamItemWave) + 0.5f);
+    double phaseShift = 0.0;
+    switch (static_cast<LFOParamLRPhase>((int)module->paramByEnum(SharedLFOParamItemPhase))) {
+        case LFOParamLRPhase60:  phaseShift = 1.0 / 6.0; break;
+        case LFOParamLRPhase90:  phaseShift = 1.0 / 4.0; break;
+        case LFOParamLRPhase120: phaseShift = 1.0 / 3.0; break;
+        case LFOParamLRPhase180: phaseShift = 1.0 / 2.0; break;
+        default: break;   // LFOParamLRPhase0
+    }
+    const double delta = std::exp2((double)freqParam) * module->mFrequencyScale;
+    double phaseL = module->mOmegaL;
+    double phaseR = phaseL + phaseShift; if (phaseR >= 1.0) phaseR -= 1.0;
+    for (uint32_t i = 0; i < count; ++i) {
+        outL[i] = sharedLfoWave(wave, phaseL, delta);
+        outR[i] = sharedLfoWave(wave, phaseR, delta);
+        phaseL += delta; if (phaseL >= 1.0) phaseL -= 1.0;
+        phaseR += delta; if (phaseR >= 1.0) phaseR -= 1.0;
+    }
+    module->mOmegaL = phaseL;
+    module->mOmegaR = phaseR;
+}
+
+void MIDISharedLFOModule(const pm::UmpMessage& message, Module* module) {
+    if (module->paramByEnum(SharedLFOParamItemPerVoice) < 0.5f) return;
+    if (pm::isNoteOn(message) && !module->legatoHeld)
+        module->mOmegaL = module->mOmegaR = 0.0;
+}
+
 const KPBuffPair* ProcessSharedLFOModule(uint64_t processCallID, uint32_t count, Module* module) {
     float* outL = module->output.first->data;
     float* outR = module->output.second->data;
+
+    if (module->paramByEnum(SharedLFOParamItemPerVoice) >= 0.5f) {
+        renderPerVoice(module, count);
+        return &module->output;
+    }
 
     auto* st = static_cast<SharedLFOState*>(module->sharedState);
     if (!st) {

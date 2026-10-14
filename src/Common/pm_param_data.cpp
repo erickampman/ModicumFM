@@ -145,6 +145,7 @@ static const ModuleParamConstants sharedLFOConstants[] = {
    {"freeRun",   SharedLFOParamItemFreeRun, 0, 0, nullptr,    0.0f, 1.0f, 0.0f, 0}, // off = voices-active-only (reset on silence)
    {"clockInput", SharedLFOParamItemClockInput, 0, 0, nullptr,   0.0f, 0.0f, 0.0f, 0},
    {"clockRatio", SharedLFOParamItemClockRatio, 0, 0, nullptr, 0.0f, 13.0f, 0.0f, 0}, // default Auto
+   {"perVoice",  SharedLFOParamItemPerVoice, 0, 0, nullptr,  0.0f, 1.0f, 0.0f, 0}, // off = shared
 };
 const ModuleParamConstantsGroup sharedLFOConstantsGroup = {
    const_cast<char*>("Shared LFO"), sizeof(sharedLFOConstants) / sizeof(sharedLFOConstants[0]), sharedLFOConstants};

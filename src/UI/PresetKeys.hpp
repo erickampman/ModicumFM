@@ -121,6 +121,7 @@ static constexpr PresetKey kPresetKeys[kParamCount] = {
    {"Vibrato", "rate"},
    {"Vibrato", "depth"},
    {"Vibrato", "wheel"},
+   {"Vibrato", "sync"},
 };
 
 } // namespace modicumfm

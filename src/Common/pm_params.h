@@ -362,6 +362,7 @@ enum SharedLFOParamItem : NSUInteger {
    SharedLFOParamItemFreeRun,     // 0 = voices-active-only (reset on silence); 1 = continuous free-run
    SharedLFOParamItemClockInput,  // connection: clock pulses — when patched, locks rate+phase to the clock
    SharedLFOParamItemClockRatio,  // indexed (kLFOClockRatios): Auto / 1/16..3/4 / ×1..×16 of the clock rate
+   SharedLFOParamItemPerVoice,    // 0/1 (appended): each voice its own phase, restarted at note-on
 };
 
 enum FM6OpParamItem : NSUInteger {

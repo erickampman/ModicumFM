@@ -102,8 +102,8 @@ number, kept for cross-reference.
 Agreed with the author on 2026-10-14 (on Linux). First a one-knob **Glide** panel right of
 Expression on the Voice tab (`55422f1`); then, since that row had room, it became the **Pitch**
 panel: two rows like Expression, captions on the left. Glide (Time, Mode) over Vibrato (Rate, Depth,
-Wheel). 320 px wide at the default size; Expression narrows, its cells shrinking to fit (~100 px).
-Orange, like Global.
+Wheel, Sync). 405 px wide at the default size (caption column 60 px); Expression narrows (caption
+column 110 px), so both panels' knob cells are ~78 px. Orange, like Global.
 
 - **Glide** `kParamGlide`: seconds per octave, log, **0.001–2 s, default 0.001 = Off** (the knob says
   "Off"). Not IFSynth's 0.0001–2 s: on a log knob that bottom decade was dead travel.
@@ -114,6 +114,12 @@ Orange, like Global.
   registry keys on the address; voices-active-only, so it restarts on a new phrase) → a second
   `CCConverter` (CC 1, Per Note off) as a VCA, Offset = Depth/1200 and Amount = Wheel/1200 octaves →
   Combine 2 input 3.
+- **Sync** `kParamVibSync`: Shared (default) / Per Note. Not a port of PolygraphModular's per-voice
+  `LFOModule` (its phase restarts only on a Reset input's edge, and switching the vibrato between two
+  LFO modules would need re-patching or a mixer): `SharedLFO` gained `SharedLFOParamItemPerVoice`
+  (appended). On, each voice's copy runs its own phase in `mOmegaL/R` and ignores the shared buffer,
+  and `MIDISharedLFOModule` restarts it at note-on unless `Module::legatoHeld` (author's choice,
+  2026-10-14: restart at note-on, not free-running). The Clock input is not read per voice.
 - Pitch wiring: PitchConverter → **Slew** → Combine 2 input 1; PitchBendConverter on input 2;
   vibrato on input 3. So bend, Pitch 7.25 and vibrato all join after the glide. `applyGlide`
   (plugin.cpp) sends Rise = Fall = Time in Mono above the minimum, else 0.
@@ -123,7 +129,7 @@ Orange, like Global.
   fingered legato, read from the new `Module::legatoHeld` (the voice was Active, not just releasing,
   as the note-on arrived; set beside `legatoContinuation` in `Voice::handleMIDIMessage`).
 - Presets: every preset stores `Global.glide` 0.001, `Global.glideMode` 0 and `Vibrato` {rate 5,
-  depth 0, wheel 0}, so they sound as before.
+  depth 0, wheel 0, sync 0}, so they sound as before.
 - Host tests (`mfm-clap`, "Mono glide" and "Glide mode and vibrato"); the glide ones were
   mutation-checked (removing the snap or the poly gate fails them).
 - Found on the way: clap-validator's param fuzz hit subnormal output once the new params shifted its

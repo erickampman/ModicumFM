@@ -13,7 +13,8 @@
 // these to neutral. Hovering a macro or envelope rings the operators it acts on in the FM Engine
 // diagram. Under Character, Expression: what pressure (Bright / Cutoff / Level) and timbre, CC74
 // (Bright / Cutoff) do, as a grid of amounts; beside it, Pitch: Glide (time + Always / Legato; mono
-// only, greyed in poly) and Vibrato (rate, depth, and the depth the mod wheel adds). Every other panel — FM Engine included — shows on both
+// only, greyed in poly) and Vibrato (rate, depth, the depth the mod wheel adds, and Shared / Per Note
+// LFO phase). Every other panel — FM Engine included — shows on both
 // tabs.
 //
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
@@ -746,6 +747,7 @@ private:
         case kParamVibRate:   return "Rate";
         case kParamVibDepth:  return "Depth";
         case kParamVibWheel:  return "Wheel";
+        case kParamVibSync:   return "Sync";
         default: return kParams[i].name;
         }
     }
@@ -782,7 +784,7 @@ private:
         case kParamBrightness: case kParamBite: case kParamGrit: case kParamBody:
             return fCharGroup.get();
         case kParamGlide: case kParamGlideMode: case kParamVibRate: case kParamVibDepth:
-        case kParamVibWheel:
+        case kParamVibWheel: case kParamVibSync:
             return fPitchGroup.get();
         default:
             return fGlobalGroup.get(); // Voices, MPE, Bend Range, Master
@@ -1029,34 +1031,36 @@ private:
         const int exprH  = static_cast<int>(230 * scale);
         const int charH  = fmH - exprH - gap;
         const int rightW = colL + fullW - opX;
-        const int pitchW = static_cast<int>(320 * scale);
+        const int pitchW = static_cast<int>(405 * scale);
         const int exprW  = rightW - pitchW - gap;
         placeGroup(fCharGroup.get(),  opX,  fmY, rightW, charH);
         placeGroup(fExprGroup.get(),  opX,  fmY + charH + gap, exprW, exprH);
         placeGroup(fPitchGroup.get(), opX + exprW + gap, fmY + charH + gap, pitchW, exprH);
         {
-            // As Expression: a caption column, then Glide (Time, Mode) over Vibrato (Rate, Depth, Wheel).
+            // As Expression: a caption column, then Glide (Time, Mode) over Vibrato (Rate, Depth, Wheel,
+            // Sync). A dropdown takes 1.3 knob cells.
             int cx, cy, cw, ch;
             fPitchGroup->contentBounds(cx, cy, cw, ch);
-            const int capW  = static_cast<int>(70 * scale);
-            const int cellW = std::min(static_cast<int>(110 * scale), (cw - capW) / 3);
+            const int capW  = static_cast<int>(60 * scale);
+            const int cellW = std::min(static_cast<int>(110 * scale), static_cast<int>((cw - capW) / 4.3f));
+            const int dropW = cw - capW - 3 * cellW;
             const int rowH2 = ch / 2;
             const int labH  = static_cast<int>(18 * scale);
             place(fGlideLabel.get(), cx, cy + (rowH2 - labH) / 2,         capW, labH);
             place(fVibLabel.get(),   cx, cy + rowH2 + (rowH2 - labH) / 2, capW, labH);
             place(fKnobs[kParamGlide].get(), cx + capW, cy, cellW, rowH2);
-            place(fDropdowns[kParamGlideMode].get(), cx + capW + cellW, cy,
-                  std::min(cw - capW - cellW, cellW * 3 / 2), rowH2);
+            place(fDropdowns[kParamGlideMode].get(), cx + capW + cellW, cy, dropW, rowH2);
             int col = 0;
             for (uint32_t id : {kParamVibRate, kParamVibDepth, kParamVibWheel})
                 place(fKnobs[id].get(), cx + capW + (col++) * cellW, cy + rowH2, cellW, rowH2);
+            place(fDropdowns[kParamVibSync].get(), cx + capW + 3 * cellW, cy + rowH2, dropW, rowH2);
         }
         {
             // Rows = source, columns = target: Pressure → Bright / Cutoff / Level, Timbre → Bright /
             // Cutoff. A caption column on the left; knob cells sized as in a module row.
             int cx, cy, cw, ch;
             fExprGroup->contentBounds(cx, cy, cw, ch);
-            const int capW  = static_cast<int>(130 * scale);
+            const int capW  = static_cast<int>(110 * scale);
             const int cellW = std::min(static_cast<int>(110 * scale), (cw - capW) / 3);
             const int rowH2 = ch / 2;
             const int labH  = static_cast<int>(18 * scale);

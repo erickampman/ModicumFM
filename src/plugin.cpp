@@ -224,6 +224,7 @@ AUParameterAddress vmAddress(uint32_t index) {
     switch (index) {
     case kParamBendRange:      return pitchBend1RangeAddress;
     case kParamGlideMode:      return slew1LegatoOnlyAddress;
+    case kParamVibSync:        return MODULE_PARAM_FROM_BASE_AND_ITEM(sharedLFO2Address, SharedLFOParamItemPerVoice);
     case kParamMpe:            return MODULE_PARAM_ADDRESS(ModuleParamKindPitchBendConverter, ModuleInstance1, PitchBendConverterParamItemMPE);
     // Expression: the mod levels of the Pressure / Timbre inputs (VoiceManager::buildDefaultPatch)
     case kParamPressBright:    return fm(FM6OpParamItemBrightModLevel);

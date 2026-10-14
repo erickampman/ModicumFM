@@ -64,8 +64,10 @@ note pitch ─> Slew (mono glide) + pitch bend + vibrato ──> FM6Op engine
     portamento). The first note after a reset starts at its own pitch. Time's minimum is Off (the
     default, and every factory preset's); both controls grey out in Poly, which never glides. Only
     the note pitch slides: pitch bend, Pitch 7.25 and vibrato join after the glide.
-  - **Vibrato**: a sine LFO on the pitch, one phase shared by every voice (DX-style; it restarts when
-    all notes have ended). Rate 0.5–10 Hz; Depth 0–100 cents (peak) always; Wheel 0–100 cents more at
+  - **Vibrato**: a sine LFO on the pitch. Sync **Shared** (the default): one phase for every voice,
+    so all notes wobble together (it restarts when all notes have ended). **Per Note**: each voice's
+    own phase, restarted at its note-on (the DX7's LFO key sync), except a note played over a held
+    one in Mono, so the vibrato runs on through a legato glide. Rate 0.5–10 Hz; Depth 0–100 cents (peak) always; Wheel 0–100 cents more at
     full mod wheel (CC 1, from any channel, so an MPE master-channel wheel reaches every note). Depth
     and Wheel are 0 by default, so factory presets have no vibrato.
 - **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve

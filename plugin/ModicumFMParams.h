@@ -103,6 +103,7 @@ enum ParamIndex {
    kParamVibRate,        // vibrato LFO rate, Hz (one LFO shared by every voice)
    kParamVibDepth,       // vibrato depth without the wheel, cents (peak)
    kParamVibWheel,       // vibrato depth the mod wheel (CC 1) adds at full, cents (peak)
+   kParamVibSync,        // 0 = Shared (one LFO phase for every voice), 1 = Per Note (restarts at note-on)
    // (append new params here)
    kParamCount
 };
@@ -206,6 +207,7 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Vib Rate",       "vibRate",   "Hz", 0.5f,   10.0f,  5.0f,   true,  false},
    {"Vib Depth",      "vibDepth",  "ct", 0.0f,  100.0f,  0.0f,   false, false},
    {"Wheel>Vib",      "vibWheel",  "ct", 0.0f,  100.0f,  0.0f,   false, false},
+   {"Vib Sync",       "vibSync",   "",   0.0f,    1.0f,  0.0f,   false, true },
 };
 
 #undef MODICUMFM_FM_OP_SPECS
@@ -222,6 +224,7 @@ static constexpr const char* kVelFloorChoices[]  = { "0%", "25%", "50%", "75%", 
 static constexpr const char* kVelCurveChoices[]  = { "Concave", "Linear", "Convex", nullptr };
 static constexpr const char* kMpeChoices[]       = { "Off", "On", nullptr };
 static constexpr const char* kGlideModeChoices[] = { "Always", "Legato", nullptr };
+static constexpr const char* kVibSyncChoices[]   = { "Shared", "Per Note", nullptr };
 static constexpr const char* kQualityChoices[]   = { "Normal", "High", "Best", nullptr };            // oversampling Off / 2x / 4x
 static constexpr const char* kOpWaveChoices[]    = { "Sine", "1+2", "1+3", "1+3+5", "1-4", nullptr }; // harmonic stacks
 
@@ -244,6 +247,7 @@ constexpr const char* const* choicesFor(uint32_t index)
    case kParamOversample: return kQualityChoices;
    case kParamMpe:        return kMpeChoices;
    case kParamGlideMode:  return kGlideModeChoices;
+   case kParamVibSync:    return kVibSyncChoices;
    default:               return nullptr;
    }
 }
@@ -331,7 +335,8 @@ static_assert(symbolIs(kParamGlideMode,       "glideMode"));
 static_assert(symbolIs(kParamVibRate,         "vibRate"));
 static_assert(symbolIs(kParamVibDepth,        "vibDepth"));
 static_assert(symbolIs(kParamVibWheel,        "vibWheel"));
-static_assert(kParamVibWheel + 1 == kParamCount, "a new parameter needs its symbolIs line above");
+static_assert(symbolIs(kParamVibSync,         "vibSync"));
+static_assert(kParamVibSync + 1 == kParamCount, "a new parameter needs its symbolIs line above");
 
 // Every dropdown's labels must cover its range exactly: integer, min 0, one label per step up to max.
 constexpr bool choicesMatchRange(uint32_t index)

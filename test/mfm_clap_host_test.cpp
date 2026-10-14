@@ -1171,6 +1171,44 @@ int main(int argc, char** argv) {
         }
     }
 
+    // --- vibrato Sync: Shared vs Per Note ----------------------------------------------------------
+    // Mono, Depth 100 ct at 5 Hz. A3 at 0 s, released at 0.1 s (still ringing, so the shared LFO keeps
+    // running), A3 again at 0.13 s. Shared: the phase runs on (0.65 cycle, the sine's low half), so
+    // the new note starts flat. Per Note: it restarts at 0 and rises, so the new note starts sharp.
+    // A note played over a held one (fingered legato) does not restart it.
+    std::printf("Vibrato sync:\n");
+    {
+        constexpr double kA3 = 220.0, kA4 = 440.0;
+        const auto seconds = [](double s) { return uint32_t(s * kSampleRate); };
+        const clap_event_midi_t a3 = makeMidi1(0x90, 57, 100), a3off = makeMidi1(0x80, 57, 0);
+        const clap_event_midi_t a4 = makeMidi1(0x90, 69, 100);
+        const auto startOfNote = [&](double sync, bool legato, double expectedHz) {
+            Instance inst;
+            if (!inst.create(lib)) { check(false, "vibrato sync: instance"); return 0.0; }
+            installTestPatch(inst.plugin);
+            for (const auto& [index, value] : std::initializer_list<std::pair<uint32_t, double>>{
+                     {kParamVoiceMode, 0.0}, {kParamVibRate, 5.0}, {kParamVibDepth, 100.0}, {kParamVibSync, sync}})
+                sendParam(inst.plugin, index, value);
+            const clap_event_header_t* on[] = { &a3.header };
+            const clap_event_header_t* off[] = { &a3off.header };
+            const clap_event_header_t* again[] = { legato ? &a4.header : &a3.header };
+            render(inst.plugin, seconds(0.1), on, 1);
+            render(inst.plugin, seconds(0.03), legato ? nullptr : off, legato ? 0 : 1);
+            // A 40 ms window, analysed from 12 ms in: phase 0.06..0.2 after a restart.
+            const std::vector<float> audio = render(inst.plugin, seconds(0.04), again, 1);
+            inst.destroy();
+            return estimatePitch(audio, expectedHz * 0.7, expectedHz * 1.4);
+        };
+        const double shared  = startOfNote(0.0, false, kA3);
+        const double perNote = startOfNote(1.0, false, kA3);
+        const double legato  = startOfNote(1.0, true,  kA4);
+        std::printf("        new A3 at 0.13 s: Shared %.2f Hz, Per Note %.2f Hz; Per Note legato A4 %.2f Hz\n",
+                    shared, perNote, legato);
+        check(shared < kA3 * std::exp2(-0.5 / 12.0), "vibrato sync Shared: the phase runs on (starts flat)");
+        check(perNote > kA3 * std::exp2(0.5 / 12.0), "vibrato sync Per Note: restarts at note-on (starts sharp)");
+        check(legato < kA4 * std::exp2(-0.5 / 12.0), "vibrato sync Per Note: a legato note does not restart it");
+    }
+
     // --- the MIDI-1.0 / CLAP dialects still work -------------------------------------------------
     std::printf("Other note dialects (must keep working):\n");
     {

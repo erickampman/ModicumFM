@@ -155,12 +155,16 @@ the sound, so presets store them; Character's Reset leaves them alone.</p>
   <code>Legato</code>: only a note played while the previous key is still held glides; a detached
   note starts at its own pitch.</dd>
 </dl>
-<p><b>Vibrato</b> (one shared LFO, so every note wobbles together; it restarts when all notes end):</p>
+<p><b>Vibrato</b>:</p>
 <dl>
   <dt>Rate</dt><dd>Speed, 0.5 to 10 Hz.</dd>
   <dt>Depth</dt><dd>Vibrato that is always there, up to 100 cents (a semitone) each way.</dd>
   <dt>Wheel</dt><dd>Extra depth the mod wheel adds at full, up to 100 cents. Leave Depth at 0 and turn
   this up for vibrato that comes in with the wheel.</dd>
+  <dt>Sync</dt><dd><code>Shared</code>: one LFO for every note, so they all wobble together (it
+  restarts when all notes have ended). <code>Per Note</code>: each note's vibrato starts from the
+  beginning when you play it, so notes played at different times wobble out of step. In Mono, a
+  note played over a held one keeps the running vibrato.</dd>
 </dl>
 
 <h2 class="sound">FM Engine</h2>
