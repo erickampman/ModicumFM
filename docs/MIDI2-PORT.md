@@ -1,21 +1,70 @@
 # ModicumFM: MIDI 2.0 / MPE / CLAP port
 
 Written 2026-10-14 to start the port of PlainOldSynth's 2026-10-09..12 work; kept up to date as it
-goes. Status: **everything but L (Linux CI) done.**
+goes. Status: **every step done in code; L needs a hands-on Linux check** (see the handoff below).
 
 The same work was done first in three sibling repos; port from them rather than re-deriving:
 
-- **IFSynth** (`~/Dev-Audio/IFSynth`, branch **`master`**): the most recent port, from the same
-  DPF-generated starting point; its `docs/MIDI2-PORT.md` is the model for this file.
-- **StruckSynth** (`~/Dev-Audio/StruckSynth`, branch `main`): also has no VCA (its bank's decay is the
-  envelope) and a fixed Expression panel instead of routing dropdowns, so it is the model for item 3.
-- **PlainOldSynth** (`~/Dev-Audio/PlainOldSynth`, branch `main`): where most of it began; its README
-  "MIDI 2.0" section is the reference.
+- **IFSynth** (`~/Dev-Audio/IFSynth` on the author's Mac; https://github.com/erickampman/IFSynth,
+  branch **`master`**): the most recent port, from the same DPF-generated starting point; its
+  `docs/MIDI2-PORT.md` is the model for this file.
+- **StruckSynth** (`~/Dev-Audio/StruckSynth`; https://github.com/erickampman/StruckSynth, branch
+  `main`): also has no VCA (its bank's decay is the envelope) and a fixed Expression panel instead of
+  routing dropdowns, so it is the model for item 3.
+- **PlainOldSynth** (`~/Dev-Audio/PlainOldSynth`; https://github.com/erickampman/PlainOldSynth,
+  branch `main`): where most of it began; its README "MIDI 2.0" section is the reference.
+
+On another machine, clone a sibling next to this repo only when a step needs one; commit hashes in
+the table below are in those repos.
 
 All of them vendor the same PolygraphModular engine (`src/Common`, `src/Module`, `src/Voice`).
 ModicumFM's `pm_midi.*` and `VoiceStateManager.cpp` are identical to POS's before the port
 (`8a3f6be`), so engine commits port nearly file for file: `git show <commit> -- src > x.patch`, then
 `git apply --reject x.patch`, and place the rejected hunks by hand.
+
+## Handoff: where things stand (2026-10-14, end of the macOS session)
+
+`main` at `5d36246`, pushed; CI green on it (ubuntu gcc, ubuntu clang, macOS clang). The author is
+continuing on a Linux PC.
+
+**Waiting on the author:** a hands-on test of the Expression panel (step 3) with KeyboardEDO
+(https://github.com/erickampman/KeyboardEDO) on macOS: Vertical = Pressure with Pressure scope =
+**Poly** (Channel moves every note), or Vertical = Controller CC 74 for timbre. Turn the filter Cutoff
+down before testing the Cutoff knobs. Poly aftertouch through KeyboardEDO was tested and approved.
+
+**Next: finish L on Linux.** The code side is already in: IFSynth's PIC fix came with step 0, and
+`.github/workflows/ci.yml` builds and tests on Ubuntu with gcc and clang and `-DMODICUMFM_WERROR=ON`.
+What no one has done is run it on a Linux desktop:
+
+1. Deps (README "Build"): `sudo apt install pkg-config libgl1-mesa-dev libx11-dev libxext-dev
+   libxrandr-dev libxcursor-dev ninja-build cmake`; clone with `--recurse-submodules` (dpf, clap).
+2. `cmake -G Ninja -B build -S . -DCMAKE_BUILD_TYPE=Release -DMODICUMFM_WERROR=ON`, build,
+   `ctest --test-dir build --output-on-failure` (9 suites). `clap-validator validate build/ModicumFM.clap`
+   (install it if missing).
+3. The post-build step symlinks the plugin into `~/.clap`. Load it in a Linux host (Bitwig or REAPER):
+   the editor opens at the right size; both tabs draw; **the first switch to the Voice tab draws the
+   envelope graphs cleanly** (stencil fix); closing the editor and quitting the host do not crash
+   (destruction-order fix); notes, bend, MPE and pressure work from a controller.
+4. Record the result in row L and commit. If something is Linux-only, fix it and add a test or CI step
+   where one can catch it.
+
+**Open after the port** (none started): mono glide (planned below; agree the UI first); VST3 / AUv2
+via clap-wrapper (decided: later); step 4's non-Retina monitor check (macOS); and the stencil-clear fix
+(`5d36246`) probably belongs in PlainOldSynth, IFSynth and StruckSynth too, since they share DPF —
+offered to the author, not started.
+
+**Learned the hard way this session:**
+- UI members: declare every panel (`GroupBox`) **before** the controls it parents. Members are
+  destroyed in reverse order; a panel freed first makes its children's destructors crash on editor
+  close. The host test's gui check only calls `create()` (the UI is built in `set_parent`, which needs a
+  real window), so only a real host catches this.
+- DPF never clears the stencil; `ModicumFMUI::onNanoDisplay` does, each frame. Keep it.
+- New parameters: append to `ParamIndex` and `kParams`, add a `symbolIs` line and move the count
+  assert, add a `PresetKeys` entry, and add the key to every `Presets/*.json` (the loader leaves
+  unmentioned keys alone, so a missing key leaks the previous preset's value). New engine items and
+  modules are appended too; `pm-factory` counts the voice's modules.
+- New module in the voice: `pm_module_specs.cpp` (with its Reset proc), `pm_addresses.h`,
+  `CMakeLists.txt`, `VoiceManager::buildDefaultPatch`.
 
 ## ModicumFM as it was (2026-10-14)
 
@@ -49,7 +98,7 @@ number, kept for cross-reference.
 | 8 | `pm::scaleUp`; MIDI 2.0 velocity-0 note-on is a note-on | IFSynth `2f30d3d` | **Done**: applied cleanly; POS's Velocity loudness dropdown skipped (the Response panel covers it). ModicumFM's modules already used `pm::isNoteOn`; ChannelPressure's now-redundant velocity guard removed. MIDI 1.0 velocity 127, pressure 127 and full bend now reach full scale (were 0.992). The host test sets Vel Floor to Fixed, since a velocity-0 note is silent at the default 0% floor. |
 | — | CC 123 / 120 per channel | POS `a3b94c7` | **Done** (POS's VoiceManager / VoiceStateManager code as is; IFSynth never had it). All Sound Off resets FM6Op, the filter ADSR, LPF and chorus, never `Voice::reset`. LPF and Chorus had no reset proc and ADSR's (`ADSRModuleReset`) was never registered, so `Module::reset()` left filter memory and the chorus delay line holding the old sound; `ResetLPFilterModule` / `ResetChorusModule` added and all three registered, which also makes a host `reset()` clear them. Tested in `pm-modicumfm`. |
 | 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | **Done**: an Expression panel on the Voice tab under Character (author's choice, 2026-10-14): Pressure → Bright / Cutoff / Level, Timbre → Bright / Cutoff, all 0 by default, stored in presets. Press>Cutoff is the old LPF Pressure knob (same param, renamed). StruckSynth's CCConverter (CC 74 Per Note) is the Timbre source; FM6Op gained brightness ×2 and level mod inputs, LPF a third cutoff mod input (all appended). Params appended. Tested in `pm-modicumfm` and `pm-modules`; checked in REAPER. Two fixes after the author's test: `fExprGroup` was declared after `fKnobs`, so it was destroyed before its knobs and editor close crashed (the host test's gui check never builds the UI, so only a host catches this); and DPF never clears the stencil buffer, so the first fill over a never-drawn region (the Voice tab's envelope graphs) painted inverted bands — the UI now clears it each frame. |
-| L | Linux: position-independent static libs; Linux CI | IFSynth `e5a32e3`, POS `linux.yml` | |
+| L | Linux: position-independent static libs; Linux CI | IFSynth `e5a32e3`, POS `linux.yml` | **Code done, not yet checked by hand**: the PIC fix came with step 0; `ci.yml` (IFSynth's matrix, not POS's `linux.yml`, which exists for POS's VST3 wrapper) builds and tests on Ubuntu gcc + clang with `-Werror`, green at `5d36246`. Remaining: the hands-on checklist in the handoff above. |
 
 ## Planned after the port: mono glide
 
