@@ -76,7 +76,10 @@ receive MIDI 2.0 notes (including 7.9 microtonal pitch) that DPF's generated CLA
 which, so a re-struck key is a new note and an expression can name only the id. Note expressions:
 **tuning** arrives as Pitch 7.25 at key + tuning, so it is exact at any size, not clamped to the
 bend range; **pressure** and **brightness** become polyphonic pressure and per-note controller #74
-(nothing in the voice responds to them yet; the filter follows channel pressure only).
+(nothing in the voice responds to them yet; the filter follows channel pressure only). A CLAP note gets `CLAP_EVENT_NOTE_END` when its voice
+falls silent at the end of the carriers' release (or is stolen, or leaves the mono stack), not at
+note-off, so Bitwig keeps its per-voice modulation running through the release. The voice-info
+extension reports 10 voices (1 in Mono) and supports overlapping notes on one key.
 
 Next: MPE input, and pressure and timbre as modulation sources; see
 [docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).
