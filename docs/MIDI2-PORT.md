@@ -1,7 +1,7 @@
 # ModicumFM: MIDI 2.0 / MPE / CLAP port
 
 Written 2026-10-14 to start the port of PlainOldSynth's 2026-10-09..12 work; kept up to date as it
-goes. Status: **steps 0, 6, 4, 5, 1, 1+, 2, NOTE_END, 7 and released notes done.**
+goes. Status: **steps 0, 6, 4, 5, 1, 1+, 2, NOTE_END, 7, released notes and 8 done.**
 
 The same work was done first in three sibling repos; port from them rather than re-deriving:
 
@@ -46,7 +46,7 @@ number, kept for cross-reference.
 | — | CLAP NOTE_END + voice-info | IFSynth `406a452` | **Done**: NOTE_END when the voice frees (Final silent; ~0.35 s for a 0.3 s carrier release in the host test). Three plugin.cpp hunks placed by hand (applyVoiceMode, the process loop, get_extension). |
 | 7 | MPE switch (lower zone) + RPN 0 | IFSynth `de5f654` | **Done**: `kParamMpe` appended (Off/On, Global, kept out of presets). Global is now Voices over MPE, Bend Range over Quality, then Master; Response stacks Vel Floor over Vel Curve (the author asked for both). The bottom row is 150 px instead of 130 and the default editor 840 px high instead of 820, so the upper panels keep their size. Checked in REAPER on a Retina screen (2026-10-14). Engine hunks of `PitchBendConverterModule.cpp`, `pm_params.h`, `pm_param_data.cpp` placed by hand (context drift only). |
 | — | Released notes (MPE §3.3.3) | IFSynth `209008b`, POS `228facb` | **Done**: IFSynth's bend half as is (one comment hunk by hand). ModicumFM's ChannelPressure was still PolygraphModular's channel-only one, so POS's module (at `228facb`: per-channel and poly pressure, MPE max with the master, release freeze, ControlRamp de-zippering) replaced it, with `ChannelPressureParamItemMPE` set by the MPE switch and `ResetChannelPressure` registered. Single-channel aftertouch behaves as before, now ramped over 2 ms; poly pressure (incl. CLAP pressure expressions) now moves its note's cutoff. Pressure freeze tested in `pm-modules`; the bend cases in the host test. |
-| 8 | `pm::scaleUp`; MIDI 2.0 velocity-0 note-on is a note-on | IFSynth `2f30d3d` | Decided: skip POS's Velocity loudness dropdown; the Response panel already covers it. |
+| 8 | `pm::scaleUp`; MIDI 2.0 velocity-0 note-on is a note-on | IFSynth `2f30d3d` | **Done**: applied cleanly; POS's Velocity loudness dropdown skipped (the Response panel covers it). ModicumFM's modules already used `pm::isNoteOn`; ChannelPressure's now-redundant velocity guard removed. MIDI 1.0 velocity 127, pressure 127 and full bend now reach full scale (were 0.992). The host test sets Vel Floor to Fixed, since a velocity-0 note is silent at the default 0% floor. |
 | — | CC 123 / 120 per channel | POS `a3b94c7` | All Sound Off resets FM6Op envelopes, LPF, chorus, never `Voice::reset`. |
 | 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | Decided: a fixed Expression panel, StruckSynth style: an amount per source to fixed targets (e.g. Pressure → cutoff as now, Timbre → Brightness). Agree the targets, ranges and layout before building. |
 | L | Linux: position-independent static libs; Linux CI | IFSynth `e5a32e3`, POS `linux.yml` | |

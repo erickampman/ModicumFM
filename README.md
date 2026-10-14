@@ -48,6 +48,10 @@ note pitch + pitch bend ──> FM6Op engine
   (velocity → modulator levels, i.e. brightness) and Key Track (note → modulator levels and
   decay/release times), both neutral at 0.
 - **Global**: Poly / Mono, MPE (off / on), pitch-bend range (off … ±4 semitones), Quality, master level.
+- **MIDI 1.0 values** are upscaled with the spec's Min-Center-Max rule (M2-104 D.1.3), so 127 /
+  16383 are full scale and 64 / 8192 the exact centre; MIDI 1.0 poly pressure decodes. A MIDI 2.0
+  note-on with velocity 0 is a note-on (M2-104 §4.2.8), not a note-off; at the 0% Vel Floor it
+  plays silently.
 - **MIDI 2.0 pitch** (from PlainOldSynth, via IFSynth): notes match on note + channel + group, so the
   same key on two channels is two notes, and per-note messages reach only the note they name.
   - **Channel bend** is tracked per channel; each note follows its own channel's.
