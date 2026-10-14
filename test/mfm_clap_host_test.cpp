@@ -988,6 +988,82 @@ int main(int argc, char** argv) {
                       "a MIDI 2.0 note-on with velocity 0 plays its note");
     }
 
+    // --- mono glide ------------------------------------------------------------------------------
+    // Glide is a constant rate in seconds per octave on the note pitch only (PitchConverter -> Slew
+    // -> Combine 2); the bend joins after it. Its minimum is off, and poly never glides.
+    std::printf("Mono glide:\n");
+    {
+        constexpr double kA3 = 220.0, kA4 = 440.0;
+        const auto noteOn  = [](uint8_t note) { return makeMidi1(0x90, note, 100); };
+        const auto seconds = [](double s) { return uint32_t(s * kSampleRate); };
+        // Render `events` then `skip` seconds, and measure the pitch over the next `window` seconds.
+        const auto measure = [&](const clap_plugin_t* plugin, std::initializer_list<const clap_event_header_t*> events,
+                                 double skip, double window, double expectedHz, const char* what) {
+            std::vector<const clap_event_header_t*> list(events);
+            if (skip > 0.0) { render(plugin, seconds(skip), list.data(), uint32_t(list.size())); list.clear(); }
+            const std::vector<float> audio = render(plugin, seconds(window), list.data(), uint32_t(list.size()));
+            const double hz = estimatePitch(audio, expectedHz * 0.5, expectedHz * 2.0);
+            std::printf("        %-34s expected ~%8.3f Hz | measured %8.3f Hz\n", what, expectedHz, hz);
+            return hz;
+        };
+        const auto near = [](double hz, double expected, double tol) { return std::fabs(hz / expected - 1.0) < tol; };
+        const auto glideInstance = [&](Instance& inst, double voices, double glide) {
+            if (!inst.create(lib)) return false;
+            installTestPatch(inst.plugin);
+            sendParam(inst.plugin, kParamVoiceMode, voices);
+            sendParam(inst.plugin, kParamGlide, glide);
+            return true;
+        };
+
+        {   // 1 s/oct, A3 then A4 held legato: halfway (0.5 s) is half an octave up, and it arrives
+            // after a second. The first note snaps to its pitch rather than sliding up from 0.
+            Instance inst;
+            check(glideInstance(inst, 0.0, 1.0), "glide: plugin instance created");
+            const clap_event_midi_t a3 = noteOn(57), a4 = noteOn(69);
+            const double first = measure(inst.plugin, {&a3.header}, 0.0, 0.25, kA3, "first note (A3), no slide in");
+            check(near(first, kA3, 0.01), "glide: the first note starts at its own pitch");
+            // The window is analysed from 30% in, so 0.45 + 0.3·0.1 .. 0.55 s: centred near 0.51 oct.
+            const double mid = measure(inst.plugin, {&a4.header}, 0.45, 0.1, kA3 * std::exp2(0.51), "A3 -> A4 at 0.5 s");
+            check(near(mid, kA3 * std::exp2(0.51), 0.03), "glide: halfway through 1 s/oct is half an octave up");
+            const double end = measure(inst.plugin, {}, 0.6, 0.25, kA4, "A3 -> A4 after 1.3 s");
+            check(near(end, kA4, 0.01), "glide: arrives at the new note");
+            inst.destroy();
+        }
+        {   // A bend during a glide is not smeared by it: full up (+2 st at the default range) on the
+            // held note sounds at once, while a note change would take a second per octave.
+            Instance inst;
+            check(glideInstance(inst, 0.0, 1.0), "glide bend: plugin instance created");
+            const clap_event_midi_t a3 = noteOn(57), bend = makeMidi1(0xE0, 0x7F, 0x7F);
+            measure(inst.plugin, {&a3.header}, 0.0, 0.25, kA3, "A3 before the bend");
+            const double bent = measure(inst.plugin, {&bend.header}, 0.0, 0.1, kA3 * std::exp2(2.0 / 12.0),
+                                        "A3 bent +2 st, first 0.1 s");
+            check(near(bent, kA3 * std::exp2(2.0 / 12.0), 0.01), "glide: a bend bypasses the glide");
+            inst.destroy();
+        }
+        {   // Glide at its minimum is off: A3 then A4 lands on A4 at once.
+            Instance inst;
+            check(glideInstance(inst, 0.0, kParams[kParamGlide].min), "glide off: plugin instance created");
+            const clap_event_midi_t a3 = noteOn(57), a4 = noteOn(69);
+            measure(inst.plugin, {&a3.header}, 0.0, 0.25, kA3, "A3, glide off");
+            const double hz = measure(inst.plugin, {&a4.header}, 0.0, 0.1, kA4, "A4 at once, glide off");
+            check(near(hz, kA4, 0.01), "glide: the minimum is off");
+            inst.destroy();
+        }
+        {   // Poly never glides, even with Glide up: the voice that played A3 (released, still ringing
+            // under the long release) takes A4 without sliding.
+            Instance inst;
+            check(glideInstance(inst, 1.0, 1.0), "glide poly: plugin instance created");
+            const clap_event_midi_t a3 = noteOn(57), a4 = noteOn(69);
+            measure(inst.plugin, {&a3.header}, 0.0, 0.25, kA3, "A3, poly");
+            const clap_event_midi_t off = makeMidi1(0x80, 57, 0);
+            const std::vector<const clap_event_header_t*> offList = {&off.header};
+            render(inst.plugin, seconds(1.0), const_cast<const clap_event_header_t**>(offList.data()), 1);
+            const double hz = measure(inst.plugin, {&a4.header}, 0.0, 0.1, kA4, "A4 at once, poly");
+            check(near(hz, kA4, 0.01), "glide: poly does not glide");
+            inst.destroy();
+        }
+    }
+
     // --- the MIDI-1.0 / CLAP dialects still work -------------------------------------------------
     std::printf("Other note dialects (must keep working):\n");
     {

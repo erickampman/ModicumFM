@@ -15,7 +15,7 @@
 #define MODICUMFM_ADDR(name, kind, inst, item) \
    inline constexpr AUParameterAddress name = MODULE_PARAM_ADDRESS(kind, inst, item);
 
-// Pitch: note pitch + pitch bend, summed (Combine 2, Add) into the FM6Op pitch input.
+// Pitch: note pitch (through the glide Slew) + pitch bend, summed (Combine 2, Add) into the FM6Op pitch input.
 MODICUMFM_ADDR(pitchConverter1Address,  ModuleParamKindPitchConverter, ModuleInstance1, 0)
 MODICUMFM_ADDR(pitchBend1Address,       ModuleParamKindPitchBendConverter, ModuleInstance1, 0)
 MODICUMFM_ADDR(pitchBend1RangeAddress,  ModuleParamKindPitchBendConverter, ModuleInstance1, PitchBendConverterParamItemQuarterTones)
@@ -23,6 +23,12 @@ MODICUMFM_ADDR(combine2Address,         ModuleParamKindCombine, ModuleInstance2,
 MODICUMFM_ADDR(combine2Input1Address,   ModuleParamKindCombine, ModuleInstance2, CombineParamItemInput1)
 MODICUMFM_ADDR(combine2Input2Address,   ModuleParamKindCombine, ModuleInstance2, CombineParamItemInput2)
 MODICUMFM_ADDR(combine2TypeAddress,     ModuleParamKindCombine, ModuleInstance2, CombineParamItemType)
+// Mono glide: a Slew between the note pitch and the sum, so the bend joins after it (never smeared).
+// The Glide param drives Rise and Fall together.
+MODICUMFM_ADDR(slew1Address,            ModuleParamKindSlew, ModuleInstance1, 0)
+MODICUMFM_ADDR(slew1InputAddress,       ModuleParamKindSlew, ModuleInstance1, SlewParamItemInput)
+MODICUMFM_ADDR(slew1RiseAddress,        ModuleParamKindSlew, ModuleInstance1, SlewParamItemRise)
+MODICUMFM_ADDR(slew1FallAddress,        ModuleParamKindSlew, ModuleInstance1, SlewParamItemFall)
 
 // The FM engine.
 MODICUMFM_ADDR(fm6Op1Address,           ModuleParamKindFM6Op, ModuleInstance1, 0)

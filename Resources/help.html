@@ -145,6 +145,14 @@ nothing happens until you turn one; with MPE or polyphonic aftertouch each note 
 timbre is CC 74, MIDI 2.0 per-note controller 74, or a host's per-note brightness. These are part of
 the sound, so presets store them; Character's Reset leaves them alone.</p>
 
+<h2 class="comb">Voice: Glide</h2>
+<dl>
+  <dt>Glide</dt><dd>Portamento in Mono: each new note slides from the current pitch at this rate,
+  in time per octave, so a two-octave jump takes twice as long as one. It works whether or not the
+  previous key is still held. <code>Off</code> (the minimum) jumps straight to the note. Greyed out
+  in Poly, which never glides. Pitch bend is not slowed by the glide.</dd>
+</dl>
+
 <h2 class="sound">FM Engine</h2>
 <p>Six sine-based operators. An <i>algorithm</i> decides which operators modulate which: a
 <i>carrier</i> is heard, a <i>modulator</i> bends a carrier's phase to add harmonics. Each
@@ -242,7 +250,7 @@ with Touch, the tone; Key Track changes the tone and length up and down the keyb
 <h2 class="comb">Global</h2>
 <dl>
   <dt>Voices</dt><dd>Poly (10 voices) or Mono (legato: a note played while another is held changes
-  pitch without re-attacking the envelopes).</dd>
+  pitch without re-attacking the envelopes; Glide on the Voice tab slides between notes).</dd>
   <dt>MPE</dt><dd>On for an MPE controller (lower zone: channel 1 is the master channel, 2–16 carry
   one note each). Each note bends ±48 semitones on its own channel, and the master channel's bend
   (the Bend Range) moves every note. Presets leave this switch alone.</dd>

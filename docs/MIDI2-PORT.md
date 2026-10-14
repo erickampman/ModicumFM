@@ -44,7 +44,8 @@ pressure from a controller.)
 
 **Next:** nothing left in the port; pick from the list below with the author.
 
-**Open after the port** (none started): mono glide (planned below; agree the UI first); VST3 / AUv2
+**Open after the port**: mono glide is **done in code** (below), waiting on the author's look in a
+host. Not started: VST3 / AUv2
 via clap-wrapper (decided: later); step 4's non-Retina monitor check (macOS); and the stencil-clear fix
 (`5d36246`) probably belongs in PlainOldSynth, IFSynth and StruckSynth too, since they share DPF —
 offered to the author, not started.
@@ -96,14 +97,27 @@ number, kept for cross-reference.
 | 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | **Done**: an Expression panel on the Voice tab under Character (author's choice, 2026-10-14): Pressure → Bright / Cutoff / Level, Timbre → Bright / Cutoff, all 0 by default, stored in presets. Press>Cutoff is the old LPF Pressure knob (same param, renamed). StruckSynth's CCConverter (CC 74 Per Note) is the Timbre source; FM6Op gained brightness ×2 and level mod inputs, LPF a third cutoff mod input (all appended). Params appended. Tested in `pm-modicumfm` and `pm-modules`; checked in REAPER. Two fixes after the author's test: `fExprGroup` was declared after `fKnobs`, so it was destroyed before its knobs and editor close crashed (the host test's gui check never builds the UI, so only a host catches this); and DPF never clears the stencil buffer, so the first fill over a never-drawn region (the Voice tab's envelope graphs) painted inverted bands — the UI now clears it each frame. |
 | L | Linux: position-independent static libs; Linux CI | IFSynth `e5a32e3`, POS `linux.yml` | **Done**: the PIC fix came with step 0; `ci.yml` (IFSynth's matrix, not POS's `linux.yml`, which exists for POS's VST3 wrapper) builds and tests on Ubuntu gcc + clang with `-Werror`, green at `5d36246`. Checked by hand on a Linux PC (2026-10-14): build, ctest, clap-validator, and REAPER; details in the handoff above. |
 
-## Planned after the port: mono glide
+## After the port: mono glide (done 2026-10-14)
 
-The author wants glide for mono (2026-10-14). UI-visible (a new param and control), so agree the
-placement and range first. Wiring, as IFSynth: PitchConverter → **Slew** → Combine 2 input 1, with
-the PitchBendConverter staying on input 2, so the bend (and Pitch 7.25, applied in the bend
-converter) joins after the glide and is never smeared by it. Mono only: in poly force the slew
-near-instant, or each new voice slides up from its rest pitch. Bring back IFSynth's host test
-"a bend bypasses the glide" (`ifs_clap_host_test.cpp`).
+Agreed with the author on 2026-10-14 (on Linux): a **Glide** panel, one knob, to the right of
+Expression on the Voice tab (Expression narrows; its knob cells keep their 110 px), orange like Global.
+
+- `kParamGlide` (appended): seconds per octave, log, **0.001–2 s, default 0.001 = Off** (the knob
+  says "Off" there). Deviation from IFSynth's 0.0001–2 s: the bottom decade was dead travel. Every
+  preset stores `"Global": {"glide": "0.001"}`.
+- Constant rate (IFSynth's linear Slew); every mono note glides from the current pitch, held or not.
+  Legato-only (fingered) glide was offered and left for later.
+- Wiring as IFSynth: PitchConverter → **Slew** → Combine 2 input 1, PitchBendConverter on input 2, so
+  bend and Pitch 7.25 join after the glide. `applyGlide` (plugin.cpp) sends Rise = Fall = the
+  Glide value in Mono above the minimum, else 0.
+- ModicumFM's `SlewModule` differs from IFSynth's in two ways: Rise and Fall at or below 0.1 ms pass
+  the input straight through (Off, and Poly), and a reset proc + MIDI proc make the first note-on
+  after init / reset snap to its pitch (IFSynth's slid up from 0, i.e. from the reference pitch).
+- The knob greys out in Poly (`updateGlideEnabled`, as IFSynth's UI).
+- Host tests (`mfm-clap`, "Mono glide"): first note at its own pitch; at 1 s/oct, half an octave up at
+  0.5 s and arrived after 1 s; a bend bypasses the glide; the minimum is off; poly never glides.
+  Mutation-checked: removing the snap or the poly gate fails them.
+- **Not yet checked in a host** (the panel's look and the knob's greying).
 
 ## Decisions (2026-10-14)
 

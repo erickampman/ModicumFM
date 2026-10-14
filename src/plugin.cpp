@@ -266,6 +266,16 @@ bool isMonoMode(const Plugin* plugin) {
 
 constexpr uint32_t kPolyVoices = 10;
 
+// Mono glide: the Slew's Rise and Fall together, in seconds per octave. The Glide param's minimum is
+// off, and poly is always off (each new voice would slide up from its rest pitch); 0 makes the Slew
+// pass the pitch straight through.
+void applyGlide(Plugin* plugin) {
+    const float glide = paramOf(plugin, kParamGlide);
+    const float rate  = isMonoMode(plugin) && glide > kParams[kParamGlide].min ? glide : 0.0f;
+    setEngine(plugin, slew1RiseAddress, rate);
+    setEngine(plugin, slew1FallAddress, rate);
+}
+
 // Voice mode: Mono = 1 voice + VoiceManager legato (last-note note-stack), the filter envelope
 // and the FM engine in true legato (no re-attack while a note is held). Poly = 10 voices.
 void applyVoiceMode(Plugin* plugin) {
@@ -275,6 +285,7 @@ void applyVoiceMode(Plugin* plugin) {
     const float legato = mono ? 2.0f : 0.0f;   // 0 = Steal, 2 = LegatoTrue
     setEngine(plugin, MODULE_PARAM_ADDRESS(ModuleParamKindADSR, ModuleInstance1, ADSRParamItemLegato), legato);
     setEngine(plugin, MODULE_PARAM_ADDRESS(ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemRetrigger), legato);
+    applyGlide(plugin);
     requestMainThread(plugin);   // the voice count may have changed: tell the host (voice-info)
 }
 
@@ -283,6 +294,7 @@ void applyVoiceMode(Plugin* plugin) {
 void applyParam(Plugin* plugin, uint32_t index, float value) {
     if (!plugin->voiceManager) return;
     if (index == uint32_t(kParamVoiceMode)) { applyVoiceMode(plugin); return; }
+    if (index == uint32_t(kParamGlide))     { applyGlide(plugin); return; }
     const AUParameterAddress a = vmAddress(index);
     if (a != 0) setEngine(plugin, a, value);
     if (index == uint32_t(kParamMpe)) {   // the pressure and timbre sources follow the zone too

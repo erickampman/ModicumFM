@@ -63,7 +63,7 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
 {
 #if HAS_DEFAULT_PATCH
     // ModicumFM voice:
-    //   PitchConverter + PitchBend --(Combine 2, Add)--> FM6Op pitch
+    //   PitchConverter --> Slew (mono glide) + PitchBend --(Combine 2, Add)--> FM6Op pitch
     //   FM6Op --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = pressure, mod 3 = timbre)
     //   Pressure and Timbre (CC74) also --> FM6Op brightness / level mod inputs (Expression)
     //   --> Chorus (delay mod = SharedLFO, one phase across all voices) --> Final
@@ -72,6 +72,7 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     // unpatched); patching the pitch input makes it follow the summed pitch instead of the raw MIDI
     // note, which is what lets pitch bend reach it.
     Module* pitchConverterModule = voice.getModule(pitchConverter1Address);
+    Module* slewModule           = voice.getModule(slew1Address);
     Module* pitchBendModule      = voice.getModule(pitchBend1Address);
     Module* pitchSumModule       = voice.getModule(combine2Address);
     Module* fmModule             = voice.getModule(fm6Op1Address);
@@ -99,7 +100,10 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     voice.connectModules(timbreModule,         fmModule,        fm6Op1BrightMod2InputAddress);
     voice.connectModules(timbreModule,         lpfModule,       lpf1FreqModInput3Address);
     voice.connectModules(pitchSumModule,       fmModule,        fm6Op1PitchInputAddress);
-    voice.connectModules(pitchConverterModule, pitchSumModule,  combine2Input1Address);
+    // The glide slews the note pitch only: the bend (and Pitch 7.25, applied in the bend converter)
+    // joins after it, so a bend during a glide is not smeared.
+    voice.connectModules(slewModule,           pitchSumModule,  combine2Input1Address);
+    voice.connectModules(pitchConverterModule, slewModule,      slew1InputAddress);
     voice.connectModules(pitchBendModule,      pitchSumModule,  combine2Input2Address);
     voice.setParameter(combine2TypeAddress, static_cast<float>(ParamItemCombineType_Add));
 #else

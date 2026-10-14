@@ -15,14 +15,17 @@
 #include "PitchBendConverterModule.hpp"
 #include "PitchConverterModule.hpp"
 #include "SharedLFOModule.hpp"
+#include "SlewModule.hpp"
 #include "pm_addresses.h"
 #include "pm_param_data.h"
 
 const std::vector<ModuleInitSpec>& getModuleInitSpecs() {
    static const std::vector<ModuleInitSpec> specs = {
-      // Pitch: note + bend, summed by Combine 2 (Add).
+      // Pitch: note (through the glide Slew) + bend, summed by Combine 2 (Add).
       {pitchConverter1Address, &pitchConverterModuleConstantsGroup, InitPitchConverter,
        DeinitPitchConverter, ProcessPitchConverter, MIDIPitchConverter, nullptr, nullptr, nullptr},
+      {slew1Address, &slewModuleConstantsGroup, InitSlewModule, DeinitSlewModule, ProcessSlewModule,
+       MIDISlewModule, nullptr, ResetSlewModule, nullptr},
       {pitchBend1Address, &pitchBendConverterConstantsGroup, InitPitchBendConverter,
        DeinitPitchBendConverter, ProcessPitchBendConverter, MIDIPitchBendConverter, nullptr,
        ResetPitchBendConverter, nullptr},

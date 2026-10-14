@@ -114,6 +114,8 @@ static constexpr PresetKey kPresetKeys[kParamCount] = {
    {"FM6Op", "timbreBright"},
    {"LPF", "timbreCutoff"},
    {"FM6Op", "pressLevel"},
+   // Mono glide: sound, so presets store it (factory presets at the minimum, which is off).
+   {"Global", "glide"},
 };
 
 } // namespace modicumfm

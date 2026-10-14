@@ -12,7 +12,8 @@
 // carrier's / modulator's envelope and draw a representative one; a Reset button returns all of
 // these to neutral. Hovering a macro or envelope rings the operators it acts on in the FM Engine
 // diagram. Under Character, Expression: what pressure (Bright / Cutoff / Level) and timbre, CC74
-// (Bright / Cutoff) do, as a grid of amounts. Every other panel — FM Engine included — shows on both
+// (Bright / Cutoff) do, as a grid of amounts; beside it, Glide (mono only, greyed in poly). Every
+// other panel — FM Engine included — shows on both
 // tabs.
 //
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
@@ -156,6 +157,8 @@ public:
         fCharGroup->hide();
         fExprGroup     = makeGroup("Expression", colEnv());   // under Character, Voice tab
         fExprGroup->hide();
+        fGlideGroup    = makeGroup("Glide", colComb());       // right of Expression, Voice tab
+        fGlideGroup->hide();
 
         for (uint32_t o = 0; o < kFmOperators; ++o)
             fOpLabel[o] = std::make_unique<Label>(fOpGroup.get());
@@ -288,6 +291,7 @@ public:
                 parameterChanged(i, static_cast<float>(mfm_param_value(fPlugin, i)));
         }
 
+        updateGlideEnabled();
         layout();
     }
 
@@ -319,6 +323,7 @@ protected:
         }
         if (fKnobs[index])     { fKnobs[index]->setRealValue(value, false); fKnobs[index]->repaint(); }
         if (fDropdowns[index]) fDropdowns[index]->setIndex(static_cast<int>(value));
+        if (index == kParamVoiceMode) updateGlideEnabled();
         if (index == kParamAlgorithm) showAlgorithm(static_cast<int>(value));
         if (index == kParamFeedback)  showFeedbackActive(value > 0.0f);
         if (opItem(index) >= 0)       updateSharedEnvBases(); // representative envelopes may change
@@ -365,6 +370,14 @@ protected:
         editParameter(id, false);
         recordMirror(id, static_cast<float>(index));
         if (fDropdowns[id]) fDropdowns[id]->setIndex(index);
+        if (id == kParamVoiceMode) updateGlideEnabled();
+    }
+
+    // Glide only does anything in Mono (index 0 of the Voices dropdown); grey it out otherwise.
+    void updateGlideEnabled()
+    {
+        const bool mono = fDropdowns[kParamVoiceMode] && fDropdowns[kParamVoiceMode]->index() == 0;
+        if (fKnobs[kParamGlide]) fKnobs[kParamGlide]->setEnabled(mono);
     }
 
     // Algorithm chosen in the UI (picker or wheel) → host, as one gesture.
@@ -398,6 +411,7 @@ protected:
         fOpGroup->setVisible(!voice);
         fCharGroup->setVisible(voice);
         fExprGroup->setVisible(voice);
+        fGlideGroup->setVisible(voice);
         fHoverMacro = -1;
         updateMacroHighlight();
         repaint();
@@ -583,6 +597,7 @@ private:
     std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fResponseGroup, fChorusGroup, fGlobalGroup;
     std::unique_ptr<GroupBox>   fCharGroup;                   // Voice tab
     std::unique_ptr<GroupBox>   fExprGroup;                   // Voice tab, under Character
+    std::unique_ptr<GroupBox>   fGlideGroup;                  // Voice tab, right of Expression
     std::unique_ptr<Label>      fOpLabel[kFmOperators];
     std::unique_ptr<Knob>       fKnobs[kParamCount];          // (Ratio entries are RatioKnobs)
     RatioKnob*                  fRatioKnob[kFmOperators] = {}; // views into fKnobs, per operator
@@ -756,6 +771,8 @@ private:
             return fResponseGroup.get();
         case kParamBrightness: case kParamBite: case kParamGrit: case kParamBody:
             return fCharGroup.get();
+        case kParamGlide:
+            return fGlideGroup.get();
         default:
             return fGlobalGroup.get(); // Voices, MPE, Bend Range, Master
         }
@@ -790,6 +807,14 @@ private:
             return [](float v) { char b[16]; std::snprintf(b, sizeof(b), "%.1f ct", v * 50.0f); return std::string(b); };
         if (index == kParamBrightness || index == kParamBody || index == kParamKeyTrack) // bipolar: signed, 0 = neutral
             return [](float v) { char b[12]; std::snprintf(b, sizeof(b), std::fabs(v) < 0.005f ? "0.00" : "%+.2f", v); return std::string(b); };
+        if (index == kParamGlide) // seconds per octave; the minimum is off
+            return [](float v) {
+                char b[16];
+                if (v <= kParams[kParamGlide].min * 1.001f) return std::string("Off");
+                v < 1.0f ? std::snprintf(b, sizeof(b), "%.0f ms", v * 1000.0f)
+                         : std::snprintf(b, sizeof(b), "%.2f s", v);
+                return std::string(b);
+            };
         if (index == kParamChorusDelay)  return fmt("%.1f ms");
         if (index == kParamChorusDepth)  return fmt("%.2f ms");
         if (opItem(index) == kOpRatio)   return fmt("%.2f");
@@ -937,7 +962,7 @@ private:
 
         GroupBox* allGroups[] = { fEngineGroup.get(), fOpGroup.get(), fCharGroup.get(), fLpfGroup.get(),
                                   fFiltEnvGroup.get(), fResponseGroup.get(), fChorusGroup.get(),
-                                  fGlobalGroup.get(), fExprGroup.get() };
+                                  fGlobalGroup.get(), fExprGroup.get(), fGlideGroup.get() };
         for (GroupBox* g : allGroups)
             g->setUiScale(txtScale);
         for (uint32_t i = 0; i < kParamCount; ++i)
@@ -985,11 +1010,23 @@ private:
         placeGroup(fOpGroup.get(),      opX,  fmY, colL + fullW - opX, fmH);
         layoutEngine();
         layoutOperators();
-        // Voice tab: Character where Operators is, Expression (two knob rows) under it.
-        const int exprH = static_cast<int>(230 * scale);
-        const int charH = fmH - exprH - gap;
-        placeGroup(fCharGroup.get(),  opX,  fmY, colL + fullW - opX, charH);
-        placeGroup(fExprGroup.get(),  opX,  fmY + charH + gap, colL + fullW - opX, exprH);
+        // Voice tab: Character where Operators is; under it Expression (two knob rows) and Glide.
+        const int exprH  = static_cast<int>(230 * scale);
+        const int charH  = fmH - exprH - gap;
+        const int rightW = colL + fullW - opX;
+        const int glideW = static_cast<int>(180 * scale);
+        const int exprW  = rightW - glideW - gap;
+        placeGroup(fCharGroup.get(),  opX,  fmY, rightW, charH);
+        placeGroup(fExprGroup.get(),  opX,  fmY + charH + gap, exprW, exprH);
+        placeGroup(fGlideGroup.get(), opX + exprW + gap, fmY + charH + gap, glideW, exprH);
+        {
+            // One knob, the size of an Expression cell, centred.
+            int cx, cy, cw, ch;
+            fGlideGroup->contentBounds(cx, cy, cw, ch);
+            const int cellW = std::min(static_cast<int>(110 * scale), cw);
+            const int cellH = ch / 2;
+            place(fKnobs[kParamGlide].get(), cx + (cw - cellW) / 2, cy + (ch - cellH) / 2, cellW, cellH);
+        }
         {
             // Rows = source, columns = target: Pressure → Bright / Cutoff / Level, Timbre → Bright /
             // Cutoff. A caption column on the left; knob cells sized as in a module row.

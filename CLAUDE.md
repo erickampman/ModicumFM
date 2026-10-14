@@ -9,7 +9,8 @@ only (`src/UI`). README.md describes the synth; TESTING.md the test suites.
 The current work is porting PlainOldSynth's MIDI 2.0 / MPE / CLAP improvements, and its record is
 **[docs/MIDI2-PORT.md](docs/MIDI2-PORT.md)**. Read its "Handoff" section first: it says what is done,
 what is waiting on the author, and what to do next (as of 2026-10-14: every step is done, including the
-Linux check; next is chosen with the author from its "Open after the port" list). Keep that file current as you work: status line, the step's row, and the handoff section.
+Linux check, and mono glide is built and waiting on the author's host check; next is chosen with the
+author from its "Open after the port" list). Keep that file current as you work: status line, the step's row, and the handoff section.
 
 ## Build and test
 

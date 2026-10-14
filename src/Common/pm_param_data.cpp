@@ -186,3 +186,14 @@ static const ModuleParamConstants chorusConstants[] = {
 };
 const ModuleParamConstantsGroup chorusConstantsGroup = {
    const_cast<char*>("Chorus"), sizeof(chorusConstants) / sizeof(chorusConstants[0]), chorusConstants};
+
+// Slew — slew-rate limiter (the mono glide, on the note pitch). Rise/Fall in seconds per unit
+// (per octave); at or below 0.1 ms the input passes straight through.
+static const ModuleParamConstants slewConstants[] = {
+   {"input", SlewParamItemInput, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0},
+   {"rise", SlewParamItemRise, 0, 0, nullptr, 0.0f, 10.0f, 0.0f, 0},
+   {"fall", SlewParamItemFall, 0, 0, nullptr, 0.0f, 10.0f, 0.0f, 0},
+   {"curve", SlewParamItemCurve, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0},
+};
+const ModuleParamConstantsGroup slewModuleConstantsGroup = {
+   const_cast<char*>("slew"), sizeof(slewConstants) / sizeof(slewConstants[0]), slewConstants};

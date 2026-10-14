@@ -95,6 +95,9 @@ enum ParamIndex {
    kParamTmbBright,      // timbre → modulator levels, same scale
    kParamTmbCutoff,      // timbre → filter cutoff, octaves at full timbre
    kParamPressLevel,     // pressure → carrier level: + swells up as pressed, - ducks as pressed
+   // Mono glide (appended; Voice tab). Seconds per octave, constant rate; the minimum is off, and
+   // poly never glides.
+   kParamGlide,
    // (append new params here)
    kParamCount
 };
@@ -193,6 +196,7 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Tmb>Bright",     "tmbBright", "",  -1.0f,   1.0f,   0.0f,  false, false},
    {"Tmb>Cutoff",     "tmbCutoff", "oct", -8.0f, 8.0f,   0.0f,  false, false},
    {"Press>Level",    "prsLevel",  "",  -1.0f,   1.0f,   0.0f,  false, false},
+   {"Glide",          "glide",     "s",  0.001f,  2.0f,  0.001f, true,  false},
 };
 
 #undef MODICUMFM_FM_OP_SPECS
@@ -311,7 +315,8 @@ static_assert(symbolIs(kParamPressBright,     "prsBright"));
 static_assert(symbolIs(kParamTmbBright,       "tmbBright"));
 static_assert(symbolIs(kParamTmbCutoff,       "tmbCutoff"));
 static_assert(symbolIs(kParamPressLevel,      "prsLevel"));
-static_assert(kParamPressLevel + 1 == kParamCount, "a new parameter needs its symbolIs line above");
+static_assert(symbolIs(kParamGlide,           "glide"));
+static_assert(kParamGlide + 1 == kParamCount, "a new parameter needs its symbolIs line above");
 
 // Every dropdown's labels must cover its range exactly: integer, min 0, one label per step up to max.
 constexpr bool choicesMatchRange(uint32_t index)

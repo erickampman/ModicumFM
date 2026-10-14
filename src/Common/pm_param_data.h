@@ -20,5 +20,6 @@ extern const ModuleParamConstantsGroup channelPressureConstantsGroup;
 extern const ModuleParamConstantsGroup ccConverterConstantsGroup;
 extern const ModuleParamConstantsGroup pitchBendConverterConstantsGroup;
 extern const ModuleParamConstantsGroup chorusConstantsGroup;
+extern const ModuleParamConstantsGroup slewModuleConstantsGroup;
 
 #endif // PM_PARAM_DATA_H

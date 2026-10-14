@@ -28,6 +28,7 @@ add_library(pm_framework STATIC
     src/Module/CombineModule.cpp
     src/Module/FinalModule.cpp
     src/Module/PitchConverterModule.cpp
+    src/Module/SlewModule.cpp
     src/Common/sine.cpp
     src/Module/FM6OpModule.cpp
     src/Module/ChorusModule.cpp

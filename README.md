@@ -15,7 +15,7 @@ expert view. See [docs/ROADMAP.md](docs/ROADMAP.md).
 (10-voice poly with note stealing, or mono legato) rendering, per voice:
 
 ```
-note pitch + pitch bend ──> FM6Op engine
+note pitch ─> Slew (mono glide) + pitch bend ──> FM6Op engine
   → Low-Pass Filter  ← Filter Envelope (cutoff mod 1) + Channel Pressure (cutoff mod 2)
   → Chorus ← shared LFO → Master
 ```
@@ -57,6 +57,11 @@ note pitch + pitch bend ──> FM6Op engine
   Pressure is channel, poly or CLAP pressure; timbre is CC 74, MIDI 2.0 per-note #74 or CLAP
   brightness, each tracked per note (PlainOldSynth's / StruckSynth's sources, with the MPE master
   rule and the release freeze, smoothed over 2 ms). Presets store the amounts.
+- **Voice tab / Glide** (beside Expression): mono portamento at a constant rate, 1 ms to 2 s per
+  octave (so a two-octave slide takes twice as long as one). Every mono note glides from where the
+  pitch is, held or not; the first note after a reset starts at its own pitch. The minimum is Off
+  (the default, and every factory preset's); the knob greys out in Poly, which never glides. Only
+  the note pitch slides: pitch bend and Pitch 7.25 join after the glide, so they act at once.
 - **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve
   (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices; Touch
   (velocity → modulator levels, i.e. brightness) and Key Track (note → modulator levels and
@@ -150,7 +155,7 @@ src/Common/           shim + MIDI + params + utilities
 src/Module/           Module core + modules
                         FM6Op (+ FM6OpAlgorithms.hpp: the 32 algorithms + operator-role
                         analysis), LPFilter (+ ButterLow4), ADSR, Combine (pitch sum),
-                        PitchConverter, PitchBendConverter, ChannelPressure, Chorus
+                        PitchConverter, Slew (glide), PitchBendConverter, ChannelPressure, Chorus
                         (+ ModDelayLine, CascadeLPF), SharedLFO (+ LFOClockSync), Final;
                         ModuleSharedState.hpp (cross-voice state)
 src/Voice/            voice engine
