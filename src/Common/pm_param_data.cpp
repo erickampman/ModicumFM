@@ -143,6 +143,7 @@ const ModuleParamConstantsGroup sharedLFOConstantsGroup = {
 
 static const ModuleParamConstants channelPressureConstants[] = {
    {"dummy", ChannelPressureParamItemDummy, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0}, // hidden
+   {"mpe",   ChannelPressureParamItemMPE,   0, 0, nullptr, 0.0f, 1.0f, 0.0f, 0},
 };
 const ModuleParamConstantsGroup channelPressureConstantsGroup = {
    const_cast<char*>("Channel Pressure"), sizeof(channelPressureConstants) / sizeof(channelPressureConstants[0]), channelPressureConstants};

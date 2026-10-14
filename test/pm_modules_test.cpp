@@ -3,6 +3,7 @@
 // inputs wired (via Voice), so here they are checked to compile + run + produce finite output;
 // their signal behaviour is exercised end-to-end once the voice engine lands.
 
+#include "ChannelPressureModule.hpp"
 #include "CombineModule.hpp"
 #include "FinalModule.hpp"
 #include "Module.hpp"
@@ -74,6 +75,42 @@ int main() {
       m.addParams(&finalConstantsGroup);
       ProcessFinalModule(1, N, &m);
       CHECK(finiteBuf(m.output.first->data, N), "Final runs, finite output");
+   }
+
+   // --- ChannelPressure: released notes (MPE §3.3.3). Under MPE a released note keeps its member
+   // channel's pressure and still follows the master's; with MPE off channel pressure moves it. ---
+   {
+      const AUParameterAddress id =
+         MODULE_PARAM_ADDRESS(ModuleParamKindChannelPressure, ModuleInstance1, 0);
+      auto valueAfter = [&](bool mpe, std::initializer_list<pm::UmpMessage> beforeRelease,
+                            std::initializer_list<pm::UmpMessage> afterRelease) {
+         Module m(id, sr, N, &channelPressureConstantsGroup, InitChannelPressure,
+                  DeinitChannelPressure, ProcessChannelPressure, MIDIChannelPressure);
+         m.addParams(&channelPressureConstantsGroup);
+         m.params[ChannelPressureParamItemMPE - 1] = mpe ? 1.0f : 0.0f;
+         uint64_t call = 1;
+         for (const auto& msg : beforeRelease) MIDIChannelPressure(msg, &m);
+         ProcessChannelPressure(call++, N, &m);
+         m.noteReleased = true;   // as Voice::syncNoteReleased sets it after the note-off
+         for (const auto& msg : afterRelease) MIDIChannelPressure(msg, &m);
+         ProcessChannelPressure(call++, N, &m);   // N samples outlast the 2 ms ramp
+         const float v = m.output.first->data[N - 1];
+         DeinitChannelPressure(&m);
+         return v;
+      };
+      const pm::UmpMessage memberOn   = pm::fromMidi1Bytes(0x91, 60, 100);
+      const pm::UmpMessage memberHalf = pm::fromMidi1Bytes(0xD1, 64, 0);
+      const pm::UmpMessage memberZero = pm::fromMidi1Bytes(0xD1, 0, 0);
+      const pm::UmpMessage masterMore = pm::fromMidi1Bytes(0xD0, 96, 0);
+
+      const float kept = valueAfter(true, {memberOn, memberHalf}, {memberZero});
+      std::printf("ChannelPressure: MPE member pressure after release %.3f\n", kept);
+      CHECK(std::fabs(kept - 0.5f) < 0.01f, "MPE: a released note keeps its member pressure");
+      const float master = valueAfter(true, {memberOn, memberHalf}, {memberZero, masterMore});
+      CHECK(std::fabs(master - 0.75f) < 0.01f, "MPE: the master channel's pressure still reaches a released note");
+      const float off = valueAfter(false, {pm::fromMidi1Bytes(0x90, 60, 100), pm::fromMidi1Bytes(0xD0, 64, 0)},
+                                   {pm::fromMidi1Bytes(0xD0, 0, 0)});
+      CHECK(std::fabs(off) < 0.01f, "MPE off: channel pressure still moves a releasing note");
    }
 
    if (g_fails == 0)

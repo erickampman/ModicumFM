@@ -280,6 +280,9 @@ void applyParam(Plugin* plugin, uint32_t index, float value) {
     if (index == uint32_t(kParamVoiceMode)) { applyVoiceMode(plugin); return; }
     const AUParameterAddress a = vmAddress(index);
     if (a != 0) setEngine(plugin, a, value);
+    if (index == uint32_t(kParamMpe))   // the pressure source follows the zone too (master + member)
+        setEngine(plugin, MODULE_PARAM_ADDRESS(ModuleParamKindChannelPressure, ModuleInstance1,
+                                               ChannelPressureParamItemMPE), value);
 }
 
 // Push every host parameter into the engine and record what the engine now has.

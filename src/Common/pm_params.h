@@ -330,6 +330,7 @@ enum PitchBendConverterParamItem : NSUInteger {
 
 enum ChannelPressureParamItem : NSUInteger {
    ChannelPressureParamItemDummy = 1,  // no params needed; one dummy slot for UI storage
+   ChannelPressureParamItemMPE,        // 0/1: MPE lower zone (see pm::kMpeMasterChannel)
 };
 
 enum ChorusParamItem : NSUInteger {

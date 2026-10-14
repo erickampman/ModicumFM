@@ -75,8 +75,8 @@ receive MIDI 2.0 notes (including 7.9 microtonal pitch) that DPF's generated CLA
 **CLAP.** Note ids are kept: when a host supplies them (Bitwig does), they decide which note is
 which, so a re-struck key is a new note and an expression can name only the id. Note expressions:
 **tuning** arrives as Pitch 7.25 at key + tuning, so it is exact at any size, not clamped to the
-bend range; **pressure** and **brightness** become polyphonic pressure and per-note controller #74
-(nothing in the voice responds to them yet; the filter follows channel pressure only). A CLAP note gets `CLAP_EVENT_NOTE_END` when its voice
+bend range; **pressure** becomes polyphonic pressure, which moves that note's filter cutoff like
+aftertouch; **brightness** becomes per-note controller #74 (nothing in the voice responds to it yet). A CLAP note gets `CLAP_EVENT_NOTE_END` when its voice
 falls silent at the end of the carriers' release (or is stolen, or leaves the mono stack), not at
 note-off, so Bitwig keeps its per-voice modulation running through the release. The voice-info
 extension reports 10 voices (1 in Mono) and supports overlapping notes on one key.
@@ -86,7 +86,14 @@ since it describes the controller, not the sound. Member channels 2–16 bend ±
 channel's bend (the Bend Range param) adds to every member note. **RPN 0** (MIDI 1.0 CC
 101/100/6/38, or the MIDI 2.0 registered controller) sets a channel's bend range; under MPE, any
 member sets all members. Ranges reset on the MPE Configuration Message and when the switch flips,
-and like RC 7 they survive `reset()`. Pressure and timbre are not routed yet.
+and like RC 7 they survive `reset()`. Pressure is tracked per channel (and per note, for
+polyphonic pressure), so under MPE each note's own pressure moves its own filter; a member note
+takes the higher of its own and the master channel's. **Released notes** (MPE §3.3.3: control of a
+note ceases once Note Off has occurred): a ringing MPE note keeps the member-channel bend and
+pressure it had at note-off, and follows only the master channel; key-addressed MIDI 2.0 per-note
+messages stop reaching it; a CLAP note addressed by its id keeps taking expression until
+NOTE_END. With MPE off a pitch wheel and aftertouch still move releasing notes. Timbre (CC 74) is
+not routed yet.
 
 Next: pressure and timbre as modulation sources; see
 [docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).

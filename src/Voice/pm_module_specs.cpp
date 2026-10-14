@@ -36,7 +36,8 @@ const std::vector<ModuleInitSpec>& getModuleInitSpecs() {
       {adsr1Address, &adsrConstantsGroup, InitADSRModule, DeinitADSRModule, ProcessADSRModule,
        MIDIProcADSRModule, ParamADSR, nullptr, SampleRateADSRModule},
       {channelPressure1Address, &channelPressureConstantsGroup, InitChannelPressure,
-       DeinitChannelPressure, ProcessChannelPressure, MIDIChannelPressure, nullptr, nullptr, nullptr},
+       DeinitChannelPressure, ProcessChannelPressure, MIDIChannelPressure, nullptr,
+       ResetChannelPressure, nullptr},
       // Chorus; one LFO phase shared by every voice so all the per-voice choruses sweep together.
       {chorus1Address, &chorusConstantsGroup, InitChorusModule, DeinitChorusModule, ProcessChorusModule,
        nullptr, ParamChorus, nullptr, SampleRateChorusModule},
