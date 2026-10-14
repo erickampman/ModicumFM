@@ -32,9 +32,9 @@ note pitch + pitch bend ──> FM6Op engine
     silent.
   - The algorithm is shown as a diagram (click for a picker of all 32), and the panel labels
     each operator's role in the current algorithm ("out" or "mod N").
-- **LPF**: 24 dB/oct Butterworth with resonance compensation. The filter envelope and channel
-  pressure each move the cutoff by an adjustable number of octaves. By default the filter is
-  fully open and unmodulated.
+- **LPF**: 24 dB/oct Butterworth with resonance compensation. The filter envelope moves the
+  cutoff by an adjustable number of octaves (pressure and timbre do too, from the Expression
+  panel). By default the filter is fully open and unmodulated.
 - **Chorus**: mix, rate, depth, base delay, feedback. One LFO phase is shared by every voice, so
   all notes' choruses sweep together; L and R run 90° apart.
 - **Voice tab / Character**: role-based macros — Brightness (modulator levels + high carriers), Bite (a harder,
@@ -43,6 +43,20 @@ note pitch + pitch bend ──> FM6Op engine
   operators in the FM Engine diagram. Shared **Loudness / Brightness envelopes** scale every
   carrier's / modulator's envelope (times ×0.01–×1000, capped at the operator limits; sustain offset) and draw a representative
   one; **Reset** returns all of it to neutral. The Operators tab (default) is the full engine.
+- **Voice tab / Expression**: what pressure and timbre (CC 74) do to a sounding note, as a grid of
+  amounts, all 0 by default:
+
+  | Knob | Source | Moves | Range |
+  |---|---|---|---|
+  | Press>Bright | pressure | modulator levels (FM brightness), ×2^(1.5·amount) at full pressure | ±1 |
+  | Press>Cutoff | pressure | filter cutoff (this was the LPF panel's Pressure knob; same param) | ±8 oct |
+  | Press>Level | pressure | carrier level: + swells as pressed (silent unpressed at +1), − ducks | ±1 |
+  | Tmb>Bright | timbre | modulator levels, as Press>Bright | ±1 |
+  | Tmb>Cutoff | timbre | filter cutoff | ±8 oct |
+
+  Pressure is channel, poly or CLAP pressure; timbre is CC 74, MIDI 2.0 per-note #74 or CLAP
+  brightness, each tracked per note (PlainOldSynth's / StruckSynth's sources, with the MPE master
+  rule and the release freeze, smoothed over 2 ms). Presets store the amounts.
 - **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve
   (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices; Touch
   (velocity → modulator levels, i.e. brightness) and Key Track (note → modulator levels and
@@ -84,7 +98,7 @@ receive MIDI 2.0 notes (including 7.9 microtonal pitch) that DPF's generated CLA
 which, so a re-struck key is a new note and an expression can name only the id. Note expressions:
 **tuning** arrives as Pitch 7.25 at key + tuning, so it is exact at any size, not clamped to the
 bend range; **pressure** becomes polyphonic pressure, which moves that note's filter cutoff like
-aftertouch; **brightness** becomes per-note controller #74 (nothing in the voice responds to it yet). A CLAP note gets `CLAP_EVENT_NOTE_END` when its voice
+aftertouch; **brightness** becomes per-note controller #74, the Expression panel's timbre. A CLAP note gets `CLAP_EVENT_NOTE_END` when its voice
 falls silent at the end of the carriers' release (or is stolen, or leaves the mono stack), not at
 note-off, so Bitwig keeps its per-voice modulation running through the release. The voice-info
 extension reports 10 voices (1 in Mono) and supports overlapping notes on one key.
@@ -100,10 +114,10 @@ takes the higher of its own and the master channel's. **Released notes** (MPE §
 note ceases once Note Off has occurred): a ringing MPE note keeps the member-channel bend and
 pressure it had at note-off, and follows only the master channel; key-addressed MIDI 2.0 per-note
 messages stop reaching it; a CLAP note addressed by its id keeps taking expression until
-NOTE_END. With MPE off a pitch wheel and aftertouch still move releasing notes. Timbre (CC 74) is
-not routed yet.
+NOTE_END. With MPE off a pitch wheel and aftertouch still move releasing notes. Timbre (CC 74)
+follows the same rules.
 
-Next: pressure and timbre as modulation sources; see
+Next: Linux CI; see
 [docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).
 
 ## Layout

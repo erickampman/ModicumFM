@@ -11,7 +11,9 @@
 // Brightness, Bite, Grit, Body, and the shared Loudness / Brightness envelopes, which scale every
 // carrier's / modulator's envelope and draw a representative one; a Reset button returns all of
 // these to neutral. Hovering a macro or envelope rings the operators it acts on in the FM Engine
-// diagram. Every other panel — FM Engine included — shows on both tabs.
+// diagram. Under Character, Expression: what pressure (Bright / Cutoff / Level) and timbre, CC74
+// (Bright / Cutoff) do, as a grid of amounts. Every other panel — FM Engine included — shows on both
+// tabs.
 //
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
 // operator's role in the current algorithm (carrier, or modulator N hops from the output) —
@@ -151,6 +153,8 @@ public:
         // Voice tab panels (same places as FM Engine / Operators; hidden on the Operators tab).
         fCharGroup     = makeGroup("Character", colSound());
         fCharGroup->hide();
+        fExprGroup     = makeGroup("Expression", colEnv());   // under Character, Voice tab
+        fExprGroup->hide();
 
         for (uint32_t o = 0; o < kFmOperators; ++o)
             fOpLabel[o] = std::make_unique<Label>(fOpGroup.get());
@@ -223,6 +227,8 @@ public:
                                   kParamBrightDecay, kParamBrightSustain, kParamBrightRelease);
         fLoudEnv->setRelative(true);
         fBrightEnv->setRelative(true);
+        fExprPressLabel = std::make_unique<Label>(fExprGroup.get(), "Pressure");
+        fExprTmbLabel   = std::make_unique<Label>(fExprGroup.get(), "Timbre (CC 74)");
         fLoudLabel   = std::make_unique<Label>(fCharGroup.get(), "Loudness envelope  (all carriers)");
         fBrightLabel = std::make_unique<Label>(fCharGroup.get(), "Brightness envelope  (all modulators)");
         fCharReset = std::make_unique<TextButton>(fCharGroup.get(), "Reset", [this] { resetCharacter(); });
@@ -390,6 +396,7 @@ protected:
         const bool voice = index == kTabVoice;
         fOpGroup->setVisible(!voice);
         fCharGroup->setVisible(voice);
+        fExprGroup->setVisible(voice);
         fHoverMacro = -1;
         updateMacroHighlight();
         repaint();
@@ -575,6 +582,8 @@ private:
     std::unique_ptr<TabBar>     fViewTab;
     std::unique_ptr<EnvelopeGraph> fLoudEnv, fBrightEnv;   // Voice tab: shared envelopes
     std::unique_ptr<Label>      fLoudLabel, fBrightLabel;
+    std::unique_ptr<GroupBox>   fExprGroup;                   // Voice tab, under Character
+    std::unique_ptr<Label>      fExprPressLabel, fExprTmbLabel;
     std::unique_ptr<TextButton> fCharReset;
     int                         fHoverMacro = -1;     // macro param under the mouse, or -1
     int                         fAlgorithm = static_cast<int>(kParams[kParamAlgorithm].def);
@@ -699,6 +708,10 @@ private:
         case kParamFiltRelease: return "Release";
         case kParamVelFloor:    return "Vel Floor";
         case kParamVelCurve:    return "Vel Curve";
+        // Expression grid: rows are the source (Pressure / Timbre), so knobs name only the target.
+        case kParamPressBright: case kParamTmbBright:  return "Bright";
+        case kParamLpfPressure: case kParamTmbCutoff:  return "Cutoff";
+        case kParamPressLevel:                         return "Level";
         default: return kParams[i].name;
         }
     }
@@ -720,8 +733,11 @@ private:
         }
         switch (i)
         {
-        case kParamLpfCutoff: case kParamLpfResonance: case kParamLpfEnvAmount: case kParamLpfPressure:
+        case kParamLpfCutoff: case kParamLpfResonance: case kParamLpfEnvAmount:
             return fLpfGroup.get();
+        case kParamLpfPressure: case kParamPressBright: case kParamTmbBright: case kParamTmbCutoff:
+        case kParamPressLevel:
+            return fExprGroup.get();
         case kParamFiltAttack: case kParamFiltDecay: case kParamFiltSustain: case kParamFiltRelease:
             return fFiltEnvGroup.get();
         case kParamChorusMix: case kParamChorusRate: case kParamChorusDepth:
@@ -741,7 +757,7 @@ private:
         const GroupBox* g = groupFor(i);
         if (g == fEngineGroup.get() || g == fOpGroup.get() || g == fCharGroup.get()) return colSound();
         if (g == fLpfGroup.get() || g == fFiltEnvGroup.get()) return colFilter();
-        if (g == fResponseGroup.get())                        return colEnv();
+        if (g == fResponseGroup.get() || g == fExprGroup.get()) return colEnv();
         if (g == fChorusGroup.get())                          return colNeutral();
         return colComb();
     }
@@ -912,7 +928,7 @@ private:
 
         GroupBox* allGroups[] = { fEngineGroup.get(), fOpGroup.get(), fCharGroup.get(), fLpfGroup.get(),
                                   fFiltEnvGroup.get(), fResponseGroup.get(), fChorusGroup.get(),
-                                  fGlobalGroup.get() };
+                                  fGlobalGroup.get(), fExprGroup.get() };
         for (GroupBox* g : allGroups)
             g->setUiScale(txtScale);
         for (uint32_t i = 0; i < kParamCount; ++i)
@@ -926,6 +942,8 @@ private:
         fBrightEnv->setUiScale(txtScale);
         fLoudLabel->setUiScale(txtScale);
         fBrightLabel->setUiScale(txtScale);
+        fExprPressLabel->setUiScale(txtScale);
+        fExprTmbLabel->setUiScale(txtScale);
         fCharReset->setUiScale(txtScale);
         fAlgoView->setUiScale(txtScale);
         fAlgoPicker->setUiScale(txtScale);
@@ -958,8 +976,29 @@ private:
         placeGroup(fOpGroup.get(),      opX,  fmY, colL + fullW - opX, fmH);
         layoutEngine();
         layoutOperators();
-        // Voice tab: Character where Operators is.
-        placeGroup(fCharGroup.get(),  opX,  fmY, colL + fullW - opX, fmH);
+        // Voice tab: Character where Operators is, Expression (two knob rows) under it.
+        const int exprH = static_cast<int>(230 * scale);
+        const int charH = fmH - exprH - gap;
+        placeGroup(fCharGroup.get(),  opX,  fmY, colL + fullW - opX, charH);
+        placeGroup(fExprGroup.get(),  opX,  fmY + charH + gap, colL + fullW - opX, exprH);
+        {
+            // Rows = source, columns = target: Pressure → Bright / Cutoff / Level, Timbre → Bright /
+            // Cutoff. A caption column on the left; knob cells sized as in a module row.
+            int cx, cy, cw, ch;
+            fExprGroup->contentBounds(cx, cy, cw, ch);
+            const int capW  = static_cast<int>(130 * scale);
+            const int cellW = std::min(static_cast<int>(110 * scale), (cw - capW) / 3);
+            const int rowH2 = ch / 2;
+            const int labH  = static_cast<int>(18 * scale);
+            place(fExprPressLabel.get(), cx, cy + (rowH2 - labH) / 2,         capW, labH);
+            place(fExprTmbLabel.get(),   cx, cy + rowH2 + (rowH2 - labH) / 2, capW, labH);
+            int col = 0;
+            for (uint32_t id : {kParamPressBright, kParamLpfPressure, kParamPressLevel})
+                place(fKnobs[id].get(), cx + capW + (col++) * cellW, cy, cellW, rowH2);
+            col = 0;
+            for (uint32_t id : {kParamTmbBright, kParamTmbCutoff})
+                place(fKnobs[id].get(), cx + capW + (col++) * cellW, cy + rowH2, cellW, rowH2);
+        }
         {
             int cx, cy, cw, ch;
             fCharGroup->contentBounds(cx, cy, cw, ch);
@@ -984,7 +1023,7 @@ private:
             place(fLoudEnv.get(),     cx,                envY + labH, envW, envH);
             place(fBrightEnv.get(),   cx + envW + gap2,  envY + labH, envW, envH);
         }
-        layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount, kParamLpfPressure});
+        layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount});
         {
             int cx, cy, cw, ch;
             fFiltEnvGroup->contentBounds(cx, cy, cw, ch);

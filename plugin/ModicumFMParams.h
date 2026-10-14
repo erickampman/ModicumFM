@@ -62,7 +62,7 @@ enum ParamIndex {
    kParamLpfCutoff,      // octaves re 440 Hz
    kParamLpfResonance,
    kParamLpfEnvAmount,   // filter-envelope depth, octaves
-   kParamLpfPressure,    // channel-pressure depth, octaves
+   kParamLpfPressure,    // pressure → cutoff depth, octaves ("Press>Cutoff", on the Expression panel)
    kParamFiltAttack,
    kParamFiltDecay,
    kParamFiltSustain,
@@ -89,6 +89,12 @@ enum ParamIndex {
    kParamBrightAttack, kParamBrightDecay, kParamBrightSustain, kParamBrightRelease, // modulators
    // MIDI input (appended). Controller setup, not sound: presets leave it alone.
    kParamMpe,            // MPE input, lower zone: member bend ±48 + the master channel's bend
+   // Expression (appended; Voice tab). What pressure and timbre (CC74) do; all 0 = no effect.
+   // Press>Cutoff is kParamLpfPressure above, shown in the same panel.
+   kParamPressBright,    // pressure → modulator levels (FM brightness), ±1 = ×2^±1.5 at full pressure
+   kParamTmbBright,      // timbre → modulator levels, same scale
+   kParamTmbCutoff,      // timbre → filter cutoff, octaves at full timbre
+   kParamPressLevel,     // pressure → carrier level: + swells up as pressed, - ducks as pressed
    // (append new params here)
    kParamCount
 };
@@ -149,7 +155,7 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Cutoff",       "cutoff",   "oct", -6.0f,  5.4f,  5.4f,  false, false},
    {"Resonance",    "reso",     "",   1.0f,  20.0f,   1.0f,  false, false},
    {"Env Amount",   "fenvamt",  "oct", -12.0f, 12.0f, 0.0f,  false, false}, // ±12 oct: closed → fully open from any cutoff
-   {"Pressure",     "pressure", "oct", -8.0f,  8.0f,  0.0f,  false, false},
+   {"Press>Cutoff", "pressure", "oct", -8.0f,  8.0f,  0.0f,  false, false},   // shown under Expression
    {"F Attack",     "fatt",     "s",  0.001f, 10.0f,  0.005f, true, false},
    {"F Decay",      "fdec",     "s",  0.001f, 10.0f,  0.5f,  true,  false},
    {"F Sustain",    "fsus",     "",   0.0f,   1.0f,   0.4f,  false, false},
@@ -182,6 +188,11 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Bright Release", "brrel",  "x",  0.01f, 1000.0f,   1.0f,  true,  false},
    // MIDI input
    {"MPE",            "mpe",    "",    0.0f,    1.0f,   0.0f,  false, true },
+   // Expression
+   {"Press>Bright",   "prsBright", "",  -1.0f,   1.0f,   0.0f,  false, false},
+   {"Tmb>Bright",     "tmbBright", "",  -1.0f,   1.0f,   0.0f,  false, false},
+   {"Tmb>Cutoff",     "tmbCutoff", "oct", -8.0f, 8.0f,   0.0f,  false, false},
+   {"Press>Level",    "prsLevel",  "",  -1.0f,   1.0f,   0.0f,  false, false},
 };
 
 #undef MODICUMFM_FM_OP_SPECS
@@ -296,7 +307,11 @@ static_assert(symbolIs(kParamBrightDecay,    "brdec"));
 static_assert(symbolIs(kParamBrightSustain,  "brsus"));
 static_assert(symbolIs(kParamBrightRelease,  "brrel"));
 static_assert(symbolIs(kParamMpe,            "mpe"));
-static_assert(kParamMpe + 1 == kParamCount, "a new parameter needs its symbolIs line above");
+static_assert(symbolIs(kParamPressBright,     "prsBright"));
+static_assert(symbolIs(kParamTmbBright,       "tmbBright"));
+static_assert(symbolIs(kParamTmbCutoff,       "tmbCutoff"));
+static_assert(symbolIs(kParamPressLevel,      "prsLevel"));
+static_assert(kParamPressLevel + 1 == kParamCount, "a new parameter needs its symbolIs line above");
 
 // Every dropdown's labels must cover its range exactly: integer, min 0, one label per step up to max.
 constexpr bool choicesMatchRange(uint32_t index)

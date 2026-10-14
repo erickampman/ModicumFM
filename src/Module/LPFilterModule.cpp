@@ -24,6 +24,7 @@ struct LPFHelperStruct {
     ButterLow4    butterLowR;
     FMSlewLimiter fmSlew1;
     FMSlewLimiter fmSlew2;
+    FMSlewLimiter fmSlew3;
 
     explicit LPFHelperStruct(double sampleRate)
         : butterLowL(sampleRate), butterLowR(sampleRate)
@@ -48,6 +49,7 @@ const void ResetLPFilterModule(Module* module)
     state->butterLowR.reset();
     state->fmSlew1 = FMSlewLimiter();
     state->fmSlew2 = FMSlewLimiter();
+    state->fmSlew3 = FMSlewLimiter();
 }
 
 const void SampleRateLPFilterModule(Module* module, double newSampleRate)
@@ -65,11 +67,13 @@ const KPBuffPair* ProcessLPFilterModule(uint64_t processCallID, uint32_t count, 
     auto inputPair = module->retrieveInput(LPFParamItemInput,       processCallID, count);
     auto fmPair    = module->retrieveInput(LPFParamItemModFreqInput,  processCallID, count);
     auto fmPair2   = module->retrieveInput(LPFParamItemModFreqInput2, processCallID, count);
+    auto fmPair3   = module->retrieveInput(LPFParamItemModFreqInput3, processCallID, count);
     auto qmPair    = module->retrieveInput(LPFParamItemModQInput,     processCallID, count);
 
     const AUValue pitchParam         = module->paramByEnum(LPFParamItemPitch);
     const AUValue freqModLevelParam  = module->paramByEnum(LPFParamItemFreqModLevel);
     const AUValue freqModLevel2Param = module->paramByEnum(LPFParamItemFreqModLevel2);
+    const AUValue freqModLevel3Param = module->paramByEnum(LPFParamItemFreqModLevel3);
     const AUValue qParam             = module->paramByEnum(LPFParamItemQ);
     const AUValue qModLevelParam     = module->paramByEnum(LPFParamItemModQInputLevel);
 
@@ -81,6 +85,8 @@ const KPBuffPair* ProcessLPFilterModule(uint64_t processCallID, uint32_t count, 
     const float* rfmp  = fmPair->second->data;
     const float* lfmp2 = fmPair2->first->data;
     const float* rfmp2 = fmPair2->second->data;
+    const float* lfmp3 = fmPair3->first->data;
+    const float* rfmp3 = fmPair3->second->data;
     const float* lqmp  = qmPair->first->data;
     const float* rqmp  = qmPair->second->data;
 
@@ -101,23 +107,29 @@ const KPBuffPair* ProcessLPFilterModule(uint64_t processCallID, uint32_t count, 
         float modR  = rfmp[0];
         float mod2L = lfmp2[0];
         float mod2R = rfmp2[0];
+        float mod3L = lfmp3[0];
+        float mod3R = rfmp3[0];
         float qModL = lqmp[0];
         float qModR = rqmp[0];
 
         {
             const float risePerBlock = n * (float)module->mFrequencyScale / kFMSlewSeconds;
-            float slewedModL, slewedModR, slewedMod2L, slewedMod2R;
+            float slewedModL, slewedModR, slewedMod2L, slewedMod2R, slewedMod3L, slewedMod3R;
             state->fmSlew1.process(slewedModL,  slewedModR,  modL,  modR,  risePerBlock, risePerBlock);
             state->fmSlew2.process(slewedMod2L, slewedMod2R, mod2L, mod2R, risePerBlock, risePerBlock);
+            state->fmSlew3.process(slewedMod3L, slewedMod3R, mod3L, mod3R, risePerBlock, risePerBlock);
             modL  = slewedModL;  modR  = slewedModR;
             mod2L = slewedMod2L; mod2R = slewedMod2R;
+            mod3L = slewedMod3L; mod3R = slewedMod3R;
         }
 
         // Cutoff frequency — pitchToFrequency once per block per channel.
         double cutoffL = module->pitchConverter->pitchToFrequency(
-                             pitchParam + modL * freqModLevelParam + mod2L * freqModLevel2Param);
+                             pitchParam + modL * freqModLevelParam + mod2L * freqModLevel2Param
+                             + mod3L * freqModLevel3Param);
         double cutoffR = module->pitchConverter->pitchToFrequency(
-                             pitchParam + modR * freqModLevelParam + mod2R * freqModLevel2Param);
+                             pitchParam + modR * freqModLevelParam + mod2R * freqModLevel2Param
+                             + mod3R * freqModLevel3Param);
         if (cutoffL > nyquistGuard) cutoffL = nyquistGuard;
         if (cutoffR > nyquistGuard) cutoffR = nyquistGuard;
 

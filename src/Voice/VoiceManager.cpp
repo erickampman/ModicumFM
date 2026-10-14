@@ -39,6 +39,11 @@ void VoiceManager::initializeVoices(PitchConverter *pitchConverter)
 		voice->initializeModules(moduleFactory.get(), pitchConverter, &sharedStateRegistry);
 		buildDefaultPatch(*voice);
 	}
+
+    // The CC converter is the Timbre source: CC74, tracked per channel, with MIDI 2.0 per-note
+    // controller #74 (and CLAP Brightness) per note. Fixed, so it is part of the patch, not a param.
+    setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(timbre1Address, CCParamItemNumber), float(pm::kRegPerNoteBrightness));
+    setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(timbre1Address, CCParamItemPerNote), 1.0f);
 }
 
 void VoiceManager::reset() {
@@ -59,7 +64,8 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
 #if HAS_DEFAULT_PATCH
     // ModicumFM voice:
     //   PitchConverter + PitchBend --(Combine 2, Add)--> FM6Op pitch
-    //   FM6Op --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = channel pressure)
+    //   FM6Op --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = pressure, mod 3 = timbre)
+    //   Pressure and Timbre (CC74) also --> FM6Op brightness / level mod inputs (Expression)
     //   --> Chorus (delay mod = SharedLFO, one phase across all voices) --> Final
     // No VCA: the carriers' own envelopes shape the amplitude (DX-style), and the voice frees once
     // the Final output falls silent. The FM6Op takes the note gate from MIDI directly (gate input
@@ -71,6 +77,7 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     Module* fmModule             = voice.getModule(fm6Op1Address);
     Module* filterEnvModule      = voice.getModule(adsr1Address);
     Module* pressureModule       = voice.getModule(channelPressure1Address);
+    Module* timbreModule         = voice.getModule(timbre1Address);
     Module* lpfModule            = voice.getModule(lpf1Address);
     Module* lfoModule            = voice.getModule(sharedLFO1Address);
     Module* chorusModule         = voice.getModule(chorus1Address);
@@ -84,6 +91,13 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     voice.connectModules(fmModule,             lpfModule,       lpf1InputAddress);
     voice.connectModules(filterEnvModule,      lpfModule,       lpf1FreqModInputAddress);
     voice.connectModules(pressureModule,       lpfModule,       lpf1FreqModInput2Address);
+    // Expression: Pressure -> brightness, carrier level (and the cutoff, above); Timbre (CC74) ->
+    // brightness and the cutoff. The plugin's Expression knobs are these inputs' levels, all 0 by
+    // default, so the connections are silent until a knob moves.
+    voice.connectModules(pressureModule,       fmModule,        fm6Op1BrightModInputAddress);
+    voice.connectModules(pressureModule,       fmModule,        fm6Op1LevelModInputAddress);
+    voice.connectModules(timbreModule,         fmModule,        fm6Op1BrightMod2InputAddress);
+    voice.connectModules(timbreModule,         lpfModule,       lpf1FreqModInput3Address);
     voice.connectModules(pitchSumModule,       fmModule,        fm6Op1PitchInputAddress);
     voice.connectModules(pitchConverterModule, pitchSumModule,  combine2Input1Address);
     voice.connectModules(pitchBendModule,      pitchSumModule,  combine2Input2Address);

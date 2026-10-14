@@ -221,6 +221,11 @@ AUParameterAddress vmAddress(uint32_t index) {
     switch (index) {
     case kParamBendRange:      return pitchBend1RangeAddress;
     case kParamMpe:            return MODULE_PARAM_ADDRESS(ModuleParamKindPitchBendConverter, ModuleInstance1, PitchBendConverterParamItemMPE);
+    // Expression: the mod levels of the Pressure / Timbre inputs (VoiceManager::buildDefaultPatch)
+    case kParamPressBright:    return fm(FM6OpParamItemBrightModLevel);
+    case kParamTmbBright:      return fm(FM6OpParamItemBrightMod2Level);
+    case kParamPressLevel:     return fm(FM6OpParamItemLevelModLevel);
+    case kParamTmbCutoff:      return lpf(LPFParamItemFreqModLevel3);
     case kParamMasterLevel:    return MODULE_PARAM_ADDRESS(ModuleParamKindFinalOutput, ModuleInstance1, FinalOutputParamItemLevel);
     case kParamLpfCutoff:      return lpf(LPFParamItemPitch);
     case kParamLpfResonance:   return lpf(LPFParamItemQ);
@@ -280,9 +285,10 @@ void applyParam(Plugin* plugin, uint32_t index, float value) {
     if (index == uint32_t(kParamVoiceMode)) { applyVoiceMode(plugin); return; }
     const AUParameterAddress a = vmAddress(index);
     if (a != 0) setEngine(plugin, a, value);
-    if (index == uint32_t(kParamMpe))   // the pressure source follows the zone too (master + member)
-        setEngine(plugin, MODULE_PARAM_ADDRESS(ModuleParamKindChannelPressure, ModuleInstance1,
-                                               ChannelPressureParamItemMPE), value);
+    if (index == uint32_t(kParamMpe)) {   // the pressure and timbre sources follow the zone too
+        setEngine(plugin, MODULE_PARAM_FROM_BASE_AND_ITEM(channelPressure1Address, ChannelPressureParamItemMPE), value);
+        setEngine(plugin, MODULE_PARAM_FROM_BASE_AND_ITEM(timbre1Address, CCParamItemMPE), value);
+    }
 }
 
 // Push every host parameter into the engine and record what the engine now has.

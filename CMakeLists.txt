@@ -33,6 +33,7 @@ add_library(pm_framework STATIC
     src/Module/ChorusModule.cpp
     src/Module/SharedLFOModule.cpp
     src/Module/PitchBendConverterModule.cpp
+    src/Module/CCConverterModule.cpp
     src/Module/ChannelPressureModule.cpp
     src/Module/ModuleFactory.cpp
     src/Voice/ModuleMap.cpp

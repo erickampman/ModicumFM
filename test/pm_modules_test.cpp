@@ -3,6 +3,7 @@
 // inputs wired (via Voice), so here they are checked to compile + run + produce finite output;
 // their signal behaviour is exercised end-to-end once the voice engine lands.
 
+#include "CCConverterModule.hpp"
 #include "ChannelPressureModule.hpp"
 #include "CombineModule.hpp"
 #include "FinalModule.hpp"
@@ -111,6 +112,30 @@ int main() {
       const float off = valueAfter(false, {pm::fromMidi1Bytes(0x90, 60, 100), pm::fromMidi1Bytes(0xD0, 64, 0)},
                                    {pm::fromMidi1Bytes(0xD0, 0, 0)});
       CHECK(std::fabs(off) < 0.01f, "MPE off: channel pressure still moves a releasing note");
+   }
+
+   // --- CCConverter as the Timbre source (CC74, Per Note): the same release rule under MPE. ---
+   {
+      const AUParameterAddress id =
+         MODULE_PARAM_ADDRESS(ModuleParamKindControlChangeConverter, ModuleInstance1, 0);
+      Module m(id, sr, N, &ccConverterConstantsGroup, InitCCConverter, DeinitCCConverter,
+               ProcessCCConverter, MIDICCConverter);
+      m.addParams(&ccConverterConstantsGroup);
+      m.params[CCParamItemNumber - 1]  = 74.0f;
+      m.params[CCParamItemPerNote - 1] = 1.0f;
+      m.params[CCParamItemMPE - 1]     = 1.0f;
+      MIDICCConverter(pm::fromMidi1Bytes(0xB1, 74, 64), &m);
+      MIDICCConverter(pm::fromMidi1Bytes(0x91, 60, 100), &m);
+      ProcessCCConverter(1, N, &m);
+      CHECK(std::fabs(m.output.first->data[N - 1] - 0.5f) < 0.01f, "Timbre: CC74 64 on the note's channel reads 0.5");
+      m.noteReleased = true;
+      MIDICCConverter(pm::fromMidi1Bytes(0xB1, 74, 0), &m);
+      ProcessCCConverter(2, N, &m);
+      CHECK(std::fabs(m.output.first->data[N - 1] - 0.5f) < 0.01f, "Timbre (MPE): a released note keeps its member CC74");
+      MIDICCConverter(pm::fromMidi1Bytes(0xB0, 74, 127), &m);
+      ProcessCCConverter(3, N, &m);
+      CHECK(std::fabs(m.output.first->data[N - 1] - 1.0f) < 0.01f, "Timbre (MPE): the master channel's CC74 still applies");
+      DeinitCCConverter(&m);
    }
 
    if (g_fails == 0)

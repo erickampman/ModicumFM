@@ -5,6 +5,7 @@
 #include "ModuleInitSpecs.hpp"
 
 #include "ADSRModule.hpp"
+#include "CCConverterModule.hpp"
 #include "ChannelPressureModule.hpp"
 #include "ChorusModule.hpp"
 #include "CombineModule.hpp"
@@ -38,6 +39,8 @@ const std::vector<ModuleInitSpec>& getModuleInitSpecs() {
       {channelPressure1Address, &channelPressureConstantsGroup, InitChannelPressure,
        DeinitChannelPressure, ProcessChannelPressure, MIDIChannelPressure, nullptr,
        ResetChannelPressure, nullptr},
+      {timbre1Address, &ccConverterConstantsGroup, InitCCConverter, DeinitCCConverter,
+       ProcessCCConverter, MIDICCConverter, nullptr, ResetCCConverter, nullptr},
       // Chorus; one LFO phase shared by every voice so all the per-voice choruses sweep together.
       {chorus1Address, &chorusConstantsGroup, InitChorusModule, DeinitChorusModule, ProcessChorusModule,
        nullptr, ParamChorus, ResetChorusModule, SampleRateChorusModule},

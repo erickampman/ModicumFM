@@ -109,6 +109,11 @@ static constexpr PresetKey kPresetKeys[kParamCount] = {
    // MPE describes the controller, not the sound: factory presets leave it out, and the loader keeps
    // the current value for any key a preset does not mention.
    {"Global", "mpe"},
+   // Expression amounts: sound, so presets store them (factory presets as 0).
+   {"FM6Op", "pressBright"},
+   {"FM6Op", "timbreBright"},
+   {"LPF", "timbreCutoff"},
+   {"FM6Op", "pressLevel"},
 };
 
 } // namespace modicumfm

@@ -1,7 +1,7 @@
 # ModicumFM: MIDI 2.0 / MPE / CLAP port
 
 Written 2026-10-14 to start the port of PlainOldSynth's 2026-10-09..12 work; kept up to date as it
-goes. Status: **steps 0, 6, 4, 5, 1, 1+, 2, NOTE_END, 7, released notes, 8 and CC 123 / 120 done.**
+goes. Status: **everything but L (Linux CI) done.**
 
 The same work was done first in three sibling repos; port from them rather than re-deriving:
 
@@ -48,7 +48,7 @@ number, kept for cross-reference.
 | — | Released notes (MPE §3.3.3) | IFSynth `209008b`, POS `228facb` | **Done**: IFSynth's bend half as is (one comment hunk by hand). ModicumFM's ChannelPressure was still PolygraphModular's channel-only one, so POS's module (at `228facb`: per-channel and poly pressure, MPE max with the master, release freeze, ControlRamp de-zippering) replaced it, with `ChannelPressureParamItemMPE` set by the MPE switch and `ResetChannelPressure` registered. Single-channel aftertouch behaves as before, now ramped over 2 ms; poly pressure (incl. CLAP pressure expressions) now moves its note's cutoff. Pressure freeze tested in `pm-modules`; the bend cases in the host test. |
 | 8 | `pm::scaleUp`; MIDI 2.0 velocity-0 note-on is a note-on | IFSynth `2f30d3d` | **Done**: applied cleanly; POS's Velocity loudness dropdown skipped (the Response panel covers it). ModicumFM's modules already used `pm::isNoteOn`; ChannelPressure's now-redundant velocity guard removed. MIDI 1.0 velocity 127, pressure 127 and full bend now reach full scale (were 0.992). The host test sets Vel Floor to Fixed, since a velocity-0 note is silent at the default 0% floor. |
 | — | CC 123 / 120 per channel | POS `a3b94c7` | **Done** (POS's VoiceManager / VoiceStateManager code as is; IFSynth never had it). All Sound Off resets FM6Op, the filter ADSR, LPF and chorus, never `Voice::reset`. LPF and Chorus had no reset proc and ADSR's (`ADSRModuleReset`) was never registered, so `Module::reset()` left filter memory and the chorus delay line holding the old sound; `ResetLPFilterModule` / `ResetChorusModule` added and all three registered, which also makes a host `reset()` clear them. Tested in `pm-modicumfm`. |
-| 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | Decided: a fixed Expression panel, StruckSynth style: an amount per source to fixed targets (e.g. Pressure → cutoff as now, Timbre → Brightness). Agree the targets, ranges and layout before building. |
+| 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | **Done**: an Expression panel on the Voice tab under Character (author's choice, 2026-10-14): Pressure → Bright / Cutoff / Level, Timbre → Bright / Cutoff, all 0 by default, stored in presets. Press>Cutoff is the old LPF Pressure knob (same param, renamed). StruckSynth's CCConverter (CC 74 Per Note) is the Timbre source; FM6Op gained brightness ×2 and level mod inputs, LPF a third cutoff mod input (all appended). Params appended. Tested in `pm-modicumfm` and `pm-modules`; checked in REAPER (first paint after switching to the Voice tab showed stale-stencil bands in the two envelope graphs, gone on the next repaint — not yet known whether it predates this). |
 | L | Linux: position-independent static libs; Linux CI | IFSynth `e5a32e3`, POS `linux.yml` | |
 
 ## Planned after the port: mono glide
@@ -64,8 +64,8 @@ near-instant, or each new voice slides up from its rest pitch. Bring back IFSynt
 
 1. VST3 / AUv2 through clap-wrapper: later, not in this port.
 2. MPE switch: Global, with the Global dropdowns restacked into two rows (step 7).
-3. Pressure and Timbre: a fixed Expression panel, StruckSynth style (step 3). Targets, ranges and
-   layout are still to agree.
+3. Pressure and Timbre: a fixed Expression panel on the Voice tab under Character, with Press>Level
+   added (step 3, agreed 2026-10-14).
 4. Velocity loudness dropdown: skipped (step 8).
 
 ## Working with the author

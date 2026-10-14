@@ -492,6 +492,20 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
         fbIn[0] = p->first->data; fbIn[1] = p->second->data;
     }
 
+    // Expression (per sample, per channel): pressure / timbre → modulator levels, pressure → carrier
+    // level. Inputs that are unpatched or at level 0 cost nothing.
+    const auto exprIn = [&](uint8_t input, uint8_t level, const float* out[2]) {
+        out[0] = out[1] = nullptr;
+        const double l = module->getParamValue(level);
+        if (l == 0.0 || !module->isInputConnected(input)) return 0.0;
+        const KPBuffPair* p = module->retrieveInput(input, processCallID, count);
+        out[0] = p->first->data; out[1] = p->second->data;
+        return l;
+    };
+    const float* brIn[2];  const double brLevel  = exprIn(FM6OpParamItemBrightModInput,  FM6OpParamItemBrightModLevel,  brIn);
+    const float* br2In[2]; const double br2Level = exprIn(FM6OpParamItemBrightMod2Input, FM6OpParamItemBrightMod2Level, br2In);
+    const float* lvIn[2];  const double lvLevel  = exprIn(FM6OpParamItemLevelModInput,   FM6OpParamItemLevelModLevel,   lvIn);
+
     // Stereo: L/R detuned symmetrically; Spread = width (0 mono .. 1 full).
     // Body widens (+) or narrows (-) the stereo detune; neutral leaves it exactly as set.
     const double detuneKnob   = (double)module->getParamValue(FM6OpParamItemDetune) * 50.0;
@@ -535,12 +549,24 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
             double feedback = baseFeedback;
             if (fbIn[ch]) { feedback += (double)fbIn[ch][i] * feedbackDepth; }
             fb[ch] = feedback < 0.0 ? 0.0 : (feedback > 1.0 ? 1.0 : feedback);
+            double modScale = 1.0, carScale = 1.0;
+            if (brIn[ch] || br2In[ch]) {
+                double b = 0.0;
+                if (brIn[ch])  b += brLevel  * (double)brIn[ch][i];
+                if (br2In[ch]) b += br2Level * (double)br2In[ch][i];
+                modScale = std::exp2(1.5 * b);
+            }
+            if (lvIn[ch]) {
+                const double p = std::min(1.0, std::max(0.0, (double)lvIn[ch][i]));
+                carScale = lvLevel >= 0.0 ? 1.0 - lvLevel * (1.0 - p) : 1.0 + lvLevel * p;
+            }
             for (int oi = 0; oi < kFM6OpCount; ++oi) {
                 double freq = fundHz * ratioFine[oi] * detuneFac[ch];
                 if (freqIn[ch][oi]) { freq *= std::exp2((double)freqIn[ch][oi][i] * freqDepth[oi]); }
                 phInc[ch][oi] = freq / (sr * osFactor);
                 double a = baseLevel[oi] * egv[oi];
                 if (ampIn[ch][oi]) { a *= (double)ampIn[ch][oi][i] * ampDepth[oi]; }
+                a *= macros.roles.isCarrier(oi) ? carScale : modScale;
                 amp[ch][oi] = a;
             }
         }

@@ -12,6 +12,8 @@ static const ModuleParamConstants lpfConstants[] = {
    {"freqModLevel2", LPFParamItemFreqModLevel2,  0, 0, nullptr, -8.0f,  8.0f,  0.0f, 0},
    {"qModInput",     LPFParamItemModQInput,      0, 0, nullptr,  0.0f,  0.0f,  0.0f, 0}, // connection
    {"qModLevel",     LPFParamItemModQInputLevel, 0, 0, nullptr,-19.0f, 19.0f,  0.0f, 0},
+   {"freqModInput3", LPFParamItemModFreqInput3,  0, 0, nullptr,  0.0f,  0.0f,  0.0f, 0}, // connection
+   {"freqModLevel3", LPFParamItemFreqModLevel3,  0, 0, nullptr, -8.0f,  8.0f,  0.0f, 0},
 };
 const ModuleParamConstantsGroup lpfConstantsGroup = {
    const_cast<char*>("lpf"),
@@ -125,6 +127,12 @@ static const ModuleParamConstants fm6OpConstants[] = {
    {"brightDecay",   FM6OpParamItemBrightDecay,   0,  0, nullptr, 0.01f, 1000.0f, 1.0f, 0},
    {"brightSustain", FM6OpParamItemBrightSustain, 0,  0, nullptr, -1.0f, 1.0f, 0.0f, 0},
    {"brightRelease", FM6OpParamItemBrightRelease, 0,  0, nullptr, 0.01f, 1000.0f, 1.0f, 0},
+   {"brightModInput",  FM6OpParamItemBrightModInput,  0, 0, nullptr,  0.0f, 0.0f, 0.0f, 0}, // connection
+   {"brightModLevel",  FM6OpParamItemBrightModLevel,  0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
+   {"brightMod2Input", FM6OpParamItemBrightMod2Input, 0, 0, nullptr,  0.0f, 0.0f, 0.0f, 0}, // connection
+   {"brightMod2Level", FM6OpParamItemBrightMod2Level, 0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
+   {"levelModInput",   FM6OpParamItemLevelModInput,   0, 0, nullptr,  0.0f, 0.0f, 0.0f, 0}, // connection
+   {"levelModLevel",   FM6OpParamItemLevelModLevel,   0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
 };
 #undef FM6OP_OP
 const ModuleParamConstantsGroup fm6OpConstantsGroup = {
@@ -145,6 +153,19 @@ static const ModuleParamConstants channelPressureConstants[] = {
    {"dummy", ChannelPressureParamItemDummy, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0}, // hidden
    {"mpe",   ChannelPressureParamItemMPE,   0, 0, nullptr, 0.0f, 1.0f, 0.0f, 0},
 };
+// CC converter — a chosen controller number → a held value; Per Note mode makes CC74 the Timbre source.
+static const ModuleParamConstants ccConverterConstants[] = {
+   {"ccNumber",    CCParamItemNumber,    0, 0, nullptr, 0.0f, 127.0f, 1.0f, 0},
+   {"ccIsBoolean", CCParamItemIsBoolean, 0, 0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+   {"input",       CCParamItemInput,     0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0}, // connection
+   {"ccAmount",    CCParamItemAmount,    0, 0, nullptr, 0.0f, 1.0f, 1.0f, 0},
+   {"ccOffset",    CCParamItemOffset,    0, 0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+   {"ccPerNote",   CCParamItemPerNote,   0, 0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+   {"ccMpe",       CCParamItemMPE,       0, 0, nullptr, 0.0f, 1.0f, 0.0f, 0},
+};
+const ModuleParamConstantsGroup ccConverterConstantsGroup = {
+   const_cast<char*>("CC Converter"), sizeof(ccConverterConstants) / sizeof(ccConverterConstants[0]), ccConverterConstants};
+
 const ModuleParamConstantsGroup channelPressureConstantsGroup = {
    const_cast<char*>("Channel Pressure"), sizeof(channelPressureConstants) / sizeof(channelPressureConstants[0]), channelPressureConstants};
 

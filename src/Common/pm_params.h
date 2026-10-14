@@ -237,6 +237,8 @@ enum LPFParamItem : NSUInteger {
    LPFParamItemFreqModLevel2,   // second freq mod depth
    LPFParamItemModQInput,       // q modulation input (connection)
    LPFParamItemModQInputLevel,  // q mod depth
+   LPFParamItemModFreqInput3,   // third freq modulation input (connection; appended)
+   LPFParamItemFreqModLevel3,   // third freq mod depth
 };
 
 enum ADSRParamItem : NSUInteger {
@@ -333,6 +335,16 @@ enum ChannelPressureParamItem : NSUInteger {
    ChannelPressureParamItemMPE,        // 0/1: MPE lower zone (see pm::kMpeMasterChannel)
 };
 
+enum CCParamItem : NSUInteger {
+   CCParamItemNumber = 1,   // indexed: CC controller number 0..127
+   CCParamItemIsBoolean,    // 0/1: gate vs continuous
+   CCParamItemInput,        // connection: when patched, CC scales it (VCA)
+   CCParamItemAmount,       // CC scale (1 = unity)
+   CCParamItemOffset,       // floor added to the scaled CC (0 = none)
+   CCParamItemPerNote,      // 0/1: per-channel CC + same-index per-note controller
+   CCParamItemMPE,          // 0/1: with Per Note, MPE lower zone
+};
+
 enum ChorusParamItem : NSUInteger {
    ChorusParamItemInput = 1,        // connection
    ChorusParamItemBaseDelay,        // ms
@@ -415,6 +427,15 @@ enum FM6OpParamItem : NSUInteger {
    // (-1..1, 0 = unchanged; + toward full, - toward zero).
    FM6OpParamItemLoudAttack, FM6OpParamItemLoudDecay, FM6OpParamItemLoudSustain, FM6OpParamItemLoudRelease,
    FM6OpParamItemBrightAttack, FM6OpParamItemBrightDecay, FM6OpParamItemBrightSustain, FM6OpParamItemBrightRelease,
+   // Expression mod inputs (appended). Brightness: every modulator's level × 2^(1.5·level·input),
+   // the Brightness macro's modulator half, per sample. Level: carriers × a swell gain — level a ≥ 0:
+   // 1 - a·(1 - input) (quiet until pressed); a < 0: 1 + a·input (pressing makes it quieter).
+   FM6OpParamItemBrightModInput,  // connection (pressure)
+   FM6OpParamItemBrightModLevel,  // -1..1
+   FM6OpParamItemBrightMod2Input, // connection (timbre)
+   FM6OpParamItemBrightMod2Level, // -1..1
+   FM6OpParamItemLevelModInput,   // connection (pressure)
+   FM6OpParamItemLevelModLevel,   // -1..1
    FM6OpParamItemCount_           // one past the last item — must stay <= MODULE_MAX_PARAMS + 1
 };
 
