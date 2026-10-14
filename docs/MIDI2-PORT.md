@@ -1,7 +1,7 @@
 # ModicumFM: MIDI 2.0 / MPE / CLAP port
 
 Written 2026-10-14 to start the port of PlainOldSynth's 2026-10-09..12 work; kept up to date as it
-goes. Status: **step 0 done.**
+goes. Status: **steps 0 and 6 done.**
 
 The same work was done first in three sibling repos; port from them rather than re-deriving:
 
@@ -37,7 +37,7 @@ number, kept for cross-reference.
 | SS # | What | Port from | ModicumFM notes |
 |---|---|---|---|
 | 0 | Raw CLAP entry point (`src/plugin.cpp`, DPF for the GUI only, MIDI2 dialect) + headless host test | IFSynth `9cab332`, SS `53e642f` | **Done** (this commit, see `git log`). `state_load` only stores values and the next block applies them. Same CLAP id and 0-based param ids as the DPF build, and DPF's old state blob loads. Includes IFSynth's Linux PIC fix (`e5a32e3`), so row L is down to Linux CI. Text → value no longer divides ms-unit params (Chorus Depth / Delay) by 1000. |
-| 6 | `static_assert` per `kParams` row (`symbolIs`) + dropdown label counts | IFSynth `d9a1b89` | |
+| 6 | `static_assert` per `kParams` row (`symbolIs`) + dropdown label counts | IFSynth `d9a1b89` | **Done**: one assert per row, one per operator block, a count check that fails when a new parameter has no line, and dropdown labels against ranges. All 99 rows were checked by hand first; none were out of order. New parameters need a line in `ModicumFMParams.h`. |
 | 4 | Retina / multi-monitor editor sizing | IFSynth `5cf88a5` | Author checks on both monitors. |
 | 5 | Never `params.rescan` from the audio thread | POS `f201e8c` | Check the Voice tab Reset / macros for DSP-side param changes. |
 | 1 | Per-note UMP decode; note + channel + group matching; engine-made note-offs; per-note bend; RC 7 | IFSynth `80c3008` | Per-note bend joins the existing Combine into FM6Op pitch. Check mono legato. |

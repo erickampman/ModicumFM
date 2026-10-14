@@ -203,7 +203,7 @@ constexpr bool isOpWaveParam(uint32_t index)
 }
 
 // Null-terminated label list for a dropdown parameter, or nullptr when it is a plain value.
-inline const char* const* choicesFor(uint32_t index)
+constexpr const char* const* choicesFor(uint32_t index)
 {
    if (isOpWaveParam(index)) return kOpWaveChoices;
    switch (index) {
@@ -216,7 +216,98 @@ inline const char* const* choicesFor(uint32_t index)
    }
 }
 
-inline bool isDropdownParam(uint32_t index) { return choicesFor(index) != nullptr; }
+constexpr bool isDropdownParam(uint32_t index) { return choicesFor(index) != nullptr; }
+
+// --- table guards ----------------------------------------------------------------------------
+// kParams is indexed by ParamIndex, so a swapped pair of rows compiles fine and silently cross-wires
+// two controls (PlainOldSynth's Effect Mix and Spread once did exactly that). Check every row's
+// symbol against the enum, one assert per row so a failure names the row (one per operator for the
+// operator blocks). When appending a parameter, add its line here too.
+constexpr bool symbolIs(uint32_t index, const char* symbol)
+{
+   const char* a = kParams[index].symbol;
+   while (*a != '\0' && *a == *symbol) { ++a; ++symbol; }
+   return *a == *symbol;
+}
+
+// Operator o (0..5): every row of its block reads "op<o+1><item>", in FmOpOffset order.
+constexpr bool opBlockSymbolsMatch(uint32_t op)
+{
+   constexpr const char* kItems[kFmOpCount] = { "wave", "rat", "fine", "lvl", "dly", "att", "dec", "sus", "rel" };
+   for (uint32_t j = 0; j < kFmOpCount; ++j) {
+      const char* a = kParams[fmOpParam(op, j)].symbol;
+      if (a[0] != 'o' || a[1] != 'p' || a[2] != char('1' + op)) return false;
+      const char* b = kItems[j];
+      a += 3;
+      while (*a != '\0' && *a == *b) { ++a; ++b; }
+      if (*a != *b) return false;
+   }
+   return true;
+}
+
+static_assert(symbolIs(kParamVoiceMode,      "voices"));
+static_assert(symbolIs(kParamBendRange,      "bend"));
+static_assert(symbolIs(kParamMasterLevel,    "master"));
+static_assert(symbolIs(kParamAlgorithm,      "algo"));
+static_assert(symbolIs(kParamFeedback,       "fb"));
+static_assert(symbolIs(kParamPitch,          "pitch"));
+static_assert(symbolIs(kParamFine,           "fine"));
+static_assert(symbolIs(kParamDetune,         "detune"));
+static_assert(symbolIs(kParamOversample,     "ovs"));
+static_assert(opBlockSymbolsMatch(0), "Op1 block");
+static_assert(opBlockSymbolsMatch(1), "Op2 block");
+static_assert(opBlockSymbolsMatch(2), "Op3 block");
+static_assert(opBlockSymbolsMatch(3), "Op4 block");
+static_assert(opBlockSymbolsMatch(4), "Op5 block");
+static_assert(opBlockSymbolsMatch(5), "Op6 block");
+static_assert(symbolIs(kParamLpfCutoff,      "cutoff"));
+static_assert(symbolIs(kParamLpfResonance,   "reso"));
+static_assert(symbolIs(kParamLpfEnvAmount,   "fenvamt"));
+static_assert(symbolIs(kParamLpfPressure,    "pressure"));
+static_assert(symbolIs(kParamFiltAttack,     "fatt"));
+static_assert(symbolIs(kParamFiltDecay,      "fdec"));
+static_assert(symbolIs(kParamFiltSustain,    "fsus"));
+static_assert(symbolIs(kParamFiltRelease,    "frel"));
+static_assert(symbolIs(kParamChorusMix,      "chmix"));
+static_assert(symbolIs(kParamChorusRate,     "chrate"));
+static_assert(symbolIs(kParamChorusDepth,    "chdepth"));
+static_assert(symbolIs(kParamChorusDelay,    "chdelay"));
+static_assert(symbolIs(kParamChorusFeedback, "chfb"));
+static_assert(symbolIs(kParamVelFloor,       "velfloor"));
+static_assert(symbolIs(kParamVelCurve,       "velcurve"));
+static_assert(symbolIs(kParamBrightness,     "bright"));
+static_assert(symbolIs(kParamBite,           "bite"));
+static_assert(symbolIs(kParamGrit,           "grit"));
+static_assert(symbolIs(kParamBody,           "body"));
+static_assert(symbolIs(kParamTouch,          "touch"));
+static_assert(symbolIs(kParamKeyTrack,       "keytrack"));
+static_assert(symbolIs(kParamLoudAttack,     "ldatt"));
+static_assert(symbolIs(kParamLoudDecay,      "lddec"));
+static_assert(symbolIs(kParamLoudSustain,    "ldsus"));
+static_assert(symbolIs(kParamLoudRelease,    "ldrel"));
+static_assert(symbolIs(kParamBrightAttack,   "bratt"));
+static_assert(symbolIs(kParamBrightDecay,    "brdec"));
+static_assert(symbolIs(kParamBrightSustain,  "brsus"));
+static_assert(symbolIs(kParamBrightRelease,  "brrel"));
+static_assert(kParamBrightRelease + 1 == kParamCount, "a new parameter needs its symbolIs line above");
+
+// Every dropdown's labels must cover its range exactly: integer, min 0, one label per step up to max.
+constexpr bool choicesMatchRange(uint32_t index)
+{
+   const char* const* c = choicesFor(index);
+   if (c == nullptr) return true;
+   uint32_t count = 0;
+   while (c[count] != nullptr) ++count;
+   const ParamSpec& s = kParams[index];
+   return s.integer && s.min == 0.0f && s.max == float(count - 1);
+}
+constexpr bool allChoicesMatchRanges()
+{
+   for (uint32_t i = 0; i < uint32_t(kParamCount); ++i)
+      if (!choicesMatchRange(i)) return false;
+   return true;
+}
+static_assert(allChoicesMatchRanges(), "a dropdown's label count does not match its parameter range");
 
 } // namespace modicumfm
 
