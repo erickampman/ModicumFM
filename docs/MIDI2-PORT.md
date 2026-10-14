@@ -44,11 +44,11 @@ number, kept for cross-reference.
 | 1+ | Per-note range follows the channel; RC 7 kept across `reset()`; Pitch 7.25 | IFSynth `3967e15`, POS `69b455e` | **Done** (see row 1). The Bend Range param is the channel range and the per-note default. RPN 0 comes with step 7, as in IFSynth. |
 | 2 | CLAP note ids; note expressions (tuning as Pitch 7.25) | IFSynth `153a6d0` | |
 | — | CLAP NOTE_END + voice-info | IFSynth `406a452` | NOTE_END when the voice frees (Final silent). |
-| 7 | MPE switch (lower zone) + RPN 0 | IFSynth `de5f654` | UI-visible; proposed: Off/On in Global beside Poly/Mono, kept out of presets. |
+| 7 | MPE switch (lower zone) + RPN 0 | IFSynth `de5f654` | Decided: Off/On in Global, kept out of presets. Restack the Global dropdowns into two rows so everything fits; the bottom row gets taller. |
 | — | Released notes (MPE §3.3.3) | IFSynth `209008b`, POS `228facb` | Also freeze member-channel pressure at release (ChannelPressure exists here). |
-| 8 | `pm::scaleUp`; MIDI 2.0 velocity-0 note-on is a note-on | IFSynth `2f30d3d` | Proposed: skip POS's Velocity loudness dropdown; the Response panel already covers it. |
+| 8 | `pm::scaleUp`; MIDI 2.0 velocity-0 note-on is a note-on | IFSynth `2f30d3d` | Decided: skip POS's Velocity loudness dropdown; the Response panel already covers it. |
 | — | CC 123 / 120 per channel | POS `a3b94c7` | All Sound Off resets FM6Op envelopes, LPF, chorus, never `Voice::reset`. |
-| 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | UI-visible; design to agree with the author. |
+| 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | Decided: a fixed Expression panel, StruckSynth style: an amount per source to fixed targets (e.g. Pressure → cutoff as now, Timbre → Brightness). Agree the targets, ranges and layout before building. |
 | L | Linux: position-independent static libs; Linux CI | IFSynth `e5a32e3`, POS `linux.yml` | |
 
 ## Planned after the port: mono glide
@@ -60,12 +60,13 @@ converter) joins after the glide and is never smeared by it. Mono only: in poly 
 near-instant, or each new voice slides up from its rest pitch. Bring back IFSynth's host test
 "a bend bypasses the glide" (`ifs_clap_host_test.cpp`).
 
-## Open decisions (ask the author)
+## Decisions (2026-10-14)
 
-1. VST3 / AUv2 through clap-wrapper: proposed later, not in this port.
-2. MPE switch placement (Global, beside Poly/Mono?).
-3. Item 3: what Pressure and Timbre (CC74 per note) drive, e.g. Timbre → the Brightness macro; or defer.
-4. Skip the Velocity loudness dropdown?
+1. VST3 / AUv2 through clap-wrapper: later, not in this port.
+2. MPE switch: Global, with the Global dropdowns restacked into two rows (step 7).
+3. Pressure and Timbre: a fixed Expression panel, StruckSynth style (step 3). Targets, ranges and
+   layout are still to agree.
+4. Velocity loudness dropdown: skipped (step 8).
 
 ## Working with the author
 
