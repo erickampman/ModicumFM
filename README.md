@@ -62,6 +62,10 @@ note pitch + pitch bend ──> FM6Op engine
     both bends offset from it. It lasts for that note only (no tuning table).
   - Bend changes ramp over 2 ms; a new note starts at its bent pitch, and a mono legato note ramps.
     RC 7 survives `reset()` (configuration a controller sends once; some hosts reset on stop).
+- **All Notes Off (CC 123)** releases the notes of the channel it arrives on, pedal-held ones
+  included; they go into their release as after a note-off. **All Sound Off (CC 120)** silences
+  that channel's voices at once, release and chorus tail included, without forgetting other
+  channels' bend and pressure.
 - **Presets**: factory presets in `Presets/*.json`, baked into the plugin at build time —
   classic DX-style starting points: E.Piano, Tubular Bells, Organ, Bass, Brass, Pluck, Glass Pad,
   Drowning With Chowning, plus Init. (Organ: four drawbars on algorithm 31 plus a dedicated chiff carrier.) In-UI

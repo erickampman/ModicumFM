@@ -3,7 +3,8 @@
 //   1. a note sounds, at the note's pitch (operators 2-6 muted → operator 1 is a pure sine);
 //   2. full pitch bend raises it by the bend range (default 4 quarter-tones = 2 semitones);
 //   3. channel pressure opens the filter (pressure → LPF cutoff mod 2);
-//   4. the voice frees after release.
+//   4. the voice frees after release;
+//   5. CC 123 (All Notes Off) and CC 120 (All Sound Off) act on their own channel only.
 
 #include "VoiceManager.hpp"
 #include "pm_addresses.h"
@@ -132,6 +133,59 @@ int main() {
       vm->handleMIDIMessage(pm::makeNoteOff(57));
       for (int k = 0; k < 400; ++k) render(*vm, b);   // ~4.3 s: operator release (0.3 s) + ring-out
       CHECK(vm->activeCount() == 0, "voice frees after release");
+      delete vm;
+   }
+
+   // --- 5: channel mode messages (ported from PlainOldSynth a3b94c7) --------------------------
+   {   // CC 123 releases only its channel's notes.
+      VoiceManager* vm = makeVM();
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0x91, 60, 100));   // channel 2
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0x92, 64, 100));   // channel 3
+      for (int k = 0; k < 4; ++k) render(*vm, b);
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0xB1, 123, 0));
+      for (int k = 0; k < 400; ++k) render(*vm, b);   // past the release
+      CHECK(vm->activeCount() == 1, "CC 123 on channel 2 releases channel 2's note only");
+      delete vm;
+   }
+   {   // ...including a note the sustain pedal is holding.
+      VoiceManager* vm = makeVM();
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0xB0, 64, 127));
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0x90, 60, 100));
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0x80, 60, 0));
+      for (int k = 0; k < 50; ++k) render(*vm, b);
+      CHECK(vm->activeCount() == 1, "the pedal is holding the note");
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0xB0, 123, 0));
+      for (int k = 0; k < 400; ++k) render(*vm, b);
+      CHECK(vm->activeCount() == 0, "CC 123 releases a pedal-held note");
+      delete vm;
+   }
+   {   // CC 120 cuts its channel's voice at once, release included; another channel plays on.
+      VoiceManager* vm = makeVM();
+      pureSine(*vm);
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0x91, 60, 100));   // C4, channel 2
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0x92, 69, 100));   // A4, channel 3
+      for (int k = 0; k < 10; ++k) render(*vm, b);
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0xB1, 120, 0));
+      CHECK(vm->activeCount() == 1, "CC 120 on channel 2 drops its voice immediately");
+      const double hz = measureHz(*vm, 47);                       // ~0.5 s: A4 alone, no C4 tail
+      CHECK(std::fabs(hz - 440.0) < 3.0, "after CC 120 only A4 sounds");
+      std::printf("all sound off: remaining %.1f Hz\n", hz);
+      delete vm;
+   }
+   {   // CC 120 must not make a voice forget other channels' bends (a full Voice::reset would).
+      VoiceManager* vm = makeVM();
+      pureSine(*vm);
+      setVMParam(*vm, MIDIParamItemVoiceCount, 1);
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0xE4, 0x00, 0x60));   // channel 5: +1 st at ±2
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0x91, 60, 100));
+      for (int k = 0; k < 4; ++k) render(*vm, b);
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0xB1, 120, 0));
+      vm->handleMIDIMessage(pm::fromMidi1Bytes(0x94, 69, 100));      // A4 on channel 5
+      for (int k = 0; k < 10; ++k) render(*vm, b);
+      const double hz = measureHz(*vm, 94);
+      const double expect = 440.0 * std::pow(2.0, 1.0 / 12.0);
+      CHECK(std::fabs(hz - expect) < 3.0, "after CC 120 the voice still knows channel 5's bend");
+      std::printf("all sound off keeps channel bends: %.1f Hz (expect %.1f)\n", hz, expect);
       delete vm;
    }
 

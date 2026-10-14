@@ -41,6 +41,15 @@ const void DeinitLPFilterModule(Module* module)
     module->state = nullptr;
 }
 
+const void ResetLPFilterModule(Module* module)
+{
+    auto* state = static_cast<LPFHelperStruct*>(module->state);
+    state->butterLowL.reset();
+    state->butterLowR.reset();
+    state->fmSlew1 = FMSlewLimiter();
+    state->fmSlew2 = FMSlewLimiter();
+}
+
 const void SampleRateLPFilterModule(Module* module, double newSampleRate)
 {
     auto* state = static_cast<LPFHelperStruct*>(module->state);

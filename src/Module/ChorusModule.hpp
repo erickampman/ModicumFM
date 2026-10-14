@@ -8,5 +8,7 @@
 const void InitChorusModule(uint32_t count, Module* module);
 const void DeinitChorusModule(Module* module);
 const void SampleRateChorusModule(Module* module, double newSampleRate);
+// Empties the delay lines and the feedback path (host reset, All Sound Off), so no old tail replays.
+const void ResetChorusModule(Module* module);
 const KPBuffPair* ProcessChorusModule(uint64_t processCallID, uint32_t count, Module* module);
 const void ParamChorus(Module* module, AUParameterAddress address, AUValue value);

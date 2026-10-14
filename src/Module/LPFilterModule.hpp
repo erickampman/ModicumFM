@@ -11,4 +11,6 @@
 const void InitLPFilterModule(uint32_t count, Module* module);
 const void DeinitLPFilterModule(Module* module);
 const void SampleRateLPFilterModule(Module* module, double newSampleRate);
+// Clears the filter memory and the mod slew (host reset, All Sound Off); coefficients are kept.
+const void ResetLPFilterModule(Module* module);
 const KPBuffPair* ProcessLPFilterModule(uint64_t processCallID, uint32_t count, Module* module);

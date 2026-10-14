@@ -55,6 +55,17 @@ const void DeinitChorusModule(Module* module) {
     module->state = nullptr;
 }
 
+const void ResetChorusModule(Module* module) {
+    auto* st = static_cast<ChorusState*>(module->state);
+    if (!st) return;
+    st->delayL.clear();
+    st->delayR.clear();
+    st->preLPF_L.reset();
+    st->preLPF_R.reset();
+    st->smoothedModL = st->smoothedModR = 0.0f;
+    st->feedbackL = st->feedbackR = 0.0f;
+}
+
 const void SampleRateChorusModule(Module* module, double newSampleRate)
 {
     auto* st = static_cast<ChorusState*>(module->state);
