@@ -1,7 +1,7 @@
 # ModicumFM: MIDI 2.0 / MPE / CLAP port
 
 Written 2026-10-14 to start the port of PlainOldSynth's 2026-10-09..12 work; kept up to date as it
-goes. Status: **steps 0, 6, 4, 5, 1 and 1+ done.**
+goes. Status: **steps 0, 6, 4, 5, 1, 1+ and 2 done.**
 
 The same work was done first in three sibling repos; port from them rather than re-deriving:
 
@@ -42,7 +42,7 @@ number, kept for cross-reference.
 | 5 | Never `params.rescan` from the audio thread | POS `f201e8c` | **Nothing to do** (checked 2026-10-14). `notifyHostValuesChanged` (the only `rescan`) is called only from `state_load`, on the main thread. The DSP side never changes one host parameter because of another (`applyVoiceMode` writes engine settings only); presets and the Voice tab Reset are UI-side and reach the host as gesture/value events. |
 | 1 | Per-note UMP decode; note + channel + group matching; engine-made note-offs; per-note bend; RC 7 | IFSynth `80c3008` | **Done**, together with 1+ in one commit: IFSynth's PitchBendConverter (at `3967e15`) replaces ModicumFM's channel-only one, and its bend still reaches FM6Op through the existing Combine 2. Mono legato ramps the bend via `Module::legatoContinuation`, which ModicumFM already had. |
 | 1+ | Per-note range follows the channel; RC 7 kept across `reset()`; Pitch 7.25 | IFSynth `3967e15`, POS `69b455e` | **Done** (see row 1). The Bend Range param is the channel range and the per-note default. RPN 0 comes with step 7, as in IFSynth. |
-| 2 | CLAP note ids; note expressions (tuning as Pitch 7.25) | IFSynth `153a6d0` | |
+| 2 | CLAP note ids; note expressions (tuning as Pitch 7.25) | IFSynth `153a6d0` | **Done**: the patch applied as is. Pressure and brightness expressions reach the engine as poly pressure and per-note #74, but nothing in the voice reads them until step 3 (ChannelPressure is channel-wide). Host tests as IFSynth's, minus its Osc 2 check. |
 | — | CLAP NOTE_END + voice-info | IFSynth `406a452` | NOTE_END when the voice frees (Final silent). |
 | 7 | MPE switch (lower zone) + RPN 0 | IFSynth `de5f654` | Decided: Off/On in Global, kept out of presets. Restack the Global dropdowns into two rows so everything fits; the bottom row gets taller. |
 | — | Released notes (MPE §3.3.3) | IFSynth `209008b`, POS `228facb` | Also freeze member-channel pressure at release (ChannelPressure exists here). |

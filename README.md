@@ -72,7 +72,13 @@ The plugin implements the CLAP entry point itself (`src/plugin.cpp`) and keeps t
 [DISTRHO Plugin Framework (DPF)](https://github.com/DISTRHO/DPF) purely as the GUI layer, so it can
 receive MIDI 2.0 notes (including 7.9 microtonal pitch) that DPF's generated CLAP wrapper drops.
 
-Next: CLAP note expressions, MPE input, and per-note expression; see
+**CLAP.** Note ids are kept: when a host supplies them (Bitwig does), they decide which note is
+which, so a re-struck key is a new note and an expression can name only the id. Note expressions:
+**tuning** arrives as Pitch 7.25 at key + tuning, so it is exact at any size, not clamped to the
+bend range; **pressure** and **brightness** become polyphonic pressure and per-note controller #74
+(nothing in the voice responds to them yet; the filter follows channel pressure only).
+
+Next: MPE input, and pressure and timbre as modulation sources; see
 [docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).
 
 ## Layout
