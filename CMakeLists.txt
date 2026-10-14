@@ -122,6 +122,10 @@ add_dependencies(modicumfm_core generate_presets generate_resources)
 # TRUE = the UI's Help button opens a native WebView. On macOS this adds DistrhoUI_macOS.mm and
 # links WebKit; the WebView implementation itself comes from DPF's UI sources, not from dgl.
 dpf__add_plugin_specific_ui_sources(modicumfm_core TRUE)
+if(APPLE)
+    # The live Retina scale of the host window (see the file's header comment).
+    target_sources(modicumfm_core PRIVATE src/UI/BackingScale_mac.mm)
+endif()
 # Dev-only JSON patch dumper (keystroke → file); compiled out of release builds.
 if(MODICUMFM_PRESET_DUMP)
     target_compile_definitions(modicumfm_core PRIVATE MODICUMFM_PRESET_DUMP=1)
