@@ -49,6 +49,12 @@ const std::vector<ModuleInitSpec>& getModuleInitSpecs() {
        nullptr, ParamChorus, ResetChorusModule, SampleRateChorusModule},
       {sharedLFO1Address, &sharedLFOConstantsGroup, nullptr, nullptr, ProcessSharedLFOModule,
        nullptr, nullptr, nullptr, nullptr, CreateSharedLFOState},
+      // Vibrato: a second shared LFO (its own phase; the registry keys on the address) scaled by the
+      // mod wheel (CC 1) and added to the pitch.
+      {sharedLFO2Address, &sharedLFOConstantsGroup, nullptr, nullptr, ProcessSharedLFOModule,
+       nullptr, nullptr, nullptr, nullptr, CreateSharedLFOState},
+      {vibrato1Address, &ccConverterConstantsGroup, InitCCConverter, DeinitCCConverter,
+       ProcessCCConverter, MIDICCConverter, nullptr, ResetCCConverter, nullptr},
       {finalAddress, &finalConstantsGroup, InitFinalModule, DeinitFinalModule, ProcessFinalModule,
        MIDIFinalModule, nullptr, nullptr, SampleRateFinalModule},
    };

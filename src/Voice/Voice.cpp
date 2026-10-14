@@ -229,6 +229,7 @@ void Voice::handleMIDIMessage(const pm::UmpMessage& message) {
     const VoiceState prevState = voiceStateManager.getState();
     const bool legatoContinuation = pm::isNoteOn(message)
         && (prevState == VoiceState::Active || prevState == VoiceState::Deactivating);
+    const bool legatoHeld = pm::isNoteOn(message) && prevState == VoiceState::Active;
 
     // generally should suppress propagation only if in stealing state
     bool shouldPropagate = voiceStateManager.handleMIDIMessage(message, id);
@@ -238,8 +239,10 @@ void Voice::handleMIDIMessage(const pm::UmpMessage& message) {
         for (Module* module : moduleMap.allModules()) {
             if (module && module->activeCount && module->midiProc) {
                 module->legatoContinuation = legatoContinuation;
+                module->legatoHeld         = legatoHeld;
                 module->midiProc(message, module);
                 module->legatoContinuation = false;   // scoped to this dispatch only
+                module->legatoHeld         = false;
             }
         }
     }

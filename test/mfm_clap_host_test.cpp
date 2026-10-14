@@ -1064,6 +1064,113 @@ int main(int argc, char** argv) {
         }
     }
 
+    // --- glide mode and vibrato (the Pitch panel) -------------------------------------------------
+    std::printf("Glide mode and vibrato:\n");
+    {
+        constexpr double kA3 = 220.0, kA4 = 440.0;
+        const auto seconds = [](double s) { return uint32_t(s * kSampleRate); };
+        const auto near = [](double hz, double expected, double tol) { return std::fabs(hz / expected - 1.0) < tol; };
+        const auto make = [&](Instance& inst, std::initializer_list<std::pair<uint32_t, double>> setup) {
+            if (!inst.create(lib)) return false;
+            installTestPatch(inst.plugin);
+            for (const auto& [index, value] : setup) sendParam(inst.plugin, index, value);
+            return true;
+        };
+        // Render `events` + `secs`, then the pitch over the last `window` seconds of it.
+        const auto pitchAfter = [&](const clap_plugin_t* plugin, std::vector<const clap_event_header_t*> events,
+                                    double secs, double window, double expectedHz) {
+            if (secs > window) { render(plugin, seconds(secs - window), events.data(), uint32_t(events.size())); events.clear(); }
+            const std::vector<float> audio = render(plugin, seconds(window), events.data(), uint32_t(events.size()));
+            return estimatePitch(audio, expectedHz * 0.5, expectedHz * 2.0);
+        };
+        // Pitch track: 30 ms windows every 10 ms over `secs`; min, max and how often it crosses its mean.
+        struct Track { double lo = 1e9, hi = 0.0; int crossings = 0; };
+        const auto track = [&](const clap_plugin_t* plugin, double secs) {
+            const std::vector<float> audio = render(plugin, seconds(secs), nullptr, 0);
+            std::vector<double> hz;
+            const size_t win = seconds(0.03), hop = seconds(0.01);
+            for (size_t at = 0; at + win <= audio.size(); at += hop)
+                hz.push_back(estimatePitch(std::vector<float>(audio.begin() + long(at), audio.begin() + long(at + win)),
+                                           kA3 * 0.7, kA3 * 1.4));
+            Track t;
+            double mean = 0.0;
+            for (double h : hz) { t.lo = std::min(t.lo, h); t.hi = std::max(t.hi, h); mean += h; }
+            mean /= double(hz.size());
+            for (size_t i = 1; i < hz.size(); ++i)
+                if ((hz[i - 1] < mean) != (hz[i] < mean)) ++t.crossings;
+            return t;
+        };
+        const clap_event_midi_t a3 = makeMidi1(0x90, 57, 100), a4 = makeMidi1(0x90, 69, 100);
+        const clap_event_midi_t a3off = makeMidi1(0x80, 57, 0);
+
+        {   // Always: a note after the last one was released still glides.
+            Instance inst;
+            check(make(inst, {{kParamVoiceMode, 0.0}, {kParamGlide, 1.0}, {kParamGlideMode, 0.0}}), "glide mode: instance");
+            pitchAfter(inst.plugin, {&a3.header}, 0.3, 0.2, kA3);
+            pitchAfter(inst.plugin, {&a3off.header}, 0.1, 0.05, kA3);
+            const double hz = pitchAfter(inst.plugin, {&a4.header}, 0.15, 0.1, kA4);
+            std::printf("        Always, A3 released then A4: %.3f Hz at ~0.12 s (A4 is %.0f)\n", hz, kA4);
+            check(hz > kA3 * 1.02 && hz < kA4 * 0.9, "glide mode Always: glides from a released note");
+            inst.destroy();
+        }
+        {   // Legato: a note after the last one was released jumps; one played over a held note glides.
+            Instance inst;
+            check(make(inst, {{kParamVoiceMode, 0.0}, {kParamGlide, 1.0}, {kParamGlideMode, 1.0}}), "glide mode: instance");
+            pitchAfter(inst.plugin, {&a3.header}, 0.3, 0.2, kA3);
+            pitchAfter(inst.plugin, {&a3off.header}, 0.1, 0.05, kA3);
+            const double jumped = pitchAfter(inst.plugin, {&a4.header}, 0.15, 0.1, kA4);
+            std::printf("        Legato, A3 released then A4: %.3f Hz\n", jumped);
+            check(near(jumped, kA4, 0.01), "glide mode Legato: a detached note does not glide");
+            const double slid = pitchAfter(inst.plugin, {&a3.header}, 0.15, 0.1, kA3);   // over held A4
+            std::printf("        Legato, A3 over held A4: %.3f Hz at ~0.12 s\n", slid);
+            check(slid < kA4 * 0.98 && slid > kA3 * 1.1, "glide mode Legato: a note over a held one glides");
+            inst.destroy();
+        }
+        {   // Vibrato: Depth 0 and the wheel at 0 leave the pitch steady.
+            Instance inst;
+            check(make(inst, {{kParamVibRate, 5.0}}), "vibrato: instance");
+            render(inst.plugin, seconds(0.2), std::vector<const clap_event_header_t*>{&a3.header}.data(), 1);
+            const Track t = track(inst.plugin, 1.0);
+            std::printf("        no vibrato: %.2f .. %.2f Hz\n", t.lo, t.hi);
+            check(near(t.lo, kA3, 0.003) && near(t.hi, kA3, 0.003), "vibrato: off by default");
+            inst.destroy();
+        }
+        {   // Depth 100 ct at 5 Hz: the pitch swings about a semitone each way, ~10 mean crossings a second.
+            Instance inst;
+            check(make(inst, {{kParamVibRate, 5.0}, {kParamVibDepth, 100.0}}), "vibrato depth: instance");
+            render(inst.plugin, seconds(0.2), std::vector<const clap_event_header_t*>{&a3.header}.data(), 1);
+            const Track t = track(inst.plugin, 1.0);
+            std::printf("        Depth 100 ct, 5 Hz: %.2f .. %.2f Hz, %d crossings in 1 s\n", t.lo, t.hi, t.crossings);
+            check(t.hi > kA3 * std::exp2(0.8 / 12.0) && t.hi < kA3 * std::exp2(1.1 / 12.0), "vibrato: depth up ~1 st");
+            check(t.lo < kA3 * std::exp2(-0.8 / 12.0) && t.lo > kA3 * std::exp2(-1.1 / 12.0), "vibrato: depth down ~1 st");
+            check(t.crossings >= 8 && t.crossings <= 12, "vibrato: rate 5 Hz");   // 2.5 / 10 Hz give ~5 / ~20
+            inst.destroy();
+        }
+        {   // Wheel 100 ct: nothing with the wheel down, a semitone each way with it full up (CC 1 = 127).
+            Instance inst;
+            check(make(inst, {{kParamVibRate, 5.0}, {kParamVibWheel, 100.0}}), "vibrato wheel: instance");
+            render(inst.plugin, seconds(0.2), std::vector<const clap_event_header_t*>{&a3.header}.data(), 1);
+            const Track down = track(inst.plugin, 0.5);
+            const clap_event_midi_t wheel = makeMidi1(0xB0, 1, 127);
+            render(inst.plugin, seconds(0.1), std::vector<const clap_event_header_t*>{&wheel.header}.data(), 1);
+            const Track up = track(inst.plugin, 1.0);
+            std::printf("        Wheel 100 ct: down %.2f .. %.2f Hz, up %.2f .. %.2f Hz\n", down.lo, down.hi, up.lo, up.hi);
+            check(near(down.lo, kA3, 0.003) && near(down.hi, kA3, 0.003), "vibrato: wheel down, none");
+            check(up.hi > kA3 * std::exp2(0.8 / 12.0) && up.lo < kA3 * std::exp2(-0.8 / 12.0), "vibrato: wheel up, ~1 st");
+            inst.destroy();
+        }
+        {   // Mono (one voice, legato engine settings): Depth 50 ct swings half a semitone each way.
+            Instance inst;
+            check(make(inst, {{kParamVoiceMode, 0.0}, {kParamGlide, kParams[kParamGlide].min},
+                              {kParamVibRate, 5.0}, {kParamVibDepth, 50.0}}), "vibrato mono: instance");
+            render(inst.plugin, seconds(0.2), std::vector<const clap_event_header_t*>{&a3.header}.data(), 1);
+            const Track t = track(inst.plugin, 1.0);
+            std::printf("        mono, Depth 50 ct: %.2f .. %.2f Hz\n", t.lo, t.hi);
+            check(t.hi > kA3 * std::exp2(0.35 / 12.0) && t.hi < kA3 * std::exp2(0.6 / 12.0), "vibrato: works in mono");
+            inst.destroy();
+        }
+    }
+
     // --- the MIDI-1.0 / CLAP dialects still work -------------------------------------------------
     std::printf("Other note dialects (must keep working):\n");
     {

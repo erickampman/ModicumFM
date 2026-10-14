@@ -15,7 +15,7 @@ expert view. See [docs/ROADMAP.md](docs/ROADMAP.md).
 (10-voice poly with note stealing, or mono legato) rendering, per voice:
 
 ```
-note pitch ─> Slew (mono glide) + pitch bend ──> FM6Op engine
+note pitch ─> Slew (mono glide) + pitch bend + vibrato ──> FM6Op engine
   → Low-Pass Filter  ← Filter Envelope (cutoff mod 1) + Channel Pressure (cutoff mod 2)
   → Chorus ← shared LFO → Master
 ```
@@ -57,11 +57,17 @@ note pitch ─> Slew (mono glide) + pitch bend ──> FM6Op engine
   Pressure is channel, poly or CLAP pressure; timbre is CC 74, MIDI 2.0 per-note #74 or CLAP
   brightness, each tracked per note (PlainOldSynth's / StruckSynth's sources, with the MPE master
   rule and the release freeze, smoothed over 2 ms). Presets store the amounts.
-- **Voice tab / Glide** (beside Expression): mono portamento at a constant rate, 1 ms to 2 s per
-  octave (so a two-octave slide takes twice as long as one). Every mono note glides from where the
-  pitch is, held or not; the first note after a reset starts at its own pitch. The minimum is Off
-  (the default, and every factory preset's); the knob greys out in Poly, which never glides. Only
-  the note pitch slides: pitch bend and Pitch 7.25 join after the glide, so they act at once.
+- **Voice tab / Pitch** (beside Expression), two rows:
+  - **Glide**: mono portamento at a constant rate, Time 1 ms to 2 s per octave (so a two-octave slide
+    takes twice as long as one). Mode **Always** glides every mono note from where the pitch is, held
+    or not; **Legato** glides only into a note played while the previous one is still held (fingered
+    portamento). The first note after a reset starts at its own pitch. Time's minimum is Off (the
+    default, and every factory preset's); both controls grey out in Poly, which never glides. Only
+    the note pitch slides: pitch bend, Pitch 7.25 and vibrato join after the glide.
+  - **Vibrato**: a sine LFO on the pitch, one phase shared by every voice (DX-style; it restarts when
+    all notes have ended). Rate 0.5–10 Hz; Depth 0–100 cents (peak) always; Wheel 0–100 cents more at
+    full mod wheel (CC 1, from any channel, so an MPE master-channel wheel reaches every note). Depth
+    and Wheel are 0 by default, so factory presets have no vibrato.
 - **Response**: velocity → level with a floor (0 / 25 / 50 / 75 % / fixed) and a curve
   (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices; Touch
   (velocity → modulator levels, i.e. brightness) and Key Track (note → modulator levels and
@@ -155,7 +161,8 @@ src/Common/           shim + MIDI + params + utilities
 src/Module/           Module core + modules
                         FM6Op (+ FM6OpAlgorithms.hpp: the 32 algorithms + operator-role
                         analysis), LPFilter (+ ButterLow4), ADSR, Combine (pitch sum),
-                        PitchConverter, Slew (glide), PitchBendConverter, ChannelPressure, Chorus
+                        PitchConverter, Slew (glide), PitchBendConverter, ChannelPressure,
+                        CCConverter (timbre, mod wheel), Chorus
                         (+ ModDelayLine, CascadeLPF), SharedLFO (+ LFOClockSync), Final;
                         ModuleSharedState.hpp (cross-voice state)
 src/Voice/            voice engine

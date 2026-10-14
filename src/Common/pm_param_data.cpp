@@ -194,6 +194,7 @@ static const ModuleParamConstants slewConstants[] = {
    {"rise", SlewParamItemRise, 0, 0, nullptr, 0.0f, 10.0f, 0.0f, 0},
    {"fall", SlewParamItemFall, 0, 0, nullptr, 0.0f, 10.0f, 0.0f, 0},
    {"curve", SlewParamItemCurve, 0, 0, nullptr, 0.0f, 0.0f, 0.0f, 0},
+   {"legatoOnly", SlewParamItemLegatoOnly, 0, 0, nullptr, 0.0f, 1.0f, 0.0f, 0},
 };
 const ModuleParamConstantsGroup slewModuleConstantsGroup = {
    const_cast<char*>("slew"), sizeof(slewConstants) / sizeof(slewConstants[0]), slewConstants};

@@ -98,6 +98,11 @@ enum ParamIndex {
    // Mono glide (appended; Voice tab). Seconds per octave, constant rate; the minimum is off, and
    // poly never glides.
    kParamGlide,
+   // Pitch panel (appended; Voice tab, with Glide).
+   kParamGlideMode,      // 0 = Always, 1 = Legato (only into a note played while the last is held)
+   kParamVibRate,        // vibrato LFO rate, Hz (one LFO shared by every voice)
+   kParamVibDepth,       // vibrato depth without the wheel, cents (peak)
+   kParamVibWheel,       // vibrato depth the mod wheel (CC 1) adds at full, cents (peak)
    // (append new params here)
    kParamCount
 };
@@ -197,6 +202,10 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Tmb>Cutoff",     "tmbCutoff", "oct", -8.0f, 8.0f,   0.0f,  false, false},
    {"Press>Level",    "prsLevel",  "",  -1.0f,   1.0f,   0.0f,  false, false},
    {"Glide",          "glide",     "s",  0.001f,  2.0f,  0.001f, true,  false},
+   {"Glide Mode",     "glideMode", "",   0.0f,    1.0f,  0.0f,   false, true },
+   {"Vib Rate",       "vibRate",   "Hz", 0.5f,   10.0f,  5.0f,   true,  false},
+   {"Vib Depth",      "vibDepth",  "ct", 0.0f,  100.0f,  0.0f,   false, false},
+   {"Wheel>Vib",      "vibWheel",  "ct", 0.0f,  100.0f,  0.0f,   false, false},
 };
 
 #undef MODICUMFM_FM_OP_SPECS
@@ -212,6 +221,7 @@ static constexpr const char* kBendRangeChoices[] = { "Off", "0.5 st", "1 st", "1
 static constexpr const char* kVelFloorChoices[]  = { "0%", "25%", "50%", "75%", "Fixed", nullptr }; // level of the softest note
 static constexpr const char* kVelCurveChoices[]  = { "Concave", "Linear", "Convex", nullptr };
 static constexpr const char* kMpeChoices[]       = { "Off", "On", nullptr };
+static constexpr const char* kGlideModeChoices[] = { "Always", "Legato", nullptr };
 static constexpr const char* kQualityChoices[]   = { "Normal", "High", "Best", nullptr };            // oversampling Off / 2x / 4x
 static constexpr const char* kOpWaveChoices[]    = { "Sine", "1+2", "1+3", "1+3+5", "1-4", nullptr }; // harmonic stacks
 
@@ -233,6 +243,7 @@ constexpr const char* const* choicesFor(uint32_t index)
    case kParamVelCurve:   return kVelCurveChoices;
    case kParamOversample: return kQualityChoices;
    case kParamMpe:        return kMpeChoices;
+   case kParamGlideMode:  return kGlideModeChoices;
    default:               return nullptr;
    }
 }
@@ -316,7 +327,11 @@ static_assert(symbolIs(kParamTmbBright,       "tmbBright"));
 static_assert(symbolIs(kParamTmbCutoff,       "tmbCutoff"));
 static_assert(symbolIs(kParamPressLevel,      "prsLevel"));
 static_assert(symbolIs(kParamGlide,           "glide"));
-static_assert(kParamGlide + 1 == kParamCount, "a new parameter needs its symbolIs line above");
+static_assert(symbolIs(kParamGlideMode,       "glideMode"));
+static_assert(symbolIs(kParamVibRate,         "vibRate"));
+static_assert(symbolIs(kParamVibDepth,        "vibDepth"));
+static_assert(symbolIs(kParamVibWheel,        "vibWheel"));
+static_assert(kParamVibWheel + 1 == kParamCount, "a new parameter needs its symbolIs line above");
 
 // Every dropdown's labels must cover its range exactly: integer, min 0, one label per step up to max.
 constexpr bool choicesMatchRange(uint32_t index)

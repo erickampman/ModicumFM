@@ -44,8 +44,8 @@ pressure from a controller.)
 
 **Next:** nothing left in the port; pick from the list below with the author.
 
-**Open after the port**: mono glide is **done in code** (below), waiting on the author's look in a
-host. Not started: VST3 / AUv2
+**Open after the port**: the Pitch panel (glide + vibrato) is **done in code** (below), waiting on the
+author's look in a host. Not started: VST3 / AUv2
 via clap-wrapper (decided: later); step 4's non-Retina monitor check (macOS); and the stencil-clear fix
 (`5d36246`) probably belongs in PlainOldSynth, IFSynth and StruckSynth too, since they share DPF —
 offered to the author, not started.
@@ -97,27 +97,40 @@ number, kept for cross-reference.
 | 3 | Pressure and Timbre as modulation sources | POS `a65a645`, SS Expression panel | **Done**: an Expression panel on the Voice tab under Character (author's choice, 2026-10-14): Pressure → Bright / Cutoff / Level, Timbre → Bright / Cutoff, all 0 by default, stored in presets. Press>Cutoff is the old LPF Pressure knob (same param, renamed). StruckSynth's CCConverter (CC 74 Per Note) is the Timbre source; FM6Op gained brightness ×2 and level mod inputs, LPF a third cutoff mod input (all appended). Params appended. Tested in `pm-modicumfm` and `pm-modules`; checked in REAPER. Two fixes after the author's test: `fExprGroup` was declared after `fKnobs`, so it was destroyed before its knobs and editor close crashed (the host test's gui check never builds the UI, so only a host catches this); and DPF never clears the stencil buffer, so the first fill over a never-drawn region (the Voice tab's envelope graphs) painted inverted bands — the UI now clears it each frame. |
 | L | Linux: position-independent static libs; Linux CI | IFSynth `e5a32e3`, POS `linux.yml` | **Done**: the PIC fix came with step 0; `ci.yml` (IFSynth's matrix, not POS's `linux.yml`, which exists for POS's VST3 wrapper) builds and tests on Ubuntu gcc + clang with `-Werror`, green at `5d36246`. Checked by hand on a Linux PC (2026-10-14): build, ctest, clap-validator, and REAPER; details in the handoff above. |
 
-## After the port: mono glide (done 2026-10-14)
+## After the port: the Pitch panel (glide + vibrato, done 2026-10-14)
 
-Agreed with the author on 2026-10-14 (on Linux): a **Glide** panel, one knob, to the right of
-Expression on the Voice tab (Expression narrows; its knob cells keep their 110 px), orange like Global.
+Agreed with the author on 2026-10-14 (on Linux). First a one-knob **Glide** panel right of
+Expression on the Voice tab (`55422f1`); then, since that row had room, it became the **Pitch**
+panel: two rows like Expression, captions on the left. Glide (Time, Mode) over Vibrato (Rate, Depth,
+Wheel). 320 px wide at the default size; Expression narrows, its cells shrinking to fit (~100 px).
+Orange, like Global.
 
-- `kParamGlide` (appended): seconds per octave, log, **0.001–2 s, default 0.001 = Off** (the knob
-  says "Off" there). Deviation from IFSynth's 0.0001–2 s: the bottom decade was dead travel. Every
-  preset stores `"Global": {"glide": "0.001"}`.
-- Constant rate (IFSynth's linear Slew); every mono note glides from the current pitch, held or not.
-  Legato-only (fingered) glide was offered and left for later.
-- Wiring as IFSynth: PitchConverter → **Slew** → Combine 2 input 1, PitchBendConverter on input 2, so
-  bend and Pitch 7.25 join after the glide. `applyGlide` (plugin.cpp) sends Rise = Fall = the
-  Glide value in Mono above the minimum, else 0.
-- ModicumFM's `SlewModule` differs from IFSynth's in two ways: Rise and Fall at or below 0.1 ms pass
-  the input straight through (Off, and Poly), and a reset proc + MIDI proc make the first note-on
-  after init / reset snap to its pitch (IFSynth's slid up from 0, i.e. from the reference pitch).
-- The knob greys out in Poly (`updateGlideEnabled`, as IFSynth's UI).
-- Host tests (`mfm-clap`, "Mono glide"): first note at its own pitch; at 1 s/oct, half an octave up at
-  0.5 s and arrived after 1 s; a bend bypasses the glide; the minimum is off; poly never glides.
-  Mutation-checked: removing the snap or the poly gate fails them.
-- **Not yet checked in a host** (the panel's look and the knob's greying).
+- **Glide** `kParamGlide`: seconds per octave, log, **0.001–2 s, default 0.001 = Off** (the knob says
+  "Off"). Not IFSynth's 0.0001–2 s: on a log knob that bottom decade was dead travel.
+  **Mode** `kParamGlideMode`: Always (default) / Legato. Constant rate (IFSynth's linear Slew).
+  Both grey out in Poly (`updateGlideEnabled`; `Dropdown` gained `setEnabled`).
+- **Vibrato** `kParamVibRate` (0.5–10 Hz log, default 5), `kParamVibDepth` and `kParamVibWheel`
+  (0–100 ct peak, default 0). A second `SharedLFO` (sine; its own phase, since the shared-state
+  registry keys on the address; voices-active-only, so it restarts on a new phrase) → a second
+  `CCConverter` (CC 1, Per Note off) as a VCA, Offset = Depth/1200 and Amount = Wheel/1200 octaves →
+  Combine 2 input 3.
+- Pitch wiring: PitchConverter → **Slew** → Combine 2 input 1; PitchBendConverter on input 2;
+  vibrato on input 3. So bend, Pitch 7.25 and vibrato all join after the glide. `applyGlide`
+  (plugin.cpp) sends Rise = Fall = Time in Mono above the minimum, else 0.
+- `SlewModule` vs IFSynth's: Rise and Fall at or below 0.1 ms pass the input through (Off, and Poly);
+  a reset proc + MIDI proc snap the first note-on after init / reset to its pitch (IFSynth's slid up
+  from the reference pitch); `SlewParamItemLegatoOnly` (appended) snaps any note-on that is not a
+  fingered legato, read from the new `Module::legatoHeld` (the voice was Active, not just releasing,
+  as the note-on arrived; set beside `legatoContinuation` in `Voice::handleMIDIMessage`).
+- Presets: every preset stores `Global.glide` 0.001, `Global.glideMode` 0 and `Vibrato` {rate 5,
+  depth 0, wheel 0}, so they sound as before.
+- Host tests (`mfm-clap`, "Mono glide" and "Glide mode and vibrato"); the glide ones were
+  mutation-checked (removing the snap or the poly gate fails them).
+- Found on the way: clap-validator's param fuzz hit subnormal output once the new params shifted its
+  (seeded) permutations. Fixed for every module by flushing denormals for the length of `process()`
+  (`DenormalGuard`, its own commit). A host test for it did not reproduce the case, so clap-validator
+  is the check.
+- **Not yet checked in a host** (the panel's look, greying, the wheel from a real controller).
 
 ## Decisions (2026-10-14)
 

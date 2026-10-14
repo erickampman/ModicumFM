@@ -116,6 +116,11 @@ static constexpr PresetKey kPresetKeys[kParamCount] = {
    {"FM6Op", "pressLevel"},
    // Mono glide: sound, so presets store it (factory presets at the minimum, which is off).
    {"Global", "glide"},
+   // The rest of the Pitch panel: sound, so presets store them (factory presets: Always, 5 Hz, 0, 0).
+   {"Global", "glideMode"},
+   {"Vibrato", "rate"},
+   {"Vibrato", "depth"},
+   {"Vibrato", "wheel"},
 };
 
 } // namespace modicumfm

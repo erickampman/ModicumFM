@@ -371,6 +371,9 @@ public:
     // legato slide retunes without a waveform discontinuity/click; a fresh note (voice was
     // Inactive) leaves it false and still gets the clean phase-0 attack.
     bool legatoContinuation = false;
+    // Narrower: the voice was Active (its note still held, not just ringing in its release) as the
+    // note-on arrived — a fingered legato. The Slew's Legato glide mode reads it. Same scope.
+    bool legatoHeld = false;
 
     // Whether the note this module's voice plays has been released: note-off received, or held only
     // by the sustain pedal. Set by Voice::syncNoteReleased before each MIDI message reaches the

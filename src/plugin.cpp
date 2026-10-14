@@ -223,6 +223,7 @@ AUParameterAddress vmAddress(uint32_t index) {
     const auto chorus = [](uint8_t item) { return MODULE_PARAM_ADDRESS(ModuleParamKindChorus, ModuleInstance1, item); };
     switch (index) {
     case kParamBendRange:      return pitchBend1RangeAddress;
+    case kParamGlideMode:      return slew1LegatoOnlyAddress;
     case kParamMpe:            return MODULE_PARAM_ADDRESS(ModuleParamKindPitchBendConverter, ModuleInstance1, PitchBendConverterParamItemMPE);
     // Expression: the mod levels of the Pressure / Timbre inputs (VoiceManager::buildDefaultPatch)
     case kParamPressBright:    return fm(FM6OpParamItemBrightModLevel);
@@ -298,6 +299,20 @@ void applyParam(Plugin* plugin, uint32_t index, float value) {
     if (!plugin->voiceManager) return;
     if (index == uint32_t(kParamVoiceMode)) { applyVoiceMode(plugin); return; }
     if (index == uint32_t(kParamGlide))     { applyGlide(plugin); return; }
+    // Vibrato: rate in Hz -> the LFO's octaves re 1 Hz; depths in cents -> octaves, as the mod-wheel
+    // converter's Offset (always) and Amount (× wheel).
+    if (index == uint32_t(kParamVibRate)) {
+        setEngine(plugin, MODULE_PARAM_FROM_BASE_AND_ITEM(sharedLFO2Address, SharedLFOParamItemPitch), std::log2(value));
+        return;
+    }
+    if (index == uint32_t(kParamVibDepth)) {
+        setEngine(plugin, MODULE_PARAM_FROM_BASE_AND_ITEM(vibrato1Address, CCParamItemOffset), value / 1200.0f);
+        return;
+    }
+    if (index == uint32_t(kParamVibWheel)) {
+        setEngine(plugin, MODULE_PARAM_FROM_BASE_AND_ITEM(vibrato1Address, CCParamItemAmount), value / 1200.0f);
+        return;
+    }
     const AUParameterAddress a = vmAddress(index);
     if (a != 0) setEngine(plugin, a, value);
     if (index == uint32_t(kParamMpe)) {   // the pressure and timbre sources follow the zone too

@@ -44,6 +44,15 @@ void VoiceManager::initializeVoices(PitchConverter *pitchConverter)
     // controller #74 (and CLAP Brightness) per note. Fixed, so it is part of the patch, not a param.
     setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(timbre1Address, CCParamItemNumber), float(pm::kRegPerNoteBrightness));
     setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(timbre1Address, CCParamItemPerNote), 1.0f);
+
+    // Vibrato: a sine LFO through the mod wheel (CC 1, from any channel, so an MPE master-channel
+    // wheel reaches every note) as a VCA; depth in octaves = Offset + Amount·wheel, the plugin's
+    // Depth and Wheel knobs, both 0 by default so the vibrato is silent until one moves.
+    setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(sharedLFO2Address, SharedLFOParamItemWave),
+                 static_cast<float>(LFOParamWaveSine));
+    setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(vibrato1Address, CCParamItemNumber), 1.0f);
+    setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(vibrato1Address, CCParamItemAmount), 0.0f);
+    setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(vibrato1Address, CCParamItemOffset), 0.0f);
 }
 
 void VoiceManager::reset() {
@@ -63,7 +72,8 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
 {
 #if HAS_DEFAULT_PATCH
     // ModicumFM voice:
-    //   PitchConverter --> Slew (mono glide) + PitchBend --(Combine 2, Add)--> FM6Op pitch
+    //   PitchConverter --> Slew (mono glide) + PitchBend + vibrato --(Combine 2, Add)--> FM6Op pitch
+    //   vibrato: SharedLFO 2 --> CC 1 converter (VCA: depth + wheel) --> Combine 2 input 3
     //   FM6Op --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = pressure, mod 3 = timbre)
     //   Pressure and Timbre (CC74) also --> FM6Op brightness / level mod inputs (Expression)
     //   --> Chorus (delay mod = SharedLFO, one phase across all voices) --> Final
@@ -81,6 +91,8 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     Module* timbreModule         = voice.getModule(timbre1Address);
     Module* lpfModule            = voice.getModule(lpf1Address);
     Module* lfoModule            = voice.getModule(sharedLFO1Address);
+    Module* vibLfoModule         = voice.getModule(sharedLFO2Address);
+    Module* vibratoModule        = voice.getModule(vibrato1Address);
     Module* chorusModule         = voice.getModule(chorus1Address);
     Module* finalModule          = voice.getModule(finalAddress);
 
@@ -106,6 +118,9 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     voice.connectModules(pitchConverterModule, slewModule,      slew1InputAddress);
     voice.connectModules(pitchBendModule,      pitchSumModule,  combine2Input2Address);
     voice.setParameter(combine2TypeAddress, static_cast<float>(ParamItemCombineType_Add));
+    // Vibrato: the LFO scaled by the mod wheel's converter (see initializeVoices), into the pitch sum.
+    voice.connectModules(vibLfoModule,         vibratoModule,   vibrato1InputAddress);
+    voice.connectModules(vibratoModule,        pitchSumModule,  combine2Input3Address);
 #else
     // do nothing
 #endif

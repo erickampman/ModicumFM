@@ -45,6 +45,10 @@ public:
         fLabelH = static_cast<int>(16 * s);
     }
 
+    // Disabled: dimmed, and clicks are ignored (as Knob).
+    void setEnabled(bool e) { if (fEnabled != e) { fEnabled = e; repaint(); } }
+    bool isEnabled() const  { return fEnabled; }
+
     int index() const { return fIndex; }
     const std::vector<std::string>& choices() const { return fChoices; }
 
@@ -81,7 +85,7 @@ protected:
         {
             textAlign(ALIGN_LEFT | ALIGN_MIDDLE);
             fontSize(13.0f * fUiScale);
-            fillColor(Color(226, 230, 236));
+            fillColor(fEnabled ? Color(226, 230, 236) : Color(120, 125, 132));
             text(bx + 10.0f, by + bh * 0.5f, fChoices[fIndex].c_str(), nullptr);
         }
         else if (fHasFont && !fPlaceholder.empty())
@@ -96,13 +100,13 @@ protected:
         // chevron
         const float cx = bx + bw - 14.0f, cy = by + bh * 0.5f;
         beginPath(); moveTo(cx - 4, cy - 2); lineTo(cx + 4, cy - 2); lineTo(cx, cy + 3); closePath();
-        fillColor(Color(150, 160, 172)); fill();
+        fillColor(fEnabled ? Color(150, 160, 172) : Color(90, 95, 102)); fill();
     }
 
     bool onMouse(const MouseEvent& ev) override
     {
         // DPF offers every sibling this event regardless of position — only claim our own area.
-        if (ev.button != 1 || !ev.press)
+        if (!fEnabled || ev.button != 1 || !ev.press)
             return false;
         if (ev.pos.getX() < 0 || ev.pos.getX() >= getWidth()
             || ev.pos.getY() < 0 || ev.pos.getY() >= getHeight())
@@ -126,6 +130,7 @@ private:
     std::vector<std::string> fChoices;
     int                      fIndex = 0;
     bool                     fHasFont = false;
+    bool                     fEnabled = true;
     float                    fUiScale = 1.0f;
 
     int fBoxH = 26, fInset = 6, fLabelH = 16;

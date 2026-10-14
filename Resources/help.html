@@ -145,12 +145,22 @@ nothing happens until you turn one; with MPE or polyphonic aftertouch each note 
 timbre is CC 74, MIDI 2.0 per-note controller 74, or a host's per-note brightness. These are part of
 the sound, so presets store them; Character's Reset leaves them alone.</p>
 
-<h2 class="comb">Voice: Glide</h2>
+<h2 class="comb">Voice: Pitch</h2>
+<p><b>Glide</b> (Mono only; greyed out in Poly, which never glides):</p>
 <dl>
-  <dt>Glide</dt><dd>Portamento in Mono: each new note slides from the current pitch at this rate,
-  in time per octave, so a two-octave jump takes twice as long as one. It works whether or not the
-  previous key is still held. <code>Off</code> (the minimum) jumps straight to the note. Greyed out
-  in Poly, which never glides. Pitch bend is not slowed by the glide.</dd>
+  <dt>Time</dt><dd>Portamento: each new note slides from the current pitch at this rate, in time per
+  octave, so a two-octave jump takes twice as long as one. <code>Off</code> (the minimum) jumps
+  straight to the note. Pitch bend and vibrato are not slowed by the glide.</dd>
+  <dt>Mode</dt><dd><code>Always</code>: every note glides, even after you let go of the last one.
+  <code>Legato</code>: only a note played while the previous key is still held glides; a detached
+  note starts at its own pitch.</dd>
+</dl>
+<p><b>Vibrato</b> (one shared LFO, so every note wobbles together; it restarts when all notes end):</p>
+<dl>
+  <dt>Rate</dt><dd>Speed, 0.5 to 10 Hz.</dd>
+  <dt>Depth</dt><dd>Vibrato that is always there, up to 100 cents (a semitone) each way.</dd>
+  <dt>Wheel</dt><dd>Extra depth the mod wheel adds at full, up to 100 cents. Leave Depth at 0 and turn
+  this up for vibrato that comes in with the wheel.</dd>
 </dl>
 
 <h2 class="sound">FM Engine</h2>
@@ -250,7 +260,7 @@ with Touch, the tone; Key Track changes the tone and length up and down the keyb
 <h2 class="comb">Global</h2>
 <dl>
   <dt>Voices</dt><dd>Poly (10 voices) or Mono (legato: a note played while another is held changes
-  pitch without re-attacking the envelopes; Glide on the Voice tab slides between notes).</dd>
+  pitch without re-attacking the envelopes; Glide on the Voice tab's Pitch panel slides between notes).</dd>
   <dt>MPE</dt><dd>On for an MPE controller (lower zone: channel 1 is the master channel, 2–16 carry
   one note each). Each note bends ±48 semitones on its own channel, and the master channel's bend
   (the Bend Range) moves every note. Presets leave this switch alone.</dd>

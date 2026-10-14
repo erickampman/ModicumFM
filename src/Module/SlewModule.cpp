@@ -9,6 +9,8 @@
 //      how poly turns it off), rather than slewing at the floor rate.
 //    - The first note-on after init or reset snaps to its pitch instead of sliding up from 0, so
 //      the first glide starts from a real note. Later notes glide from wherever the output is.
+//    - Legato Only: a note-on snaps too unless the previous note was still held as it arrived
+//      (Module::legatoHeld) — fingered portamento.
 
 #include "SlewModule.hpp"
 
@@ -47,10 +49,11 @@ const void ResetSlewModule(Module* module)
 void MIDISlewModule(const pm::UmpMessage& message, Module* module)
 {
     auto* state = static_cast<SlewModuleHelperStruct*>(module->state);
-    if (pm::isNoteOn(message) && !state->primed) {
-        state->snap   = true;
-        state->primed = true;
-    }
+    if (!pm::isNoteOn(message)) return;
+    const bool legatoOnly = module->paramByEnum(SlewParamItemLegatoOnly) >= 0.5f;
+    if (!state->primed || (legatoOnly && !module->legatoHeld))
+        state->snap = true;
+    state->primed = true;
 }
 
 const KPBuffPair* ProcessSlewModule(uint64_t processCallID, uint32_t count, Module* module)

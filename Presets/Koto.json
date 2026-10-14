@@ -1,7 +1,8 @@
 {
   "meta": {"name": "Koto"},
   "state": {"parameterState": {
-    "Global": {"voiceMode": "1", "bendRange": "4", "glide": "0.001"},
+    "Global": {"voiceMode": "1", "bendRange": "4", "glide": "0.001", "glideMode": "0"},
+    "Vibrato": {"rate": "5", "depth": "0", "wheel": "0"},
     "FM6Op": {"algorithm": "6", "feedback": "0", "pitch": "0", "fine": "0", "detune": "0.07", "oversample": "0", "velFloor": "0", "velCurve": "1", "brightness": "0", "bite": "0.35", "grit": "0", "body": "0", "touch": "0.6", "keyTrack": "0.4", "loudAttack": "1", "loudDecay": "1", "loudSustain": "0", "loudRelease": "1", "brightAttack": "1", "brightDecay": "1", "brightSustain": "0", "brightRelease": "1", "pressBright": "0", "timbreBright": "0", "pressLevel": "0", "op1Wave": "2", "op1Ratio": "1", "op1Fine": "0", "op1Level": "0.45", "op1Delay": "0", "op1Attack": "0.001", "op1Decay": "2.8", "op1Sustain": "0.0", "op1Release": "0.4", "op2Wave": "0", "op2Ratio": "1", "op2Fine": "0", "op2Level": "0.35", "op2Delay": "0", "op2Attack": "0.001", "op2Decay": "0.5", "op2Sustain": "0.0", "op2Release": "0.2", "op3Wave": "0", "op3Ratio": "2.01", "op3Fine": "0", "op3Level": "0.32", "op3Delay": "0", "op3Attack": "0.001", "op3Decay": "3.5", "op3Sustain": "0.0", "op3Release": "0.5", "op4Wave": "0", "op4Ratio": "3", "op4Fine": "0", "op4Level": "0.25", "op4Delay": "0", "op4Attack": "0.001", "op4Decay": "0.3", "op4Sustain": "0.0", "op4Release": "0.1", "op5Wave": "0", "op5Ratio": "1", "op5Fine": "0", "op5Level": "0.15", "op5Delay": "0", "op5Attack": "0.001", "op5Decay": "0.9", "op5Sustain": "0.0", "op5Release": "0.2", "op6Wave": "0", "op6Ratio": "7", "op6Fine": "0", "op6Level": "0.2", "op6Delay": "0", "op6Attack": "0.001", "op6Decay": "0.05", "op6Sustain": "0.0", "op6Release": "0.05"},
     "LPF": {"frequency": "5.4", "q": "1", "envAmount": "0", "pressure": "0", "timbreCutoff": "0"},
     "FilterEnv": {"attack": "0.005", "decay": "0.5", "sustain": "0.4", "release": "0.5"},

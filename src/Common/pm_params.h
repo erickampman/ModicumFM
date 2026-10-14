@@ -277,6 +277,7 @@ enum SlewParamItem : NSUInteger {
    SlewParamItemRise,
    SlewParamItemFall,
    SlewParamItemCurve,
+   SlewParamItemLegatoOnly,  // 0/1: glide only into a note played while the previous one is held (appended)
 };
 
 enum PitchConverterParamItem : NSUInteger {

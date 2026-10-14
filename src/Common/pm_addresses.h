@@ -29,6 +29,14 @@ MODICUMFM_ADDR(slew1Address,            ModuleParamKindSlew, ModuleInstance1, 0)
 MODICUMFM_ADDR(slew1InputAddress,       ModuleParamKindSlew, ModuleInstance1, SlewParamItemInput)
 MODICUMFM_ADDR(slew1RiseAddress,        ModuleParamKindSlew, ModuleInstance1, SlewParamItemRise)
 MODICUMFM_ADDR(slew1FallAddress,        ModuleParamKindSlew, ModuleInstance1, SlewParamItemFall)
+MODICUMFM_ADDR(slew1LegatoOnlyAddress,  ModuleParamKindSlew, ModuleInstance1, SlewParamItemLegatoOnly)
+// Vibrato: a second shared LFO (one phase across voices, DX-style) through a CC 1 (mod wheel)
+// converter as a VCA — depth = Offset + Amount·wheel, in octaves — into Combine 2's third input, so
+// it adds after the glide like the bend.
+MODICUMFM_ADDR(sharedLFO2Address,       ModuleParamKindSharedLFO, ModuleInstance2, 0)
+MODICUMFM_ADDR(vibrato1Address,         ModuleParamKindControlChangeConverter, ModuleInstance2, 0)
+MODICUMFM_ADDR(vibrato1InputAddress,    ModuleParamKindControlChangeConverter, ModuleInstance2, CCParamItemInput)
+MODICUMFM_ADDR(combine2Input3Address,   ModuleParamKindCombine, ModuleInstance2, CombineParamItemInput3)
 
 // The FM engine.
 MODICUMFM_ADDR(fm6Op1Address,           ModuleParamKindFM6Op, ModuleInstance1, 0)

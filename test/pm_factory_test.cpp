@@ -24,7 +24,7 @@ static int g_fails = 0;
 
 int main() {
    const auto& specs = getModuleInitSpecs();
-   CHECK(specs.size() == 12, "12 module specs");
+   CHECK(specs.size() == 14, "14 module specs");
 
    ModuleFactory factory(48000.0, 512);
    ModuleMap map;
@@ -38,12 +38,12 @@ int main() {
       mod->setPitchConverter(&pc);
       map.add(s.id, std::move(mod));
    }
-   CHECK(map.allModules().size() == 12, "12 modules built into the map");
+   CHECK(map.allModules().size() == 14, "14 modules built into the map");
 
    // Every module of the ModicumFM voice is present.
    const AUParameterAddress expected[] = {
       pitchConverter1Address, slew1Address, pitchBend1Address, combine2Address, fm6Op1Address, lpf1Address,
-      adsr1Address, channelPressure1Address, chorus1Address, sharedLFO1Address, finalAddress};
+      adsr1Address, channelPressure1Address, chorus1Address, sharedLFO1Address, sharedLFO2Address, vibrato1Address, finalAddress};
    for (AUParameterAddress a : expected)
       CHECK(map.get(a) != nullptr, "voice module present");
 
