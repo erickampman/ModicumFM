@@ -33,6 +33,9 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
+#include <xmmintrin.h>
+#endif
 
 #include "ModicumFMParams.h"
 #include "VoiceManager.hpp"
@@ -530,7 +533,29 @@ void plug_on_main_thread(const clap_plugin_t* plugin) {
     }
 }
 
+// Flush-to-zero (and denormals-are-zero on x86) for one process() call, restoring the host's mode
+// after. Decaying tails (a filter far below its input, a release) otherwise drift into subnormals,
+// which are slow on x86 and which clap-validator rejects in the output.
+class DenormalGuard {
+public:
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
+    DenormalGuard() : saved(_mm_getcsr()) { _mm_setcsr(saved | 0x8040); }   // FTZ | DAZ
+    ~DenormalGuard() { _mm_setcsr(saved); }
+private:
+    unsigned int saved;
+#elif defined(__aarch64__)
+    DenormalGuard() {
+        __asm__ __volatile__("mrs %0, fpcr" : "=r"(saved));
+        __asm__ __volatile__("msr fpcr, %0" : : "r"(saved | (uint64_t(1) << 24)));   // FZ
+    }
+    ~DenormalGuard() { __asm__ __volatile__("msr fpcr, %0" : : "r"(saved)); }
+private:
+    uint64_t saved;
+#endif
+};
+
 clap_process_status plug_process(const clap_plugin_t* plugin, const clap_process_t* process) {
+    const DenormalGuard denormalGuard;
     Plugin* p = self(plugin);
 
     const clap_input_events_t* in = process->in_events;
