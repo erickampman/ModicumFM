@@ -5,13 +5,15 @@
 //     Feedback; Pitch/Fine/Detune)  │   envelope graph)
 //   Low-Pass Filter                 │
 //   Filter Envelope (graph)         │
-//   Response (velocity) | Chorus | Global (Voices, Bend Range, Quality, Master)
+//   Response (velocity) | Chorus | Global (Voices, MPE, Bend Range, Quality, Master)
 //
 // The Voice tab swaps the Operators panel for the simple layer, Character: the role-based macros
 // Brightness, Bite, Grit, Body, and the shared Loudness / Brightness envelopes, which scale every
 // carrier's / modulator's envelope and draw a representative one; a Reset button returns all of
 // these to neutral. Hovering a macro or envelope rings the operators it acts on in the FM Engine
-// diagram. Every other panel — FM Engine included — shows on both tabs.
+// diagram. Under Character, Expression: what pressure (Bright / Cutoff / Level) and timbre, CC74
+// (Bright / Cutoff) do, as a grid of amounts. Every other panel — FM Engine included — shows on both
+// tabs.
 //
 // Every param is a knob unless it's an enum (dropdown). The operator captions show each
 // operator's role in the current algorithm (carrier, or modulator N hops from the output) —
@@ -22,17 +24,23 @@
 // opens a full-window AlgorithmPicker of all 32.
 
 #include "DistrhoUI.hpp"
+#include "OpenGL.hpp"     // glClear for the stencil (see onNanoDisplay)
+
+#include "src/DistrhoUIInternal.hpp" // DPF's UIExporter (DPF_ROOT_DIR/distrho is on the include path)
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "AlgorithmDiagram.hpp"
+#include "CPPTypes.hpp"         // DEFAULT_SAMPLE_RATE (the UIExporter's nominal rate below)
+#include "DistrhoPluginInfo.h"
 #include "Dropdown.hpp"
 #include "EnvelopeGraph.hpp"
 #include "EmbeddedResources.hpp" // build-time codegen from Resources/* (see dpf/utils/res2c.py)
@@ -52,10 +60,13 @@
 #include "TitleText.hpp"
 #include "ModicumFMParams.h"
 #include "FM6OpAlgorithms.hpp" // algorithm table + operator roles (shared with the engine)
+#include "plugin_gui.h"         // the C seam to src/plugin.cpp (the raw CLAP plugin)
+
+#include "extra/WebView.hpp" // native WebView overlay (WKWebView/WebKitGTK/WebView2), for Help.
+                              // Must be included at global scope (see DPF's EmbedExternalUI
+                              // example); WebView.hpp opens the DISTRHO namespace itself.
 
 START_NAMESPACE_DISTRHO
-
-#include "extra/WebView.hpp" // native WebView overlay (WKWebView/WebKitGTK/WebView2), for Help
 
 using namespace modicumfm;
 using DGL_NAMESPACE::AlgorithmPicker;
@@ -143,6 +154,8 @@ public:
         // Voice tab panels (same places as FM Engine / Operators; hidden on the Operators tab).
         fCharGroup     = makeGroup("Character", colSound());
         fCharGroup->hide();
+        fExprGroup     = makeGroup("Expression", colEnv());   // under Character, Voice tab
+        fExprGroup->hide();
 
         for (uint32_t o = 0; o < kFmOperators; ++o)
             fOpLabel[o] = std::make_unique<Label>(fOpGroup.get());
@@ -169,7 +182,7 @@ public:
                 auto d = std::make_unique<Dropdown>(groupFor(i), this);
                 d->setId(i);
                 d->setLabel(labelFor(i));
-                d->setChoices(choicesFor(i));
+                d->setChoices(choicesForWidget(i));
                 d->setIndex(static_cast<int>(kParams[i].def));
                 fDropdowns[i] = std::move(d);
                 continue;
@@ -215,6 +228,8 @@ public:
                                   kParamBrightDecay, kParamBrightSustain, kParamBrightRelease);
         fLoudEnv->setRelative(true);
         fBrightEnv->setRelative(true);
+        fExprPressLabel = std::make_unique<Label>(fExprGroup.get(), "Pressure");
+        fExprTmbLabel   = std::make_unique<Label>(fExprGroup.get(), "Timbre (CC 74)");
         fLoudLabel   = std::make_unique<Label>(fCharGroup.get(), "Loudness envelope  (all carriers)");
         fBrightLabel = std::make_unique<Label>(fCharGroup.get(), "Brightness envelope  (all modulators)");
         fCharReset = std::make_unique<TextButton>(fCharGroup.get(), "Reset", [this] { resetCharacter(); });
@@ -259,10 +274,21 @@ public:
         fAlgoPicker->setAccentColor(colSound());
         fMenu = std::make_unique<PopupMenu>(this, this);
 
-        layout();
 #if MODICUMFM_PRESET_DUMP
         for (uint32_t i = 0; i < kParamCount; ++i) fMirror[i] = kParams[i].def;
 #endif
+        // DPF is only the GUI layer here: UIExporter set uiData->dspPtr (our clap_plugin_t) before
+        // calling createUI(), so the seam in plugin_gui.h is already usable. Replaying every value
+        // through parameterChanged() syncs the knobs, dropdowns, graphs and the dump mirror, so an
+        // editor opened on a host-restored patch starts in sync instead of showing the defaults.
+        fPlugin = static_cast<const clap_plugin_t*>(getPluginInstancePointer());
+        if (fPlugin != nullptr)
+        {
+            for (uint32_t i = 0; i < kParamCount; ++i)
+                parameterChanged(i, static_cast<float>(mfm_param_value(fPlugin, i)));
+        }
+
+        layout();
     }
 
     ~ModicumFMUI() override
@@ -371,6 +397,7 @@ protected:
         const bool voice = index == kTabVoice;
         fOpGroup->setVisible(!voice);
         fCharGroup->setVisible(voice);
+        fExprGroup->setVisible(voice);
         fHoverMacro = -1;
         updateMacroHighlight();
         repaint();
@@ -511,6 +538,14 @@ protected:
     /* -- drawing / layout ------------------------------------------------- */
     void onNanoDisplay() override
     {
+        // NanoVG fills concave paths (the envelope graphs) through the stencil buffer and assumes it
+        // starts at zero, but DPF clears only colour and depth each frame (puglOnDisplayPrepare). A
+        // never-drawn region then holds garbage, and its first fill paints inverted bands (seen on
+        // the first switch to the Voice tab). NanoVG defers its GL work to the end of the frame, so
+        // clearing here still precedes every fill.
+        glStencilMask(0xff);
+        glClearStencil(0);
+        glClear(GL_STENCIL_BUFFER_BIT);
         beginPath(); rect(0, 0, getWidth(), getHeight()); fillColor(24, 26, 31); fill();
     }
     void onResize(const ResizeEvent& ev) override
@@ -528,11 +563,16 @@ protected:
     //  2. WebViews need regular pumping to process their own event loop / message callbacks.
     void uiIdle() override
     {
+#ifndef __APPLE__
+        // Not on macOS: setSize() takes pixels, so on a Retina screen this would shrink the editor
+        // to half its points inside the host's container. There the GUI shell's applySize() owns
+        // the size, from the window's live backing scale.
         if (!fInitialSizeNudged)
         {
             fInitialSizeNudged = true;
             setSize(DISTRHO_UI_DEFAULT_WIDTH, DISTRHO_UI_DEFAULT_HEIGHT);
         }
+#endif
         if (fHelpWebView != nullptr)
             webViewIdle(fHelpWebView);
     }
@@ -542,6 +582,7 @@ private:
     std::unique_ptr<GroupBox>   fEngineGroup, fOpGroup;
     std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fResponseGroup, fChorusGroup, fGlobalGroup;
     std::unique_ptr<GroupBox>   fCharGroup;                   // Voice tab
+    std::unique_ptr<GroupBox>   fExprGroup;                   // Voice tab, under Character
     std::unique_ptr<Label>      fOpLabel[kFmOperators];
     std::unique_ptr<Knob>       fKnobs[kParamCount];          // (Ratio entries are RatioKnobs)
     RatioKnob*                  fRatioKnob[kFmOperators] = {}; // views into fKnobs, per operator
@@ -551,6 +592,7 @@ private:
     std::unique_ptr<TabBar>     fViewTab;
     std::unique_ptr<EnvelopeGraph> fLoudEnv, fBrightEnv;   // Voice tab: shared envelopes
     std::unique_ptr<Label>      fLoudLabel, fBrightLabel;
+    std::unique_ptr<Label>      fExprPressLabel, fExprTmbLabel;
     std::unique_ptr<TextButton> fCharReset;
     int                         fHoverMacro = -1;     // macro param under the mouse, or -1
     int                         fAlgorithm = static_cast<int>(kParams[kParamAlgorithm].def);
@@ -559,6 +601,7 @@ private:
     std::unique_ptr<Logo>       fLogo;
     std::unique_ptr<TitleText>  fTitleText;
     std::unique_ptr<Dropdown>   fPresetDropdown;
+    const clap_plugin_t*        fPlugin = nullptr;  // the raw CLAP plugin (see plugin_gui.h)
     std::unique_ptr<HelpButton> fHelpButton;
     WebViewHandle               fHelpWebView = nullptr;
     int                         fTopPad = 0; // set each layout() pass; read by the help-panel geometry
@@ -626,27 +669,14 @@ private:
         return i >= kParamLoudAttack && i <= kParamBrightRelease;
     }
 
-    static bool isDropdownParam(uint32_t i)
+    // The label lists live in ModicumFMParams.h so the CLAP params extension reports exactly the
+    // same enums; this just adapts them to the widget's std::vector<std::string> shape.
+    static std::vector<std::string> choicesForWidget(uint32_t i)
     {
-        if (i == kParamVoiceMode || i == kParamBendRange || i == kParamVelFloor || i == kParamVelCurve)
-            return true;
-        uint32_t k;
-        if (!fmOffset(i, k))
-            return false;
-        return k == kFmOversample || opItem(i) == kOpWave;
-    }
-
-    static std::vector<std::string> choicesFor(uint32_t i)
-    {
-        if (i == kParamVoiceMode) return {"Mono", "Poly"};
-        if (i == kParamBendRange)
-            return {"Off", "0.5 st", "1 st", "1.5 st", "2 st", "2.5 st", "3 st", "3.5 st", "4 st"};
-        if (i == kParamVelFloor) return {"0%", "25%", "50%", "75%", "Fixed"}; // level of the softest note
-        if (i == kParamVelCurve) return {"Concave", "Linear", "Convex"};
-        uint32_t k = 0;
-        fmOffset(i, k);
-        if (k == kFmOversample) return {"Normal", "High", "Best"}; // oversampling Off / 2x / 4x
-        return {"Sine", "1+2", "1+3", "1+3+5", "1-4"}; // operator wave (harmonic stacks)
+        std::vector<std::string> v;
+        for (const char* const* c = modicumfm::choicesFor(i); c != nullptr && *c != nullptr; ++c)
+            v.emplace_back(*c);
+        return v;
     }
 
     // Short on-panel label (the host sees the full ParamSpec name, e.g. "A Op2 Ratio").
@@ -687,6 +717,10 @@ private:
         case kParamFiltRelease: return "Release";
         case kParamVelFloor:    return "Vel Floor";
         case kParamVelCurve:    return "Vel Curve";
+        // Expression grid: rows are the source (Pressure / Timbre), so knobs name only the target.
+        case kParamPressBright: case kParamTmbBright:  return "Bright";
+        case kParamLpfPressure: case kParamTmbCutoff:  return "Cutoff";
+        case kParamPressLevel:                         return "Level";
         default: return kParams[i].name;
         }
     }
@@ -708,8 +742,11 @@ private:
         }
         switch (i)
         {
-        case kParamLpfCutoff: case kParamLpfResonance: case kParamLpfEnvAmount: case kParamLpfPressure:
+        case kParamLpfCutoff: case kParamLpfResonance: case kParamLpfEnvAmount:
             return fLpfGroup.get();
+        case kParamLpfPressure: case kParamPressBright: case kParamTmbBright: case kParamTmbCutoff:
+        case kParamPressLevel:
+            return fExprGroup.get();
         case kParamFiltAttack: case kParamFiltDecay: case kParamFiltSustain: case kParamFiltRelease:
             return fFiltEnvGroup.get();
         case kParamChorusMix: case kParamChorusRate: case kParamChorusDepth:
@@ -720,7 +757,7 @@ private:
         case kParamBrightness: case kParamBite: case kParamGrit: case kParamBody:
             return fCharGroup.get();
         default:
-            return fGlobalGroup.get(); // Voices, Bend Range, Master
+            return fGlobalGroup.get(); // Voices, MPE, Bend Range, Master
         }
     }
 
@@ -729,7 +766,7 @@ private:
         const GroupBox* g = groupFor(i);
         if (g == fEngineGroup.get() || g == fOpGroup.get() || g == fCharGroup.get()) return colSound();
         if (g == fLpfGroup.get() || g == fFiltEnvGroup.get()) return colFilter();
-        if (g == fResponseGroup.get())                        return colEnv();
+        if (g == fResponseGroup.get() || g == fExprGroup.get()) return colEnv();
         if (g == fChorusGroup.get())                          return colNeutral();
         return colComb();
     }
@@ -875,10 +912,12 @@ private:
 
         // Two columns over one bottom row. Left: FM Engine above the two filter panels (each one
         // knob row high); right: the Operators panel, full height. Bottom: Response | Chorus |
-        // Global. Module rows are sized for one knob (label + sphere + value) + the title strip.
+        // Global. Module rows are sized for one knob (label + sphere + value) + the title strip; the
+        // bottom row is taller, for two dropdowns stacked in one column.
         const int totalH = H - 2 * m - gap - topPad;
         const int rowH   = static_cast<int>(130 * scale);
-        const int fmH    = totalH - rowH;
+        const int botH   = static_cast<int>(150 * scale);
+        const int fmH    = totalH - botH;
         const int colL   = m;
         const int fullW  = W - 2 * m;
         const int fmY    = m + topPad;
@@ -898,7 +937,7 @@ private:
 
         GroupBox* allGroups[] = { fEngineGroup.get(), fOpGroup.get(), fCharGroup.get(), fLpfGroup.get(),
                                   fFiltEnvGroup.get(), fResponseGroup.get(), fChorusGroup.get(),
-                                  fGlobalGroup.get() };
+                                  fGlobalGroup.get(), fExprGroup.get() };
         for (GroupBox* g : allGroups)
             g->setUiScale(txtScale);
         for (uint32_t i = 0; i < kParamCount; ++i)
@@ -912,6 +951,8 @@ private:
         fBrightEnv->setUiScale(txtScale);
         fLoudLabel->setUiScale(txtScale);
         fBrightLabel->setUiScale(txtScale);
+        fExprPressLabel->setUiScale(txtScale);
+        fExprTmbLabel->setUiScale(txtScale);
         fCharReset->setUiScale(txtScale);
         fAlgoView->setUiScale(txtScale);
         fAlgoPicker->setUiScale(txtScale);
@@ -944,8 +985,29 @@ private:
         placeGroup(fOpGroup.get(),      opX,  fmY, colL + fullW - opX, fmH);
         layoutEngine();
         layoutOperators();
-        // Voice tab: Character where Operators is.
-        placeGroup(fCharGroup.get(),  opX,  fmY, colL + fullW - opX, fmH);
+        // Voice tab: Character where Operators is, Expression (two knob rows) under it.
+        const int exprH = static_cast<int>(230 * scale);
+        const int charH = fmH - exprH - gap;
+        placeGroup(fCharGroup.get(),  opX,  fmY, colL + fullW - opX, charH);
+        placeGroup(fExprGroup.get(),  opX,  fmY + charH + gap, colL + fullW - opX, exprH);
+        {
+            // Rows = source, columns = target: Pressure → Bright / Cutoff / Level, Timbre → Bright /
+            // Cutoff. A caption column on the left; knob cells sized as in a module row.
+            int cx, cy, cw, ch;
+            fExprGroup->contentBounds(cx, cy, cw, ch);
+            const int capW  = static_cast<int>(130 * scale);
+            const int cellW = std::min(static_cast<int>(110 * scale), (cw - capW) / 3);
+            const int rowH2 = ch / 2;
+            const int labH  = static_cast<int>(18 * scale);
+            place(fExprPressLabel.get(), cx, cy + (rowH2 - labH) / 2,         capW, labH);
+            place(fExprTmbLabel.get(),   cx, cy + rowH2 + (rowH2 - labH) / 2, capW, labH);
+            int col = 0;
+            for (uint32_t id : {kParamPressBright, kParamLpfPressure, kParamPressLevel})
+                place(fKnobs[id].get(), cx + capW + (col++) * cellW, cy, cellW, rowH2);
+            col = 0;
+            for (uint32_t id : {kParamTmbBright, kParamTmbCutoff})
+                place(fKnobs[id].get(), cx + capW + (col++) * cellW, cy + rowH2, cellW, rowH2);
+        }
         {
             int cx, cy, cw, ch;
             fCharGroup->contentBounds(cx, cy, cw, ch);
@@ -970,27 +1032,27 @@ private:
             place(fLoudEnv.get(),     cx,                envY + labH, envW, envH);
             place(fBrightEnv.get(),   cx + envW + gap2,  envY + labH, envW, envH);
         }
-        layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount, kParamLpfPressure});
+        layoutKnobRow(fLpfGroup.get(), {kParamLpfCutoff, kParamLpfResonance, kParamLpfEnvAmount});
         {
             int cx, cy, cw, ch;
             fFiltEnvGroup->contentBounds(cx, cy, cw, ch);
             place(fFiltEnv.get(), cx, cy, cw, ch);
         }
 
-        // Bottom row: Response (2 dropdowns + Touch, Key Track) | Chorus (5 knobs) | Global (2
-        // dropdowns, Quality, Master), widths roughly by control count.
+        // Bottom row: Response (Vel Floor over Vel Curve, Touch, Key Track) | Chorus (5 knobs) |
+        // Global (Voices over MPE, Bend Range over Quality, Master), widths roughly by control count.
         {
             const int avail = fullW - 2 * gap;
             const int respW = avail / 3, chW = avail / 3;
             int x = colL;
-            placeGroup(fResponseGroup.get(), x, row1, respW, rowH); x += respW + gap;
-            placeGroup(fChorusGroup.get(),   x, row1, chW,   rowH); x += chW + gap;
-            placeGroup(fGlobalGroup.get(),   x, row1, colL + fullW - x, rowH);
-            layoutKnobRow(fResponseGroup.get(), {kParamVelFloor, kParamVelCurve, kParamTouch, kParamKeyTrack});
+            placeGroup(fResponseGroup.get(), x, row1, respW, botH); x += respW + gap;
+            placeGroup(fChorusGroup.get(),   x, row1, chW,   botH); x += chW + gap;
+            placeGroup(fGlobalGroup.get(),   x, row1, colL + fullW - x, botH);
+            layoutColumns(fResponseGroup.get(), {{kParamVelFloor, kParamVelCurve}, {kParamTouch}, {kParamKeyTrack}});
             layoutKnobRow(fChorusGroup.get(), {kParamChorusMix, kParamChorusRate, kParamChorusDepth,
                                                kParamChorusDelay, kParamChorusFeedback});
-            layoutKnobRow(fGlobalGroup.get(), {kParamVoiceMode, kParamBendRange, kParamOversample,
-                                               kParamMasterLevel});
+            layoutColumns(fGlobalGroup.get(), {{kParamVoiceMode, kParamMpe}, {kParamBendRange, kParamOversample},
+                                               {kParamMasterLevel}});
         }
 
         // Help button: far right of the top strip (the dev DUMP button sits just left of it).
@@ -1070,6 +1132,43 @@ private:
         }
     }
 
+    // Like layoutKnobRow, but each column may stack several dropdowns, one above the other (a knob
+    // column holds one knob, full height).
+    void layoutColumns(GroupBox* group, std::initializer_list<std::initializer_list<uint32_t>> columns)
+    {
+        int cx, cy, cw, ch;
+        group->contentBounds(cx, cy, cw, ch);
+        constexpr float kDropWeight = 1.3f;
+        const auto weight = [this](std::initializer_list<uint32_t> col) {
+            return fDropdowns[*col.begin()] ? kDropWeight : 1.0f;
+        };
+        float units = 0.0f;
+        for (const auto& col : columns) units += weight(col);
+        const int dropH = static_cast<int>(46 * fUiScale);
+        const int vgap  = static_cast<int>(4 * fUiScale);
+        float x = static_cast<float>(cx);
+        for (const auto& col : columns)
+        {
+            const float cellW = cw * weight(col) / units;
+            if (fKnobs[*col.begin()])
+            {
+                place(fKnobs[*col.begin()].get(), static_cast<int>(x), cy, static_cast<int>(cellW), ch);
+            }
+            else
+            {
+                const int n = static_cast<int>(col.size());
+                const int dh = std::min(dropH, (ch - (n - 1) * vgap) / n);
+                int y = cy + (ch - n * dh - (n - 1) * vgap) / 2;
+                for (uint32_t id : col)
+                {
+                    place(fDropdowns[id].get(), static_cast<int>(x), y, static_cast<int>(cellW), dh);
+                    y += dh + vgap;
+                }
+            }
+            x += cellW;
+        }
+    }
+
     static void place(SubWidget* w, int x, int y, int width, int height)
     {
         w->setAbsolutePos(x, y);
@@ -1084,6 +1183,262 @@ private:
 UI* createUI()
 {
     return new ModicumFMUI();
+}
+
+// ================================================================================================
+// CLAP `gui` extension
+// ================================================================================================
+// Modelled on DPF's own ClapUI (DistrhoPluginCLAP.cpp) and IFSynth's UI: gui_create() only
+// allocates a holder, because UIExporter cannot be constructed until the host hands us a parent
+// window in set_parent(). DPF is used purely as the GUI layer — the plugin itself is the raw CLAP
+// plugin in src/plugin.cpp, so parameter traffic crosses the C seam in plugin_gui.h rather than
+// DPF's plugin side.
+
+namespace {
+
+struct GuiState {
+    const clap_plugin_t* plugin = nullptr;
+    std::unique_ptr<UIExporter> exporter;
+    uintptr_t parentWindow = 0;
+    // The editor size in the HOST's units — logical points on macOS (CLAP cocoa), pixels on X11.
+    // This, not the UIExporter's pixel size, is the source of truth: the pixel size is derived from
+    // it with the live scale (applySize), so it can be re-derived when the window changes screens.
+    uint32_t width  = DISTRHO_UI_DEFAULT_WIDTH;
+    uint32_t height = DISTRHO_UI_DEFAULT_HEIGHT;
+    double appliedScale = 0.0;   // the scale the UIExporter's pixel size was last derived with
+    bool timerRegistered = false;
+    clap_id timerId = 0;
+};
+
+#ifdef __APPLE__
+extern "C" double mfm_gui_backing_scale(uintptr_t nsView);   // BackingScale_mac.mm
+#endif
+
+// Host units → UIExporter pixels. On macOS this is the backing scale of the window the editor is in
+// RIGHT NOW, deliberately not UIExporter::getScaleFactor(): DPF caches that once, possibly from the
+// wrong screen, and never updates it, while pugl maps mouse positions with the live value — see
+// BackingScale_mac.mm. On X11, CLAP sizes are already physical pixels, so there is nothing to convert
+// (matching DPF's own CLAP wrapper, which scales on macOS only).
+double liveScale(const GuiState* gui)
+{
+#ifdef __APPLE__
+    return mfm_gui_backing_scale(gui->parentWindow);
+#else
+    (void)gui;
+    return 1.0;
+#endif
+}
+
+// Size the UIExporter to gui->width x gui->height host units at the live scale. pugl re-reads the
+// screen's scale while doing this and re-sends the pixel size, so it also re-syncs DPF after a move
+// between screens even when the size in points did not change.
+void applySize(GuiState* gui)
+{
+    if (!gui->exporter) return;
+    const double scale = liveScale(gui);
+    gui->appliedScale = scale;
+    gui->exporter->setWindowSizeFromHost(uint(std::lround(gui->width  * scale)),
+                                         uint(std::lround(gui->height * scale)));
+}
+
+#ifdef __APPLE__
+constexpr const char* kWindowApi = CLAP_WINDOW_API_COCOA;
+#else
+constexpr const char* kWindowApi = CLAP_WINDOW_API_X11;
+#endif
+
+bool gui_is_api_supported(const clap_plugin_t*, const char* api, bool isFloating)
+{
+    return !isFloating && std::strcmp(api, kWindowApi) == 0;
+}
+
+bool gui_get_preferred_api(const clap_plugin_t*, const char** api, bool* isFloating)
+{
+    *api = kWindowApi;
+    *isFloating = false;
+    return true;
+}
+
+bool gui_create(const clap_plugin_t* plugin, const char* api, bool isFloating)
+{
+    if (!gui_is_api_supported(plugin, api, isFloating)) return false;
+    auto* gui = new GuiState();
+    gui->plugin = plugin;
+    mfm_plugin_set_gui(plugin, gui);   // plugin.cpp owns the pointer and hands it back to us
+    return true;
+}
+
+void gui_destroy(const clap_plugin_t* plugin)
+{
+    auto* gui = static_cast<GuiState*>(mfm_plugin_get_gui(plugin));
+    mfm_plugin_set_gui(plugin, nullptr);
+    if (gui == nullptr) return;
+
+    if (gui->timerRegistered) {
+        const clap_host_t* host = mfm_plugin_host(plugin);
+        const auto* timer = static_cast<const clap_host_timer_support_t*>(
+            host->get_extension(host, CLAP_EXT_TIMER_SUPPORT));
+        if (timer != nullptr) timer->unregister_timer(host, gui->timerId);
+    }
+    delete gui;   // the UIExporter is destroyed here, which tears the UI down
+}
+
+// The UIExporter's edit/set callbacks. `ptr` is whatever was passed as UIExporter's first argument —
+// we pass the clap_plugin_t, so these forward straight into the seam.
+void onEditParam(void* ptr, uint32_t index, bool started)
+{
+    const auto* plugin = static_cast<const clap_plugin_t*>(ptr);
+    if (started) mfm_param_begin_gesture(plugin, index);
+    else         mfm_param_end_gesture(plugin, index);
+}
+
+void onSetParam(void* ptr, uint32_t index, float value)
+{
+    mfm_param_set_from_gui(static_cast<const clap_plugin_t*>(ptr), index, double(value));
+}
+
+bool gui_set_scale(const clap_plugin_t*, double) { return false; }   // logical size API (cocoa): no-op
+
+bool gui_get_size(const clap_plugin_t* plugin, uint32_t* width, uint32_t* height)
+{
+    auto* gui = static_cast<GuiState*>(mfm_plugin_get_gui(plugin));
+    if (gui == nullptr) return false;
+    // Host units, straight from the source of truth. Converting the UIExporter's pixel size back
+    // with DPF's cached scale is what made the host allocate a container of the wrong size.
+    *width  = gui->width;
+    *height = gui->height;
+    return true;
+}
+
+bool gui_can_resize(const clap_plugin_t*) { return true; }
+
+bool gui_get_resize_hints(const clap_plugin_t*, clap_gui_resize_hints_t* hints)
+{
+    // The UI locks its design ratio via setGeometryConstraints(), so tell the host the same.
+    hints->can_resize_horizontally = true;
+    hints->can_resize_vertically   = true;
+    hints->preserve_aspect_ratio   = true;
+    hints->aspect_ratio_width      = DISTRHO_UI_DEFAULT_WIDTH;
+    hints->aspect_ratio_height     = DISTRHO_UI_DEFAULT_HEIGHT;
+    return true;
+}
+
+bool gui_adjust_size(const clap_plugin_t*, uint32_t*, uint32_t*) { return true; }   // accept as-is
+
+bool gui_set_size(const clap_plugin_t* plugin, uint32_t width, uint32_t height)
+{
+    auto* gui = static_cast<GuiState*>(mfm_plugin_get_gui(plugin));
+    if (gui == nullptr) return false;
+    gui->width  = width;
+    gui->height = height;
+    applySize(gui);
+    return true;
+}
+
+bool gui_set_parent(const clap_plugin_t* plugin, const clap_window_t* window)
+{
+    auto* gui = static_cast<GuiState*>(mfm_plugin_get_gui(plugin));
+    if (gui == nullptr || std::strcmp(window->api, kWindowApi) != 0) return false;
+
+    // cocoa is a void*, x11 is already an integer handle — hence the different casts.
+#ifdef __APPLE__
+    gui->parentWindow = reinterpret_cast<uintptr_t>(window->cocoa);
+#else
+    gui->parentWindow = static_cast<uintptr_t>(window->x11);
+#endif
+
+    if (!gui->exporter) {
+        gui->exporter.reset(new UIExporter(
+            const_cast<clap_plugin_t*>(plugin),   // callbacksPtr → the edit/set callbacks above
+            gui->parentWindow,                    // winId: the host's embed target
+            DEFAULT_SAMPLE_RATE,                  // the UI does not need the real rate
+            onEditParam, onSetParam,
+            nullptr, nullptr, nullptr, nullptr,   // state / note / size / file callbacks: unused
+            nullptr,                              // bundlePath
+            const_cast<clap_plugin_t*>(plugin),   // dspPtr → UI::getPluginInstancePointer()
+            0.0,                                  // scaleFactor: 0 = auto
+            // kTypeClassic, not kTypeAuto: matches DPF's own CLAP wrapper for this embedded case.
+            DGL_NAMESPACE::Application::kTypeClassic));
+        // The UIExporter starts at DISTRHO_UI_DEFAULT_WIDTH x HEIGHT *pixels*; put it at the host-unit
+        // size instead, at the scale of the window it is actually in.
+        applySize(gui);
+    }
+    return true;
+}
+
+bool gui_set_transient(const clap_plugin_t*, const clap_window_t*) { return false; }   // embedded only
+
+void gui_suggest_title(const clap_plugin_t*, const char*) {}
+
+bool gui_show(const clap_plugin_t* plugin)
+{
+    auto* gui = static_cast<GuiState*>(mfm_plugin_get_gui(plugin));
+    if (gui == nullptr || !gui->exporter) return false;
+
+    if (!gui->timerRegistered) {
+        const clap_host_t* host = mfm_plugin_host(plugin);
+        const auto* timer = static_cast<const clap_host_timer_support_t*>(
+            host->get_extension(host, CLAP_EXT_TIMER_SUPPORT));
+        if (timer != nullptr && timer->register_timer(host, 16 /* ~60fps */, &gui->timerId))
+            gui->timerRegistered = true;
+    }
+    return true;
+}
+
+bool gui_hide(const clap_plugin_t* plugin)
+{
+    auto* gui = static_cast<GuiState*>(mfm_plugin_get_gui(plugin));
+    if (gui == nullptr || !gui->exporter) return false;
+
+    if (gui->timerRegistered) {
+        const clap_host_t* host = mfm_plugin_host(plugin);
+        const auto* timer = static_cast<const clap_host_timer_support_t*>(
+            host->get_extension(host, CLAP_EXT_TIMER_SUPPORT));
+        if (timer != nullptr) timer->unregister_timer(host, gui->timerId);
+        gui->timerRegistered = false;
+    }
+    return true;
+}
+
+const clap_plugin_gui_t kGui = {
+    .is_api_supported  = gui_is_api_supported,
+    .get_preferred_api = gui_get_preferred_api,
+    .create            = gui_create,
+    .destroy           = gui_destroy,
+    .set_scale         = gui_set_scale,
+    .get_size          = gui_get_size,
+    .can_resize        = gui_can_resize,
+    .get_resize_hints  = gui_get_resize_hints,
+    .adjust_size       = gui_adjust_size,
+    .set_size          = gui_set_size,
+    .set_parent        = gui_set_parent,
+    .set_transient     = gui_set_transient,
+    .suggest_title     = gui_suggest_title,
+    .show              = gui_show,
+    .hide              = gui_hide,
+};
+
+} // namespace
+
+extern "C" const clap_plugin_gui_t* mfm_gui_extension(void) { return &kGui; }
+
+// Host automation → an open editor. Called on the main thread by plugin.cpp.
+extern "C" void mfm_gui_push_param(void* guiPtr, uint32_t index, double value)
+{
+    auto* gui = static_cast<GuiState*>(guiPtr);
+    if (gui != nullptr && gui->exporter)
+        gui->exporter->parameterChanged(index, float(value));
+}
+
+// CLAP timer-support → pump the DPF/pugl event loop (see this file's header comment).
+extern "C" void mfm_gui_on_timer(const clap_plugin_t* plugin, clap_id)
+{
+    auto* gui = static_cast<GuiState*>(mfm_plugin_get_gui(plugin));
+    if (gui == nullptr || !gui->exporter) return;
+    // The host window moved to a screen with a different backing scale (or the size was set before
+    // it was in a window): re-derive the pixel size so drawing and mouse agree again.
+    if (liveScale(gui) != gui->appliedScale) applySize(gui);
+    gui->exporter->plugin_idle();
 }
 
 END_NAMESPACE_DISTRHO

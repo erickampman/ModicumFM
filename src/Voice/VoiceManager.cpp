@@ -7,6 +7,7 @@
 #include "pm_midi.h"
 #include "pm_addresses.h"
 #include "VoiceManager.hpp"
+#include <algorithm>
 
 bool VoiceManager::loggingEnabled = false;
 
@@ -38,6 +39,11 @@ void VoiceManager::initializeVoices(PitchConverter *pitchConverter)
 		voice->initializeModules(moduleFactory.get(), pitchConverter, &sharedStateRegistry);
 		buildDefaultPatch(*voice);
 	}
+
+    // The CC converter is the Timbre source: CC74, tracked per channel, with MIDI 2.0 per-note
+    // controller #74 (and CLAP Brightness) per note. Fixed, so it is part of the patch, not a param.
+    setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(timbre1Address, CCParamItemNumber), float(pm::kRegPerNoteBrightness));
+    setParameter(MODULE_PARAM_FROM_BASE_AND_ITEM(timbre1Address, CCParamItemPerNote), 1.0f);
 }
 
 void VoiceManager::reset() {
@@ -58,7 +64,8 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
 #if HAS_DEFAULT_PATCH
     // ModicumFM voice:
     //   PitchConverter + PitchBend --(Combine 2, Add)--> FM6Op pitch
-    //   FM6Op --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = channel pressure)
+    //   FM6Op --> LPF  (cutoff mod 1 = ADSR 1 filter env, cutoff mod 2 = pressure, mod 3 = timbre)
+    //   Pressure and Timbre (CC74) also --> FM6Op brightness / level mod inputs (Expression)
     //   --> Chorus (delay mod = SharedLFO, one phase across all voices) --> Final
     // No VCA: the carriers' own envelopes shape the amplitude (DX-style), and the voice frees once
     // the Final output falls silent. The FM6Op takes the note gate from MIDI directly (gate input
@@ -70,6 +77,7 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     Module* fmModule             = voice.getModule(fm6Op1Address);
     Module* filterEnvModule      = voice.getModule(adsr1Address);
     Module* pressureModule       = voice.getModule(channelPressure1Address);
+    Module* timbreModule         = voice.getModule(timbre1Address);
     Module* lpfModule            = voice.getModule(lpf1Address);
     Module* lfoModule            = voice.getModule(sharedLFO1Address);
     Module* chorusModule         = voice.getModule(chorus1Address);
@@ -83,6 +91,13 @@ void VoiceManager::buildDefaultPatch(Voice& voice)
     voice.connectModules(fmModule,             lpfModule,       lpf1InputAddress);
     voice.connectModules(filterEnvModule,      lpfModule,       lpf1FreqModInputAddress);
     voice.connectModules(pressureModule,       lpfModule,       lpf1FreqModInput2Address);
+    // Expression: Pressure -> brightness, carrier level (and the cutoff, above); Timbre (CC74) ->
+    // brightness and the cutoff. The plugin's Expression knobs are these inputs' levels, all 0 by
+    // default, so the connections are silent until a knob moves.
+    voice.connectModules(pressureModule,       fmModule,        fm6Op1BrightModInputAddress);
+    voice.connectModules(pressureModule,       fmModule,        fm6Op1LevelModInputAddress);
+    voice.connectModules(timbreModule,         fmModule,        fm6Op1BrightMod2InputAddress);
+    voice.connectModules(timbreModule,         lpfModule,       lpf1FreqModInput3Address);
     voice.connectModules(pitchSumModule,       fmModule,        fm6Op1PitchInputAddress);
     voice.connectModules(pitchConverterModule, pitchSumModule,  combine2Input1Address);
     voice.connectModules(pitchBendModule,      pitchSumModule,  combine2Input2Address);
@@ -133,6 +148,9 @@ void VoiceManager::handleMIDIMessage(const pm::UmpMessage& message) {
                 bool newState = message.ccData >= (UINT32_MAX / 2u + 1u);
                 handleSustainPedalChange(newState);
             }
+            // Channel mode messages: handled here, not passed on to the modules.
+            if (message.ccIndex == 123) { allNotesOffOnChannel(message.group, message.channel); return; }
+            if (message.ccIndex == 120) { allSoundOffOnChannel(message.group, message.channel); return; }
             break;
 		default:
 			break;
@@ -226,6 +244,7 @@ void VoiceManager::noteOff(const pm::UmpMessage& msg) {
             // (guards against duplicate entries if multiple buffers send the same NoteOff).
             if (!voice->voiceStateManager.isPedalSustained()) {
                 voice->voiceStateManager.setPedalSustained(true);
+                voice->syncNoteReleased();   // pedal-held counts as released (MPE §3.3.3)
                 pedalSustainedVoiceIDs.push_back(voice->id);
             }
         } else {
@@ -244,12 +263,101 @@ void VoiceManager::handleSustainPedalChange(bool newState) {
             for (auto& voice : voices) {
                 if (voice->id == voiceID && voice->voiceStateManager.isPedalSustained()) {
                     voice->voiceStateManager.setPedalSustained(false);
-                    pm::UmpMessage noteOff = pm::makeNoteOff(voice->currentNoteNumber);
-                    voice->handleMIDIMessage(noteOff);
+                    // Built from the voice's own note-on so it carries that note's channel and group,
+                    // which note-off matching requires.
+                    const auto& current = voice->voiceStateManager.currentNote();
+                    if (auto noteOff = current ? pm::makeNoteOffMsgFromOnMsg(*current) : std::nullopt) {
+                        voice->handleMIDIMessage(*noteOff);
+                    }
                 }
             }
         }
         pedalSustainedVoiceIDs.clear();
+    }
+}
+
+// Release every note a voice holds: the mono stack's silent notes first, then the sounding one, so
+// releasing the sounding note never retriggers a stacked note. Note-offs are built from the
+// note-ons themselves because note-off matching includes channel and group.
+void VoiceManager::releaseAllNotes(Voice& voice) {
+    std::vector<pm::UmpMessage> notes = voice.voiceStateManager.heldNotes();   // copy: mutated below
+    const std::optional<pm::UmpMessage> current = voice.voiceStateManager.currentNote();
+    if (current) {
+        notes.erase(std::remove_if(notes.begin(), notes.end(),
+                        [&current](const pm::UmpMessage& m) { return pm::isSameNote(m, *current); }),
+                    notes.end());
+        notes.push_back(*current);
+    }
+    for (const pm::UmpMessage& on : notes) {
+        if (auto noteOff = pm::makeNoteOffMsgFromOnMsg(on)) voice.handleMIDIMessage(*noteOff);
+    }
+}
+
+int VoiceManager::keyForNoteId(int32_t noteId) {
+    if (noteId < 0) return -1;
+    for (auto& voice : voices) {
+        const auto& current = voice->voiceStateManager.currentNote();
+        if (current && current->noteId == noteId) return current->note;
+    }
+    return -1;
+}
+
+bool VoiceManager::holdsNote(const pm::UmpMessage& noteOn) {
+    for (auto& voice : voices)
+        if (voice->voiceStateManager.holdsNote(noteOn)) return true;
+    return false;
+}
+
+// Take a voice out of the sustain pedal's deferred list, so pedal-up does not send it a note-off for
+// a note it no longer has.
+void VoiceManager::dropPedalSustain(Voice& voice) {
+    if (!voice.voiceStateManager.isPedalSustained()) return;
+    voice.voiceStateManager.setPedalSustained(false);
+    pedalSustainedVoiceIDs.erase(std::remove(pedalSustainedVoiceIDs.begin(), pedalSustainedVoiceIDs.end(), voice.id),
+                                 pedalSustainedVoiceIDs.end());
+}
+
+// releaseAllNotes, limited to the notes played on one group/channel. A mono voice can hold notes
+// from several channels; only this channel's leave the stack, and the sounding note is released
+// last so it does not retrigger one of them.
+void VoiceManager::releaseNotesOnChannel(Voice& voice, uint8_t group, uint8_t channel) {
+    auto onChannel = [group, channel](const pm::UmpMessage& m) { return m.group == group && m.channel == channel; };
+    std::vector<pm::UmpMessage> notes;
+    const std::optional<pm::UmpMessage> current = voice.voiceStateManager.currentNote();
+    for (const pm::UmpMessage& held : voice.voiceStateManager.heldNotes())
+        if (onChannel(held) && !(current && pm::isSameNote(held, *current))) notes.push_back(held);
+    if (current && onChannel(*current)) {
+        dropPedalSustain(voice);   // the pedal was holding this very note
+        notes.push_back(*current);
+    }
+    for (const pm::UmpMessage& on : notes) {
+        if (auto noteOff = pm::makeNoteOffMsgFromOnMsg(on)) voice.handleMIDIMessage(*noteOff);
+    }
+}
+
+// CC 123. Releases the channel's notes, the sustain pedal's included (hosts and senders use it to
+// clear everything). The notes go into their release, as after any note-off.
+void VoiceManager::allNotesOffOnChannel(uint8_t group, uint8_t channel) {
+    for (auto& voice : voices) {
+        if (voice->voiceStateManager.holdsNoteOnChannel(group, channel))
+            releaseNotesOnChannel(*voice, group, channel);
+    }
+}
+
+// CC 120. Silences the channel's voices at once, release tails included: the voice goes Inactive
+// (an Inactive voice outputs nothing) and its FM engine (operator envelopes and phases), filter
+// envelope, filter and chorus are reset so the next note starts clean. A full Voice::reset() would
+// also clear the per-channel bend and pressure memory, which belongs to every channel, not just this
+// one. (Ported from PlainOldSynth a3b94c7.)
+void VoiceManager::allSoundOffOnChannel(uint8_t group, uint8_t channel) {
+    static constexpr AUParameterAddress kSoundModules[] = {
+        fm6Op1Address, adsr1Address, lpf1Address, chorus1Address };
+    for (auto& voice : voices) {
+        if (!voice->voiceStateManager.holdsNoteOnChannel(group, channel)) continue;
+        dropPedalSustain(*voice);
+        voice->voiceStateManager.silence();
+        for (const AUParameterAddress address : kSoundModules)
+            if (Module* module = voice->getModule(address)) module->reset();
     }
 }
 
@@ -258,36 +366,22 @@ void VoiceManager::allNotesOff() {
     sustainPedalActive = false;
     pedalSustainedVoiceIDs.clear();
 
-	pm::UmpMessage msg = pm::makeNoteOff(0);
-
 	for (auto& voice : voices) {
         voice->voiceStateManager.setPedalSustained(false);
 		if (voice->isActive()) {
-			for (uint8_t curNote = 0; curNote <= 127; ++curNote) {
-				msg.note = curNote;
-				voice->handleMIDIMessage(msg);
-			}
+            releaseAllNotes(*voice);
 		}
 	}
 }
 
 void VoiceManager::panic() {
-    // Read the current Group and Channel filter settings.
-    // Values: 0 = no filter, 1-16 maps to group/channel 0-15.
-    uint32_t groupFilter   = uint32_t(voiceManagerParamByEnum(MIDIParamItemGroupFilterValue));
-    uint32_t channelFilter = uint32_t(voiceManagerParamByEnum(MIDIParamItemChannelFilterValue));
-
-    // If a filter is active use that specific group/channel; otherwise default to 0.
-    uint8_t group   = (groupFilter   > 0) ? uint8_t(groupFilter   - 1) : 0;
-    uint8_t channel = (channelFilter > 0) ? uint8_t(channelFilter - 1) : 0;
-
-    // Send Note Off for every possible note number, targeting every voice directly
-    // so the Group/Channel filter in handleMIDIMessage() is intentionally bypassed.
-    for (uint8_t note = 0; note <= 127; ++note) {
-        pm::UmpMessage msg = pm::makeNoteOff(note, channel, group);
-        for (auto& voice : voices) {
-            voice->handleMIDIMessage(msg);
-        }
+    // Every voice, whatever the Group/Channel filter says: handleMIDIMessage()'s filter is bypassed
+    // by talking to the voices directly.
+    sustainPedalActive = false;
+    pedalSustainedVoiceIDs.clear();
+    for (auto& voice : voices) {
+        voice->voiceStateManager.setPedalSustained(false);
+        releaseAllNotes(*voice);
     }
 }
 

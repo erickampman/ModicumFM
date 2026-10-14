@@ -58,6 +58,12 @@ public:
 	void noteOff(const pm::UmpMessage& msg);
 	void allNotesOff();
     void panic();
+    // The key of the sounding note that carries this host note id, or -1: for CLAP note
+    // expressions that name only the id. Audio thread, like handleMIDIMessage.
+    int keyForNoteId(int32_t noteId);
+    // Whether any voice still holds this note-on (see VoiceStateManager::holdsNote). The plugin
+    // reports CLAP_EVENT_NOTE_END for a host note once this turns false. Audio thread.
+    bool holdsNote(const pm::UmpMessage& noteOn);
 
     // Sustain pedal
     void handleSustainPedalChange(bool newState);
@@ -118,6 +124,12 @@ private:
 	Voice* findFreeVoice();
 	Voice* stealVoice(const pm::UmpMessage& msg);
 	Voice* findVoiceForMessage(const pm::UmpMessage& msg);
+	void releaseAllNotes(Voice& voice);
+	void releaseNotesOnChannel(Voice& voice, uint8_t group, uint8_t channel);
+	void dropPedalSustain(Voice& voice);
+	// Channel mode messages, per MIDI: they act on the channel (and group) they arrive on.
+	void allNotesOffOnChannel(uint8_t group, uint8_t channel);   // CC 123
+	void allSoundOffOnChannel(uint8_t group, uint8_t channel);   // CC 120
     Voice* oldestVoice();
     Voice* lowestVoice();
     Voice* highestVoice();

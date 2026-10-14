@@ -60,43 +60,40 @@ inline const char* VoiceStateManager::stateString() const {
 
 bool VoiceStateManager::wantsMIDIMessage(const pm::UmpMessage& message, uint32_t voiceID) const
 {
-    LOG_VOICE("VoiceStateManager::handleMIDIMessage entrypoint id(%d)", voiceID);
+    LOG_VOICE("VoiceStateManager::wantsMIDIMessage entrypoint id(%d)", voiceID);
     if (!currentNoteOn) {
-        LOG_VOICE("VoiceStateManager::handleMIDIMessage currentNoteOn is empty");
-        return true;
+        // An idle voice takes note-ons/offs and channel-wide messages, but not another note's
+        // per-note bend / pressure / controllers — those would leave stale state behind.
+        LOG_VOICE("VoiceStateManager::wantsMIDIMessage currentNoteOn is empty");
+        return !pm::isPerNoteMessage(message);
     }
-    
+
+    // Notes are matched on note number AND channel AND group (pm::isSameNote): the same key on two
+    // channels is two notes, each with its own voice and per-note state.
     uint8_t msgNote;
     if (pm::containsNoteNumber(message, msgNote)) {
-        uint8_t currentNote = currentNoteOn.value().note;
-        if (currentNote == msgNote) {
-            LOG_VOICE("VoiceStateManager::wantsMIDIMessage currentNote == msgNote");
+        if (pm::isSameNote(*currentNoteOn, message)) {
+            LOG_VOICE("VoiceStateManager::wantsMIDIMessage message is for the current note");
             return true;
         }
-        if (deferredNoteOff) {
-            uint8_t defNoteOff = deferredNoteOff.value().note;
-            if (defNoteOff == msgNote) {
-                LOG_VOICE("VoiceStateManager::wantsMIDIMessage defNoteOff == msgNote");
-                return true;
-            }
+        if (deferredNoteOff && pm::isSameNote(*deferredNoteOff, message)) {
+            LOG_VOICE("VoiceStateManager::wantsMIDIMessage message is for the deferred note-off");
+            return true;
         }
-        if (deferredNoteOn) {
-            uint8_t defNoteOn = deferredNoteOn.value().note;
-            if (defNoteOn == msgNote) {
-                LOG_VOICE("VoiceStateManager::wantsMIDIMessage defNoteOn == msgNote");
-                return true;
-            }
+        if (deferredNoteOn && pm::isSameNote(*deferredNoteOn, message)) {
+            LOG_VOICE("VoiceStateManager::wantsMIDIMessage message is for the deferred note-on");
+            return true;
         }
         // Also accept messages for any physically-held note in the stack.
         // This is necessary so that e.g. a Note Off for a prior held note
         // (not currently sounding) can be tracked and removed from the stack.
         for (const auto& held : heldNoteStack) {
-            if (held.note == msgNote) {
+            if (pm::isSameNote(held, message)) {
                 LOG_VOICE("VoiceStateManager::wantsMIDIMessage note found in heldNoteStack");
                 return true;
             }
         }
-        LOG_VOICE("VoiceStateManager::wantsMIDIMessage Note Number doesn't match");
+        LOG_VOICE("VoiceStateManager::wantsMIDIMessage note doesn't match");
         return false;
     }
 
@@ -111,12 +108,29 @@ bool VoiceStateManager::handleMIDIMessage(const pm::UmpMessage& message, uint32_
     bool isNoteOn = pm::isNoteOn(message);
     bool isNoteOff = pm::isNoteOff(message);
     bool wantsPropagate = true;
-    
+
+    // Per-note expression (bend, pressure, per-note controllers) reaches the modules only when it is
+    // for the note this voice is SOUNDING. wantsMIDIMessage() also admits held-but-silent notes in
+    // the mono stack and a steal's incoming note; their expression must not move the sounding one.
+    if (pm::isPerNoteMessage(message)) {
+        if (state == VoiceState::Stealing || !currentNoteOn || !pm::isSameNote(*currentNoteOn, message))
+            return false;
+        // Once the note is released it no longer takes per-note expression addressed by key: under
+        // MPE "control of a note ceases once Note Off has occurred" (§3.3.3), and the same holds for
+        // MIDI 2.0 per-note messages, so a sender that centres a note's bend after its note-off does
+        // not swoop the ringing tail. (Re-striking the key revives this same voice as a new note,
+        // which takes expression again.) A CLAP note named by
+        // its note id is the exception: the id is unambiguous, and the host keeps a note's expression
+        // going until it sees CLAP_EVENT_NOTE_END.
+        if (isReleased() && !(message.noteId >= 0 && currentNoteOn->noteId >= 0))
+            return false;
+        return true;
+    }
+
     if (!(isNoteOn || isNoteOff)) {  // Later remove this check
         return wantsPropagate;
     }
     
-    // pm::isNoteOn checks if velocity is 0. If it is, it's not a note on.
     LOG_VOICE("VoiceStateManager::handleMIDIMessage VOICE-ID(%d) VSM State: %{public}s - Is on: %{public}s Is off: %{public}s", voiceID, stateString(), isNoteOn ? "true" : "false", isNoteOff ? "true" : "false" );
 
     switch (state) {
@@ -196,17 +210,14 @@ bool VoiceStateManager::handleMIDINoteMessageInActiveState(const pm::UmpMessage&
     LOG_VOICE("VoiceStateManager::handleMIDINoteMessageInActiveState id(%d)", voiceID);
 
     if (pm::isNoteOff(message)) {
-        uint8_t releasedNote = message.note;
-
         // Remove the released note from the held stack.
         auto it = std::find_if(heldNoteStack.begin(), heldNoteStack.end(),
-            [releasedNote](const pm::UmpMessage& m) {
-                return m.note == releasedNote;
+            [&message](const pm::UmpMessage& m) {
+                return pm::isSameNote(m, message);
             });
         if (it != heldNoteStack.end()) heldNoteStack.erase(it);
 
-        bool isCurrentNote = currentNoteOn &&
-            (currentNoteOn->note == releasedNote);
+        bool isCurrentNote = currentNoteOn && pm::isSameNote(*currentNoteOn, message);
 
         if (isCurrentNote) {
             if (!heldNoteStack.empty()) {
@@ -235,10 +246,9 @@ bool VoiceStateManager::handleMIDINoteMessageInActiveState(const pm::UmpMessage&
         // tracks the new note. Push onto the held stack only if not already
         // present (guards against spurious duplicates during retrigger path).
         copyNoteOnMessageToCurrentNoteOn(message);
-        uint8_t noteNum = message.note;
         bool inStack = std::any_of(heldNoteStack.begin(), heldNoteStack.end(),
-            [noteNum](const pm::UmpMessage& m) {
-                return m.note == noteNum;
+            [&message](const pm::UmpMessage& m) {
+                return pm::isSameNote(m, message);
             });
         if (!inStack) {
             auto noteOn = pm::makeNoteOnMsgFromOnMsg(message);
@@ -399,6 +409,41 @@ void  VoiceStateManager::copyNoteOnMessageToCurrentNoteOn(const pm::UmpMessage& 
     }
     currentNoteOn = noteOn;
 }
+bool VoiceStateManager::holdsNote(const pm::UmpMessage& noteOn) const
+{
+    if (state == VoiceState::Inactive) return false;
+    if (currentNoteOn && pm::isSameNote(*currentNoteOn, noteOn)) return true;
+    if (deferredNoteOn && pm::isSameNote(*deferredNoteOn, noteOn)) return true;
+    for (const auto& held : heldNoteStack)
+        if (pm::isSameNote(held, noteOn)) return true;
+    return false;
+}
+
+bool VoiceStateManager::holdsNoteOnChannel(uint8_t group, uint8_t channel) const
+{
+    if (state == VoiceState::Inactive) return false;
+    auto on = [group, channel](const std::optional<pm::UmpMessage>& m) {
+        return m && m->group == group && m->channel == channel;
+    };
+    if (on(currentNoteOn) || on(deferredNoteOn)) return true;
+    for (const auto& held : heldNoteStack)
+        if (held.group == group && held.channel == channel) return true;
+    return false;
+}
+
+void VoiceStateManager::silence()
+{
+    state = VoiceState::Inactive;
+    clearCurrentNoteOn();
+    heldNoteStack.clear();
+    deferredRetrigger = std::nullopt;
+    deferredNoteOn = std::nullopt;
+    deferredNoteOff = std::nullopt;
+    pedalSustained = false;
+    silentFrames = 0;
+    duckMultiplier = 1.0;
+}
+
 void  VoiceStateManager::clearCurrentNoteOn()
 {
     LOG_VOICE("VoiceStateManager::clearCurrentNoteOn");

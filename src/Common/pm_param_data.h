@@ -17,6 +17,7 @@ extern const ModuleParamConstantsGroup pitchConverterModuleConstantsGroup;
 extern const ModuleParamConstantsGroup fm6OpConstantsGroup;
 extern const ModuleParamConstantsGroup sharedLFOConstantsGroup;
 extern const ModuleParamConstantsGroup channelPressureConstantsGroup;
+extern const ModuleParamConstantsGroup ccConverterConstantsGroup;
 extern const ModuleParamConstantsGroup pitchBendConverterConstantsGroup;
 extern const ModuleParamConstantsGroup chorusConstantsGroup;
 

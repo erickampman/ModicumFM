@@ -35,6 +35,15 @@ MODICUMFM_ADDR(lpf1FreqModInputAddress, ModuleParamKindButterworthLowPassFilter,
 MODICUMFM_ADDR(lpf1FreqModInput2Address, ModuleParamKindButterworthLowPassFilter, ModuleInstance1, LPFParamItemModFreqInput2)
 MODICUMFM_ADDR(adsr1Address,            ModuleParamKindADSR, ModuleInstance1, 0)
 MODICUMFM_ADDR(channelPressure1Address, ModuleParamKindChannelPressure, ModuleInstance1, 0)
+MODICUMFM_ADDR(lpf1FreqModInput3Address, ModuleParamKindButterworthLowPassFilter, ModuleInstance1, LPFParamItemModFreqInput3)
+
+// Expression: Pressure (channel pressure above) and Timbre (CC74 / per-note #74, a CCConverter in
+// Per Note mode) into the FM engine's brightness and level mod inputs and the filter's third cutoff
+// mod input. The plugin's Expression knobs are those inputs' levels, all 0 by default.
+MODICUMFM_ADDR(timbre1Address,          ModuleParamKindControlChangeConverter, ModuleInstance1, 0)
+MODICUMFM_ADDR(fm6Op1BrightModInputAddress,  ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBrightModInput)
+MODICUMFM_ADDR(fm6Op1BrightMod2InputAddress, ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemBrightMod2Input)
+MODICUMFM_ADDR(fm6Op1LevelModInputAddress,   ModuleParamKindFM6Op, ModuleInstance1, FM6OpParamItemLevelModInput)
 
 // Chorus, delay-modulated by one LFO shared across voices.
 MODICUMFM_ADDR(chorus1Address,          ModuleParamKindChorus, ModuleInstance1, 0)

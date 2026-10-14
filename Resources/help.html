@@ -83,8 +83,8 @@
   <p>Each voice is one six-operator FM engine, then a resonant low-pass filter and a chorus:</p>
   <p><code>FM Engine → Low-Pass Filter → Chorus → Master</code></p>
   <p>There is no separate amp envelope: the <i>carriers'</i> own envelopes shape each note's
-  loudness, as on classic FM synths. Pitch bend moves the engine; channel pressure (aftertouch)
-  opens the filter.</p>
+  loudness, as on classic FM synths. Pitch bend moves the engine; pressure (aftertouch) and timbre
+  (CC 74) do what the Voice tab's Expression panel says.</p>
 </div>
 
 <h2 class="sound">Voice and Operators</h2>
@@ -127,6 +127,23 @@ greyed out on algorithms with no modulators.</p>
 <p><b>Reset</b> (top right of the Character panel) returns the four knobs and both envelopes to
 neutral, so they no longer change the sound. Double-click any single knob or envelope point to
 reset just that one.</p>
+
+<h2 class="env">Voice: Expression</h2>
+<p>What your controller's <b>pressure</b> (aftertouch) and <b>timbre</b> (CC 74, the MPE "slide")
+do to a sounding note. Rows are the source, columns what it moves. Every knob is 0 by default, so
+nothing happens until you turn one; with MPE or polyphonic aftertouch each note follows its own.</p>
+<dl>
+  <dt>Bright</dt><dd>The modulators' levels, i.e. how bright the FM tone is: at +1, full pressure
+  (or timbre) brightens as far as the Character Brightness knob's top end; at −1, it darkens.</dd>
+  <dt>Cutoff</dt><dd>The low-pass filter's cutoff, in octaves at full pressure / timbre. Turn the
+  filter's Cutoff down first, or there is nothing to open.</dd>
+  <dt>Level</dt><dd>(Pressure only) the carriers' level, for swells. Positive: notes start quiet
+  and swell as you press (at +1, silent until pressed). Negative: pressing makes them quieter. A
+  controller that sends no pressure stays silent at +1.</dd>
+</dl>
+<p>Pressure is channel aftertouch, polyphonic aftertouch, or a host's per-note pressure (Bitwig);
+timbre is CC 74, MIDI 2.0 per-note controller 74, or a host's per-note brightness. These are part of
+the sound, so presets store them; Character's Reset leaves them alone.</p>
 
 <h2 class="sound">FM Engine</h2>
 <p>Six sine-based operators. An <i>algorithm</i> decides which operators modulate which: a
@@ -189,7 +206,6 @@ Release are the time to fade by 60 dB.</p>
   <dt>Resonance</dt><dd>Emphasis at the cutoff.</dd>
   <dt>Env Amount</dt><dd>How far (in octaves) the Filter Envelope moves the cutoff; negative
   values sweep it down.</dd>
-  <dt>Pressure</dt><dd>How far (in octaves) channel pressure / aftertouch moves the cutoff.</dd>
   <dt>Filter Envelope</dt><dd>Triggered by each note; a graph edited like the operator envelopes
   (above), without the Delay point.</dd>
 </dl>
@@ -227,6 +243,9 @@ with Touch, the tone; Key Track changes the tone and length up and down the keyb
 <dl>
   <dt>Voices</dt><dd>Poly (10 voices) or Mono (legato: a note played while another is held changes
   pitch without re-attacking the envelopes).</dd>
+  <dt>MPE</dt><dd>On for an MPE controller (lower zone: channel 1 is the master channel, 2–16 carry
+  one note each). Each note bends ±48 semitones on its own channel, and the master channel's bend
+  (the Bend Range) moves every note. Presets leave this switch alone.</dd>
   <dt>Bend Range</dt><dd>Pitch-bend range, up to 4 semitones each way. <code>Off</code> ignores
   pitch bend.</dd>
   <dt>Quality</dt><dd>Normal / High / Best: runs the FM engine at 1× / 2× / 4× the sample rate,

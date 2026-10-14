@@ -7,7 +7,7 @@
 // (see the helpers below). Ranges and defaults mirror the module constants in pm_param_data.cpp
 // unless noted.
 //
-// APPEND-ONLY: DPF exposes each param's index as its host-facing id, so saved sessions and
+// APPEND-ONLY: each param's index is its host-facing CLAP id (as it was under DPF), so saved sessions and
 // automation key off these positions. New params (macros, templates, … — see docs/ROADMAP.md)
 // go immediately before kParamCount; never reorder or remove existing ones.
 
@@ -62,7 +62,7 @@ enum ParamIndex {
    kParamLpfCutoff,      // octaves re 440 Hz
    kParamLpfResonance,
    kParamLpfEnvAmount,   // filter-envelope depth, octaves
-   kParamLpfPressure,    // channel-pressure depth, octaves
+   kParamLpfPressure,    // pressure → cutoff depth, octaves ("Press>Cutoff", on the Expression panel)
    kParamFiltAttack,
    kParamFiltDecay,
    kParamFiltSustain,
@@ -87,6 +87,14 @@ enum ParamIndex {
    // Shared (relative) envelopes — Voice tab. Times ×0.01..×1000 (1 = unchanged), sustain -1..1 offset.
    kParamLoudAttack, kParamLoudDecay, kParamLoudSustain, kParamLoudRelease,         // carriers
    kParamBrightAttack, kParamBrightDecay, kParamBrightSustain, kParamBrightRelease, // modulators
+   // MIDI input (appended). Controller setup, not sound: presets leave it alone.
+   kParamMpe,            // MPE input, lower zone: member bend ±48 + the master channel's bend
+   // Expression (appended; Voice tab). What pressure and timbre (CC74) do; all 0 = no effect.
+   // Press>Cutoff is kParamLpfPressure above, shown in the same panel.
+   kParamPressBright,    // pressure → modulator levels (FM brightness), ±1 = ×2^±1.5 at full pressure
+   kParamTmbBright,      // timbre → modulator levels, same scale
+   kParamTmbCutoff,      // timbre → filter cutoff, octaves at full timbre
+   kParamPressLevel,     // pressure → carrier level: + swells up as pressed, - ducks as pressed
    // (append new params here)
    kParamCount
 };
@@ -147,7 +155,7 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Cutoff",       "cutoff",   "oct", -6.0f,  5.4f,  5.4f,  false, false},
    {"Resonance",    "reso",     "",   1.0f,  20.0f,   1.0f,  false, false},
    {"Env Amount",   "fenvamt",  "oct", -12.0f, 12.0f, 0.0f,  false, false}, // ±12 oct: closed → fully open from any cutoff
-   {"Pressure",     "pressure", "oct", -8.0f,  8.0f,  0.0f,  false, false},
+   {"Press>Cutoff", "pressure", "oct", -8.0f,  8.0f,  0.0f,  false, false},   // shown under Expression
    {"F Attack",     "fatt",     "s",  0.001f, 10.0f,  0.005f, true, false},
    {"F Decay",      "fdec",     "s",  0.001f, 10.0f,  0.5f,  true,  false},
    {"F Sustain",    "fsus",     "",   0.0f,   1.0f,   0.4f,  false, false},
@@ -178,9 +186,150 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Bright Decay",   "brdec",  "x",  0.01f, 1000.0f,   1.0f,  true,  false},
    {"Bright Sustain", "brsus",  "",  -1.0f,   1.0f,   0.0f,  false, false},
    {"Bright Release", "brrel",  "x",  0.01f, 1000.0f,   1.0f,  true,  false},
+   // MIDI input
+   {"MPE",            "mpe",    "",    0.0f,    1.0f,   0.0f,  false, true },
+   // Expression
+   {"Press>Bright",   "prsBright", "",  -1.0f,   1.0f,   0.0f,  false, false},
+   {"Tmb>Bright",     "tmbBright", "",  -1.0f,   1.0f,   0.0f,  false, false},
+   {"Tmb>Cutoff",     "tmbCutoff", "oct", -8.0f, 8.0f,   0.0f,  false, false},
+   {"Press>Level",    "prsLevel",  "",  -1.0f,   1.0f,   0.0f,  false, false},
 };
 
 #undef MODICUMFM_FM_OP_SPECS
+
+// --- dropdowns -------------------------------------------------------------------------------
+// One source of truth for "is this parameter stepped-with-labels, and what are the labels": the
+// CLAP params extension (CLAP_PARAM_IS_ENUM + value/text conversion) and the UI dropdowns both read
+// it from here, so a label can never drift between the host's generic panel and our own.
+
+static constexpr const char* kVoiceModeChoices[] = { "Mono", "Poly", nullptr };
+static constexpr const char* kBendRangeChoices[] = { "Off", "0.5 st", "1 st", "1.5 st", "2 st",
+                                                     "2.5 st", "3 st", "3.5 st", "4 st", nullptr };
+static constexpr const char* kVelFloorChoices[]  = { "0%", "25%", "50%", "75%", "Fixed", nullptr }; // level of the softest note
+static constexpr const char* kVelCurveChoices[]  = { "Concave", "Linear", "Convex", nullptr };
+static constexpr const char* kMpeChoices[]       = { "Off", "On", nullptr };
+static constexpr const char* kQualityChoices[]   = { "Normal", "High", "Best", nullptr };            // oversampling Off / 2x / 4x
+static constexpr const char* kOpWaveChoices[]    = { "Sine", "1+2", "1+3", "1+3+5", "1-4", nullptr }; // harmonic stacks
+
+// Operator o's Wave param, for any o.
+constexpr bool isOpWaveParam(uint32_t index)
+{
+   return index >= kParamOp1Wave && index < kParamOp1Wave + kFmOperators * kFmOpCount
+       && (index - kParamOp1Wave) % kFmOpCount == kOpWave;
+}
+
+// Null-terminated label list for a dropdown parameter, or nullptr when it is a plain value.
+constexpr const char* const* choicesFor(uint32_t index)
+{
+   if (isOpWaveParam(index)) return kOpWaveChoices;
+   switch (index) {
+   case kParamVoiceMode:  return kVoiceModeChoices;
+   case kParamBendRange:  return kBendRangeChoices;
+   case kParamVelFloor:   return kVelFloorChoices;
+   case kParamVelCurve:   return kVelCurveChoices;
+   case kParamOversample: return kQualityChoices;
+   case kParamMpe:        return kMpeChoices;
+   default:               return nullptr;
+   }
+}
+
+constexpr bool isDropdownParam(uint32_t index) { return choicesFor(index) != nullptr; }
+
+// --- table guards ----------------------------------------------------------------------------
+// kParams is indexed by ParamIndex, so a swapped pair of rows compiles fine and silently cross-wires
+// two controls (PlainOldSynth's Effect Mix and Spread once did exactly that). Check every row's
+// symbol against the enum, one assert per row so a failure names the row (one per operator for the
+// operator blocks). When appending a parameter, add its line here too.
+constexpr bool symbolIs(uint32_t index, const char* symbol)
+{
+   const char* a = kParams[index].symbol;
+   while (*a != '\0' && *a == *symbol) { ++a; ++symbol; }
+   return *a == *symbol;
+}
+
+// Operator o (0..5): every row of its block reads "op<o+1><item>", in FmOpOffset order.
+constexpr bool opBlockSymbolsMatch(uint32_t op)
+{
+   constexpr const char* kItems[kFmOpCount] = { "wave", "rat", "fine", "lvl", "dly", "att", "dec", "sus", "rel" };
+   for (uint32_t j = 0; j < kFmOpCount; ++j) {
+      const char* a = kParams[fmOpParam(op, j)].symbol;
+      if (a[0] != 'o' || a[1] != 'p' || a[2] != char('1' + op)) return false;
+      const char* b = kItems[j];
+      a += 3;
+      while (*a != '\0' && *a == *b) { ++a; ++b; }
+      if (*a != *b) return false;
+   }
+   return true;
+}
+
+static_assert(symbolIs(kParamVoiceMode,      "voices"));
+static_assert(symbolIs(kParamBendRange,      "bend"));
+static_assert(symbolIs(kParamMasterLevel,    "master"));
+static_assert(symbolIs(kParamAlgorithm,      "algo"));
+static_assert(symbolIs(kParamFeedback,       "fb"));
+static_assert(symbolIs(kParamPitch,          "pitch"));
+static_assert(symbolIs(kParamFine,           "fine"));
+static_assert(symbolIs(kParamDetune,         "detune"));
+static_assert(symbolIs(kParamOversample,     "ovs"));
+static_assert(opBlockSymbolsMatch(0), "Op1 block");
+static_assert(opBlockSymbolsMatch(1), "Op2 block");
+static_assert(opBlockSymbolsMatch(2), "Op3 block");
+static_assert(opBlockSymbolsMatch(3), "Op4 block");
+static_assert(opBlockSymbolsMatch(4), "Op5 block");
+static_assert(opBlockSymbolsMatch(5), "Op6 block");
+static_assert(symbolIs(kParamLpfCutoff,      "cutoff"));
+static_assert(symbolIs(kParamLpfResonance,   "reso"));
+static_assert(symbolIs(kParamLpfEnvAmount,   "fenvamt"));
+static_assert(symbolIs(kParamLpfPressure,    "pressure"));
+static_assert(symbolIs(kParamFiltAttack,     "fatt"));
+static_assert(symbolIs(kParamFiltDecay,      "fdec"));
+static_assert(symbolIs(kParamFiltSustain,    "fsus"));
+static_assert(symbolIs(kParamFiltRelease,    "frel"));
+static_assert(symbolIs(kParamChorusMix,      "chmix"));
+static_assert(symbolIs(kParamChorusRate,     "chrate"));
+static_assert(symbolIs(kParamChorusDepth,    "chdepth"));
+static_assert(symbolIs(kParamChorusDelay,    "chdelay"));
+static_assert(symbolIs(kParamChorusFeedback, "chfb"));
+static_assert(symbolIs(kParamVelFloor,       "velfloor"));
+static_assert(symbolIs(kParamVelCurve,       "velcurve"));
+static_assert(symbolIs(kParamBrightness,     "bright"));
+static_assert(symbolIs(kParamBite,           "bite"));
+static_assert(symbolIs(kParamGrit,           "grit"));
+static_assert(symbolIs(kParamBody,           "body"));
+static_assert(symbolIs(kParamTouch,          "touch"));
+static_assert(symbolIs(kParamKeyTrack,       "keytrack"));
+static_assert(symbolIs(kParamLoudAttack,     "ldatt"));
+static_assert(symbolIs(kParamLoudDecay,      "lddec"));
+static_assert(symbolIs(kParamLoudSustain,    "ldsus"));
+static_assert(symbolIs(kParamLoudRelease,    "ldrel"));
+static_assert(symbolIs(kParamBrightAttack,   "bratt"));
+static_assert(symbolIs(kParamBrightDecay,    "brdec"));
+static_assert(symbolIs(kParamBrightSustain,  "brsus"));
+static_assert(symbolIs(kParamBrightRelease,  "brrel"));
+static_assert(symbolIs(kParamMpe,            "mpe"));
+static_assert(symbolIs(kParamPressBright,     "prsBright"));
+static_assert(symbolIs(kParamTmbBright,       "tmbBright"));
+static_assert(symbolIs(kParamTmbCutoff,       "tmbCutoff"));
+static_assert(symbolIs(kParamPressLevel,      "prsLevel"));
+static_assert(kParamPressLevel + 1 == kParamCount, "a new parameter needs its symbolIs line above");
+
+// Every dropdown's labels must cover its range exactly: integer, min 0, one label per step up to max.
+constexpr bool choicesMatchRange(uint32_t index)
+{
+   const char* const* c = choicesFor(index);
+   if (c == nullptr) return true;
+   uint32_t count = 0;
+   while (c[count] != nullptr) ++count;
+   const ParamSpec& s = kParams[index];
+   return s.integer && s.min == 0.0f && s.max == float(count - 1);
+}
+constexpr bool allChoicesMatchRanges()
+{
+   for (uint32_t i = 0; i < uint32_t(kParamCount); ++i)
+      if (!choicesMatchRange(i)) return false;
+   return true;
+}
+static_assert(allChoicesMatchRanges(), "a dropdown's label count does not match its parameter range");
 
 } // namespace modicumfm
 

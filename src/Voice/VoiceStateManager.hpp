@@ -9,16 +9,10 @@
 
 #include "pm_midi.h"
 
-#include <unordered_map>
 #include <optional>
 #include <vector>
 
 #include "Module.hpp"
-
-// later
-struct PerNoteControllerState {
-    std::unordered_map<uint8_t /*controller index*/, float> values;
-};
 
 enum class VoiceState {
     Inactive,
@@ -40,6 +34,8 @@ public:
 
     bool isPedalSustained() const { return pedalSustained; }
     void setPedalSustained(bool sustained) { pedalSustained = sustained; }
+    // The note has been let go: note-off received (ringing out) or held only by the sustain pedal.
+    bool isReleased() const { return state == VoiceState::Deactivating || pedalSustained; }
         
     // returns true if voice should propagate the message
     bool handleMIDIMessage(const pm::UmpMessage& message, uint32_t voiceID);
@@ -48,14 +44,24 @@ public:
     void process(uint32_t frameCount, Voice *voice, float *outLeft, float *outRight);
 
     VoiceState getState() { return state; }
+
+    // The note this voice is sounding (nullopt when idle), and the mono note stack in press order.
+    // Used to build note-offs that match on channel and group, not just note number.
+    const std::optional<pm::UmpMessage>& currentNote() const { return currentNoteOn; }
+    const std::vector<pm::UmpMessage>& heldNotes() const { return heldNoteStack; }
+    // Whether this voice still holds `noteOn` in any form: sounding (held or ringing out), arriving
+    // through a steal, or waiting in the mono stack. False once the voice has rung down to silence.
+    bool holdsNote(const pm::UmpMessage& noteOn) const;
+    // Whether any note this voice holds (as holdsNote) was played on this group/channel.
+    bool holdsNoteOnChannel(uint8_t group, uint8_t channel) const;
+    // All Sound Off: drop every note at once and go Inactive. The caller silences the modules.
+    void silence();
     inline const char* stateString() const;
     
 private:
     VoiceState state = VoiceState::Inactive;
     double sampleRate = 44100.0;
     bool pedalSustained = false;
-    
-    PerNoteControllerState pncStates;   // Later
     
     float duckPerSample = 1.0;  // for note stealing
     float duckMultiplier = 1.0;

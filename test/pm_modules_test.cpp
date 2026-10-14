@@ -3,6 +3,8 @@
 // inputs wired (via Voice), so here they are checked to compile + run + produce finite output;
 // their signal behaviour is exercised end-to-end once the voice engine lands.
 
+#include "CCConverterModule.hpp"
+#include "ChannelPressureModule.hpp"
 #include "CombineModule.hpp"
 #include "FinalModule.hpp"
 #include "Module.hpp"
@@ -74,6 +76,66 @@ int main() {
       m.addParams(&finalConstantsGroup);
       ProcessFinalModule(1, N, &m);
       CHECK(finiteBuf(m.output.first->data, N), "Final runs, finite output");
+   }
+
+   // --- ChannelPressure: released notes (MPE §3.3.3). Under MPE a released note keeps its member
+   // channel's pressure and still follows the master's; with MPE off channel pressure moves it. ---
+   {
+      const AUParameterAddress id =
+         MODULE_PARAM_ADDRESS(ModuleParamKindChannelPressure, ModuleInstance1, 0);
+      auto valueAfter = [&](bool mpe, std::initializer_list<pm::UmpMessage> beforeRelease,
+                            std::initializer_list<pm::UmpMessage> afterRelease) {
+         Module m(id, sr, N, &channelPressureConstantsGroup, InitChannelPressure,
+                  DeinitChannelPressure, ProcessChannelPressure, MIDIChannelPressure);
+         m.addParams(&channelPressureConstantsGroup);
+         m.params[ChannelPressureParamItemMPE - 1] = mpe ? 1.0f : 0.0f;
+         uint64_t call = 1;
+         for (const auto& msg : beforeRelease) MIDIChannelPressure(msg, &m);
+         ProcessChannelPressure(call++, N, &m);
+         m.noteReleased = true;   // as Voice::syncNoteReleased sets it after the note-off
+         for (const auto& msg : afterRelease) MIDIChannelPressure(msg, &m);
+         ProcessChannelPressure(call++, N, &m);   // N samples outlast the 2 ms ramp
+         const float v = m.output.first->data[N - 1];
+         DeinitChannelPressure(&m);
+         return v;
+      };
+      const pm::UmpMessage memberOn   = pm::fromMidi1Bytes(0x91, 60, 100);
+      const pm::UmpMessage memberHalf = pm::fromMidi1Bytes(0xD1, 64, 0);
+      const pm::UmpMessage memberZero = pm::fromMidi1Bytes(0xD1, 0, 0);
+      const pm::UmpMessage masterMore = pm::fromMidi1Bytes(0xD0, 96, 0);
+
+      const float kept = valueAfter(true, {memberOn, memberHalf}, {memberZero});
+      std::printf("ChannelPressure: MPE member pressure after release %.3f\n", kept);
+      CHECK(std::fabs(kept - 0.5f) < 0.01f, "MPE: a released note keeps its member pressure");
+      const float master = valueAfter(true, {memberOn, memberHalf}, {memberZero, masterMore});
+      CHECK(std::fabs(master - 0.75f) < 0.01f, "MPE: the master channel's pressure still reaches a released note");
+      const float off = valueAfter(false, {pm::fromMidi1Bytes(0x90, 60, 100), pm::fromMidi1Bytes(0xD0, 64, 0)},
+                                   {pm::fromMidi1Bytes(0xD0, 0, 0)});
+      CHECK(std::fabs(off) < 0.01f, "MPE off: channel pressure still moves a releasing note");
+   }
+
+   // --- CCConverter as the Timbre source (CC74, Per Note): the same release rule under MPE. ---
+   {
+      const AUParameterAddress id =
+         MODULE_PARAM_ADDRESS(ModuleParamKindControlChangeConverter, ModuleInstance1, 0);
+      Module m(id, sr, N, &ccConverterConstantsGroup, InitCCConverter, DeinitCCConverter,
+               ProcessCCConverter, MIDICCConverter);
+      m.addParams(&ccConverterConstantsGroup);
+      m.params[CCParamItemNumber - 1]  = 74.0f;
+      m.params[CCParamItemPerNote - 1] = 1.0f;
+      m.params[CCParamItemMPE - 1]     = 1.0f;
+      MIDICCConverter(pm::fromMidi1Bytes(0xB1, 74, 64), &m);
+      MIDICCConverter(pm::fromMidi1Bytes(0x91, 60, 100), &m);
+      ProcessCCConverter(1, N, &m);
+      CHECK(std::fabs(m.output.first->data[N - 1] - 0.5f) < 0.01f, "Timbre: CC74 64 on the note's channel reads 0.5");
+      m.noteReleased = true;
+      MIDICCConverter(pm::fromMidi1Bytes(0xB1, 74, 0), &m);
+      ProcessCCConverter(2, N, &m);
+      CHECK(std::fabs(m.output.first->data[N - 1] - 0.5f) < 0.01f, "Timbre (MPE): a released note keeps its member CC74");
+      MIDICCConverter(pm::fromMidi1Bytes(0xB0, 74, 127), &m);
+      ProcessCCConverter(3, N, &m);
+      CHECK(std::fabs(m.output.first->data[N - 1] - 1.0f) < 0.01f, "Timbre (MPE): the master channel's CC74 still applies");
+      DeinitCCConverter(&m);
    }
 
    if (g_fails == 0)

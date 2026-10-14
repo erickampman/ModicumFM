@@ -24,7 +24,7 @@ static int g_fails = 0;
 
 int main() {
    const auto& specs = getModuleInitSpecs();
-   CHECK(specs.size() == 10, "10 module specs");
+   CHECK(specs.size() == 11, "11 module specs");
 
    ModuleFactory factory(48000.0, 512);
    ModuleMap map;
@@ -38,7 +38,7 @@ int main() {
       mod->setPitchConverter(&pc);
       map.add(s.id, std::move(mod));
    }
-   CHECK(map.allModules().size() == 10, "10 modules built into the map");
+   CHECK(map.allModules().size() == 11, "11 modules built into the map");
 
    // Every module of the ModicumFM voice is present.
    const AUParameterAddress expected[] = {

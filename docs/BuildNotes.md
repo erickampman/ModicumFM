@@ -2,7 +2,7 @@ CONFIGURE
 
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-BUILD (also symlinks build/bin/ModicumFM.clap into ~/.clap via a post-build step)
+BUILD (also symlinks build/ModicumFM.clap into ~/.clap via a post-build step)
 
 cmake --build build -j
 
