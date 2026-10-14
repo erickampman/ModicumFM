@@ -34,7 +34,8 @@ down before testing the Cutoff knobs. Poly aftertouch through KeyboardEDO was te
 
 **Next: finish L on Linux.** The code side is already in: IFSynth's PIC fix came with step 0, and
 `.github/workflows/ci.yml` builds and tests on Ubuntu with gcc and clang and `-DMODICUMFM_WERROR=ON`.
-What no one has done is run it on a Linux desktop:
+What no one has done is run it on a Linux desktop. (Bringing an existing older clone up to date
+first: [LINUX-SETUP.md](LINUX-SETUP.md).)
 
 1. Deps (README "Build"): `sudo apt install pkg-config libgl1-mesa-dev libx11-dev libxext-dev
    libxrandr-dev libxcursor-dev ninja-build cmake`; clone with `--recurse-submodules` (dpf, clap).

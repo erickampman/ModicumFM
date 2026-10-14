@@ -21,7 +21,8 @@ clap-validator validate build/ModicumFM.clap
 ```
 
 Linux needs `pkg-config libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev` and
-the submodules (`git submodule update --init --recursive`). The build symlinks the plugin into
+the submodules (`git submodule update --init --recursive`). Updating an older Linux clone:
+[docs/LINUX-SETUP.md](docs/LINUX-SETUP.md). The build symlinks the plugin into
 `~/.clap` (Linux) or `~/Library/Audio/Plug-Ins/CLAP` (macOS).
 
 ## Working with the author
