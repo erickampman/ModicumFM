@@ -24,6 +24,7 @@
 // opens a full-window AlgorithmPicker of all 32.
 
 #include "DistrhoUI.hpp"
+#include "OpenGL.hpp"     // glClear for the stencil (see onNanoDisplay)
 
 #include "src/DistrhoUIInternal.hpp" // DPF's UIExporter (DPF_ROOT_DIR/distrho is on the include path)
 
@@ -537,6 +538,14 @@ protected:
     /* -- drawing / layout ------------------------------------------------- */
     void onNanoDisplay() override
     {
+        // NanoVG fills concave paths (the envelope graphs) through the stencil buffer and assumes it
+        // starts at zero, but DPF clears only colour and depth each frame (puglOnDisplayPrepare). A
+        // never-drawn region then holds garbage, and its first fill paints inverted bands (seen on
+        // the first switch to the Voice tab). NanoVG defers its GL work to the end of the frame, so
+        // clearing here still precedes every fill.
+        glStencilMask(0xff);
+        glClearStencil(0);
+        glClear(GL_STENCIL_BUFFER_BIT);
         beginPath(); rect(0, 0, getWidth(), getHeight()); fillColor(24, 26, 31); fill();
     }
     void onResize(const ResizeEvent& ev) override
@@ -573,6 +582,7 @@ private:
     std::unique_ptr<GroupBox>   fEngineGroup, fOpGroup;
     std::unique_ptr<GroupBox>   fLpfGroup, fFiltEnvGroup, fResponseGroup, fChorusGroup, fGlobalGroup;
     std::unique_ptr<GroupBox>   fCharGroup;                   // Voice tab
+    std::unique_ptr<GroupBox>   fExprGroup;                   // Voice tab, under Character
     std::unique_ptr<Label>      fOpLabel[kFmOperators];
     std::unique_ptr<Knob>       fKnobs[kParamCount];          // (Ratio entries are RatioKnobs)
     RatioKnob*                  fRatioKnob[kFmOperators] = {}; // views into fKnobs, per operator
@@ -582,7 +592,6 @@ private:
     std::unique_ptr<TabBar>     fViewTab;
     std::unique_ptr<EnvelopeGraph> fLoudEnv, fBrightEnv;   // Voice tab: shared envelopes
     std::unique_ptr<Label>      fLoudLabel, fBrightLabel;
-    std::unique_ptr<GroupBox>   fExprGroup;                   // Voice tab, under Character
     std::unique_ptr<Label>      fExprPressLabel, fExprTmbLabel;
     std::unique_ptr<TextButton> fCharReset;
     int                         fHoverMacro = -1;     // macro param under the mouse, or -1
