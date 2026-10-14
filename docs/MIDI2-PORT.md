@@ -1,7 +1,7 @@
 # ModicumFM: MIDI 2.0 / MPE / CLAP port
 
 Written 2026-10-14 to start the port of PlainOldSynth's 2026-10-09..12 work; kept up to date as it
-goes. Status: **steps 0, 6, 4 and 5 done.**
+goes. Status: **steps 0, 6, 4, 5, 1 and 1+ done.**
 
 The same work was done first in three sibling repos; port from them rather than re-deriving:
 
@@ -40,8 +40,8 @@ number, kept for cross-reference.
 | 6 | `static_assert` per `kParams` row (`symbolIs`) + dropdown label counts | IFSynth `d9a1b89` | **Done**: one assert per row, one per operator block, a count check that fails when a new parameter has no line, and dropdown labels against ranges. All 99 rows were checked by hand first; none were out of order. New parameters need a line in `ModicumFMParams.h`. |
 | 4 | Retina / multi-monitor editor sizing | IFSynth `5cf88a5` | **Done**. Checked by the author in REAPER on a Retina screen only (2026-10-14); **a non-Retina monitor is still unchecked**: open the editor there, move it between screens, and check clicks land. |
 | 5 | Never `params.rescan` from the audio thread | POS `f201e8c` | **Nothing to do** (checked 2026-10-14). `notifyHostValuesChanged` (the only `rescan`) is called only from `state_load`, on the main thread. The DSP side never changes one host parameter because of another (`applyVoiceMode` writes engine settings only); presets and the Voice tab Reset are UI-side and reach the host as gesture/value events. |
-| 1 | Per-note UMP decode; note + channel + group matching; engine-made note-offs; per-note bend; RC 7 | IFSynth `80c3008` | Per-note bend joins the existing Combine into FM6Op pitch. Check mono legato. |
-| 1+ | Per-note range follows the channel; RPN 0 / RC 7 kept across `reset()`; Pitch 7.25 | IFSynth `3967e15`, POS `69b455e` | The Bend Range param becomes the channel default; RPN 0 overrides it. |
+| 1 | Per-note UMP decode; note + channel + group matching; engine-made note-offs; per-note bend; RC 7 | IFSynth `80c3008` | **Done**, together with 1+ in one commit: IFSynth's PitchBendConverter (at `3967e15`) replaces ModicumFM's channel-only one, and its bend still reaches FM6Op through the existing Combine 2. Mono legato ramps the bend via `Module::legatoContinuation`, which ModicumFM already had. |
+| 1+ | Per-note range follows the channel; RC 7 kept across `reset()`; Pitch 7.25 | IFSynth `3967e15`, POS `69b455e` | **Done** (see row 1). The Bend Range param is the channel range and the per-note default. RPN 0 comes with step 7, as in IFSynth. |
 | 2 | CLAP note ids; note expressions (tuning as Pitch 7.25) | IFSynth `153a6d0` | |
 | — | CLAP NOTE_END + voice-info | IFSynth `406a452` | NOTE_END when the voice frees (Final silent). |
 | 7 | MPE switch (lower zone) + RPN 0 | IFSynth `de5f654` | UI-visible; proposed: Off/On in Global beside Poly/Mono, kept out of presets. |

@@ -7,6 +7,7 @@
 #include "pm_midi.h"
 #include "pm_addresses.h"
 #include "VoiceManager.hpp"
+#include <algorithm>
 
 bool VoiceManager::loggingEnabled = false;
 
@@ -244,12 +245,33 @@ void VoiceManager::handleSustainPedalChange(bool newState) {
             for (auto& voice : voices) {
                 if (voice->id == voiceID && voice->voiceStateManager.isPedalSustained()) {
                     voice->voiceStateManager.setPedalSustained(false);
-                    pm::UmpMessage noteOff = pm::makeNoteOff(voice->currentNoteNumber);
-                    voice->handleMIDIMessage(noteOff);
+                    // Built from the voice's own note-on so it carries that note's channel and group,
+                    // which note-off matching requires.
+                    const auto& current = voice->voiceStateManager.currentNote();
+                    if (auto noteOff = current ? pm::makeNoteOffMsgFromOnMsg(*current) : std::nullopt) {
+                        voice->handleMIDIMessage(*noteOff);
+                    }
                 }
             }
         }
         pedalSustainedVoiceIDs.clear();
+    }
+}
+
+// Release every note a voice holds: the mono stack's silent notes first, then the sounding one, so
+// releasing the sounding note never retriggers a stacked note. Note-offs are built from the
+// note-ons themselves because note-off matching includes channel and group.
+void VoiceManager::releaseAllNotes(Voice& voice) {
+    std::vector<pm::UmpMessage> notes = voice.voiceStateManager.heldNotes();   // copy: mutated below
+    const std::optional<pm::UmpMessage> current = voice.voiceStateManager.currentNote();
+    if (current) {
+        notes.erase(std::remove_if(notes.begin(), notes.end(),
+                        [&current](const pm::UmpMessage& m) { return pm::isSameNote(m, *current); }),
+                    notes.end());
+        notes.push_back(*current);
+    }
+    for (const pm::UmpMessage& on : notes) {
+        if (auto noteOff = pm::makeNoteOffMsgFromOnMsg(on)) voice.handleMIDIMessage(*noteOff);
     }
 }
 
@@ -258,36 +280,22 @@ void VoiceManager::allNotesOff() {
     sustainPedalActive = false;
     pedalSustainedVoiceIDs.clear();
 
-	pm::UmpMessage msg = pm::makeNoteOff(0);
-
 	for (auto& voice : voices) {
         voice->voiceStateManager.setPedalSustained(false);
 		if (voice->isActive()) {
-			for (uint8_t curNote = 0; curNote <= 127; ++curNote) {
-				msg.note = curNote;
-				voice->handleMIDIMessage(msg);
-			}
+            releaseAllNotes(*voice);
 		}
 	}
 }
 
 void VoiceManager::panic() {
-    // Read the current Group and Channel filter settings.
-    // Values: 0 = no filter, 1-16 maps to group/channel 0-15.
-    uint32_t groupFilter   = uint32_t(voiceManagerParamByEnum(MIDIParamItemGroupFilterValue));
-    uint32_t channelFilter = uint32_t(voiceManagerParamByEnum(MIDIParamItemChannelFilterValue));
-
-    // If a filter is active use that specific group/channel; otherwise default to 0.
-    uint8_t group   = (groupFilter   > 0) ? uint8_t(groupFilter   - 1) : 0;
-    uint8_t channel = (channelFilter > 0) ? uint8_t(channelFilter - 1) : 0;
-
-    // Send Note Off for every possible note number, targeting every voice directly
-    // so the Group/Channel filter in handleMIDIMessage() is intentionally bypassed.
-    for (uint8_t note = 0; note <= 127; ++note) {
-        pm::UmpMessage msg = pm::makeNoteOff(note, channel, group);
-        for (auto& voice : voices) {
-            voice->handleMIDIMessage(msg);
-        }
+    // Every voice, whatever the Group/Channel filter says: handleMIDIMessage()'s filter is bypassed
+    // by talking to the voices directly.
+    sustainPedalActive = false;
+    pedalSustainedVoiceIDs.clear();
+    for (auto& voice : voices) {
+        voice->voiceStateManager.setPedalSustained(false);
+        releaseAllNotes(*voice);
     }
 }
 

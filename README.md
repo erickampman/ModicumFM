@@ -48,6 +48,16 @@ note pitch + pitch bend ──> FM6Op engine
   (velocity → modulator levels, i.e. brightness) and Key Track (note → modulator levels and
   decay/release times), both neutral at 0.
 - **Global**: Poly / Mono, pitch-bend range (off … ±4 semitones), Quality, master level.
+- **MIDI 2.0 pitch** (from PlainOldSynth, via IFSynth): notes match on note + channel + group, so the
+  same key on two channels is two notes, and per-note messages reach only the note they name.
+  - **Channel bend** is tracked per channel; each note follows its own channel's.
+  - **Per-note pitch bend** (UMP 0x6) uses the channel's range (the Bend Range param) unless
+    **registered controller 7** (per-note bend sensitivity) sets one for that channel. M2-104 v1.0
+    §4.2.12: per-note bend "acts like Pitch Bend in every way". RC 7 is from a later revision.
+  - **Pitch 7.25** (registered per-note controller #3) sets the sounding note's absolute pitch, and
+    both bends offset from it. It lasts for that note only (no tuning table).
+  - Bend changes ramp over 2 ms; a new note starts at its bent pitch, and a mono legato note ramps.
+    RC 7 survives `reset()` (configuration a controller sends once; some hosts reset on stop).
 - **Presets**: factory presets in `Presets/*.json`, baked into the plugin at build time —
   classic DX-style starting points: E.Piano, Tubular Bells, Organ, Bass, Brass, Pluck, Glass Pad,
   Drowning With Chowning, plus Init. (Organ: four drawbars on algorithm 31 plus a dedicated chiff carrier.) In-UI
@@ -62,7 +72,7 @@ The plugin implements the CLAP entry point itself (`src/plugin.cpp`) and keeps t
 [DISTRHO Plugin Framework (DPF)](https://github.com/DISTRHO/DPF) purely as the GUI layer, so it can
 receive MIDI 2.0 notes (including 7.9 microtonal pitch) that DPF's generated CLAP wrapper drops.
 
-Next: MIDI 2.0 per-note pitch bend and expression, MPE input, and CLAP note expressions; see
+Next: CLAP note expressions, MPE input, and per-note expression; see
 [docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).
 
 ## Layout

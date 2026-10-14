@@ -23,7 +23,8 @@ const std::vector<ModuleInitSpec>& getModuleInitSpecs() {
       {pitchConverter1Address, &pitchConverterModuleConstantsGroup, InitPitchConverter,
        DeinitPitchConverter, ProcessPitchConverter, MIDIPitchConverter, nullptr, nullptr, nullptr},
       {pitchBend1Address, &pitchBendConverterConstantsGroup, InitPitchBendConverter,
-       DeinitPitchBendConverter, ProcessPitchBendConverter, MIDIPitchBendConverter, nullptr, nullptr, nullptr},
+       DeinitPitchBendConverter, ProcessPitchBendConverter, MIDIPitchBendConverter, nullptr,
+       ResetPitchBendConverter, nullptr},
       {combine2Address, &combineConstantsGroup, nullptr, nullptr, ProcessCombineModule, nullptr,
        nullptr, nullptr, nullptr},
       // The FM engine.

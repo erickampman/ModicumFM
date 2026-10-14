@@ -323,7 +323,8 @@ enum LFOParamLRPhase : NSUInteger {   // L/R phase offset choices (index 0..4)
 };
 
 enum PitchBendConverterParamItem : NSUInteger {
-   PitchBendConverterParamItemQuarterTones = 1, // indexed bend range, 0..8 quarter-tones
+   PitchBendConverterParamItemQuarterTones = 1, // channel bend range, 0..8 quarter-tones; also the
+                                                // per-note range until registered controller 7 sets one
 };
 
 enum ChannelPressureParamItem : NSUInteger {
