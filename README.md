@@ -124,7 +124,7 @@ messages stop reaching it; a CLAP note addressed by its id keeps taking expressi
 NOTE_END. With MPE off a pitch wheel and aftertouch still move releasing notes. Timbre (CC 74)
 follows the same rules.
 
-Next: Linux CI; see
+Built and tested on macOS and Linux (CI on both); the port record is
 [docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).
 
 ## Layout
