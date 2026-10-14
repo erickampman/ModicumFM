@@ -1,7 +1,7 @@
 # ModicumFM: MIDI 2.0 / MPE / CLAP port
 
 Written 2026-10-14 to start the port of PlainOldSynth's 2026-10-09..12 work; kept up to date as it
-goes. Status: **planned, step 0 in progress.**
+goes. Status: **step 0 done.**
 
 The same work was done first in three sibling repos; port from them rather than re-deriving:
 
@@ -36,7 +36,7 @@ number, kept for cross-reference.
 
 | SS # | What | Port from | ModicumFM notes |
 |---|---|---|---|
-| 0 | Raw CLAP entry point (`src/plugin.cpp`, DPF for the GUI only, MIDI2 dialect) + headless host test | IFSynth `9cab332`, SS `53e642f` | `state_load` only stores values and the next block applies them (IFSynth's way; POS still owes this). Keep the post-build symlink. |
+| 0 | Raw CLAP entry point (`src/plugin.cpp`, DPF for the GUI only, MIDI2 dialect) + headless host test | IFSynth `9cab332`, SS `53e642f` | **Done** (this commit, see `git log`). `state_load` only stores values and the next block applies them. Same CLAP id and 0-based param ids as the DPF build, and DPF's old state blob loads. Includes IFSynth's Linux PIC fix (`e5a32e3`), so row L is down to Linux CI. Text → value no longer divides ms-unit params (Chorus Depth / Delay) by 1000. |
 | 6 | `static_assert` per `kParams` row (`symbolIs`) + dropdown label counts | IFSynth `d9a1b89` | |
 | 4 | Retina / multi-monitor editor sizing | IFSynth `5cf88a5` | Author checks on both monitors. |
 | 5 | Never `params.rescan` from the audio thread | POS `f201e8c` | Check the Voice tab Reset / macros for DSP-side param changes. |

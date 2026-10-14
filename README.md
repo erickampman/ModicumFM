@@ -53,27 +53,34 @@ note pitch + pitch bend ──> FM6Op engine
   Drowning With Chowning, plus Init. (Organ: four drawbars on algorithm 31 plus a dedicated chiff carrier.) In-UI
   help page (`Resources/help.html`).
 
-MIDI notes are sample-accurate: `run()` splits rendering at each event's frame offset, then
+MIDI notes are sample-accurate: `process()` splits rendering at each event's frame offset, then
 renders in 64-sample control chunks, so filter-envelope and pressure modulation update about
-every 1.3 ms. Parameter changes are applied per host block (DPF applies them before
-`run()`).
+every 1.3 ms. Parameter changes from the host are applied at their event; edits from the editor
+are applied at the top of the next block.
 
-The wrapper is built with the [DISTRHO Plugin Framework (DPF)](https://github.com/DISTRHO/DPF),
-which generates the CLAP around our DSP + UI subclasses.
+The plugin implements the CLAP entry point itself (`src/plugin.cpp`) and keeps the
+[DISTRHO Plugin Framework (DPF)](https://github.com/DISTRHO/DPF) purely as the GUI layer, so it can
+receive MIDI 2.0 notes (including 7.9 microtonal pitch) that DPF's generated CLAP wrapper drops.
+
+Next: MIDI 2.0 per-note pitch bend and expression, MPE input, and CLAP note expressions; see
+[docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).
 
 ## Layout
 
-The engine (`src/`) mirrors PolygraphModular's structure; the DPF plugin assembly lives in
-`plugin/` + `src/UI/`:
+The engine (`src/`) mirrors PolygraphModular's structure. DPF is used **only as the GUI layer**
+(UIExporter + NanoVG + pugl); the CLAP entry point is hand-written in `src/plugin.cpp`:
 
 ```
-plugin/               the DPF plugin definition (the CLAP wrapper is generated from these)
-                        DistrhoPluginInfo.h (plugin flags), ModicumFMParams.h (shared param
-                        table, append-only), ModicumFMPlugin.cpp (DSP: MIDI + params → VoiceManager)
+plugin/               the shared plugin definition
+                        DistrhoPluginInfo.h (UI flags; the plugin identity macros are inert),
+                        ModicumFMParams.h (shared param table, append-only, + dropdown labels)
+src/plugin.cpp        the raw CLAP plugin: entry point, note/audio/params/state/gui extensions,
+                        and the DSP glue (MIDI + params → VoiceManager)
+src/plugin_gui.h      the C seam between plugin.cpp and the GUI shell
 src/UI/               the plugin GUI (reusable NanoVG widgets + the panel)
                         Knob, RatioKnob, EnvelopeGraph, AlgorithmDiagram (view + picker), Dropdown, PopupMenu, TabBar, GroupBox,
                         Label, TitleText, Logo, HelpButton; ParamEdit.hpp (multi-param edits); PresetKeys / PresetDump (preset menu + dev-only JSON dumper);
-                        ModicumFMUI.cpp — the panel
+                        ModicumFMUI.cpp — the panel, and the CLAP gui extension (UIExporter)
 src/Common/           shim + MIDI + params + utilities
                         pm_compat.h (Apple→portable), pm_midi.* (spec UMP + MIDI-1 decode, incl.
                         pitch bend / channel pressure), clap_ump.h, pm_params.h / pm_param_data.* /
@@ -92,8 +99,8 @@ Presets/              factory presets (JSON), compiled into GeneratedPresets.h b
 Resources/            font, logo and help page, embedded into the binary at build time
 test/                 in-process self-tests (see TESTING.md)
 docs/                 ROADMAP.md (the macro / template plan), BuildNotes.md
-dpf/                  DISTRHO Plugin Framework (submodule, + nested pugl) — generates the .clap
-external/clap         CLAP headers (submodule, pinned 1.2.9) — used by the framework self-tests
+dpf/                  DISTRHO Plugin Framework (submodule, + nested pugl) — the GUI layer only
+external/clap         CLAP headers (submodule, pinned 1.2.9) — the plugin and the tests
 ```
 
 ## Build
@@ -108,12 +115,14 @@ Then:
 
 ```sh
 git clone --recurse-submodules <this-repo>
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
+cmake -G Ninja -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ctest --test-dir build --output-on-failure     # see TESTING.md for the full suite
 ```
 
-Produces `build/bin/ModicumFM.clap`. A post-build step symlinks it into `~/.clap` (Linux) or
+Ninja is recommended: on macOS, Make fails when Xcode's path has a space (e.g. `Xcode 26.3.app`).
+
+Produces `build/ModicumFM.clap` (a bundle on macOS). A post-build step symlinks it into `~/.clap` (Linux) or
 `~/Library/Audio/Plug-Ins/CLAP/` (macOS), so any CLAP host picks up the freshest build after a
 rescan. Validate with [`clap-validator`](https://github.com/free-audio/clap-validator). Test
 details in [TESTING.md](TESTING.md).

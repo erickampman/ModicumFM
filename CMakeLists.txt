@@ -3,6 +3,12 @@ cmake_minimum_required(VERSION 3.17)
 # C is needed for DPF's pugl / dgl sources.
 project(ModicumFM VERSION 0.1.0 LANGUAGES C CXX)
 
+# Everything is linked into the .clap, a shared module, so every static library in it (the engine,
+# the plugin core, DPF's DGL) must be position-independent. clang on Linux defaults to PIE and
+# hides this; gcc does not ("relocation R_X86_64_PC32 ... recompile with -fPIC"). As IFSynth
+# (e5a32e3) and PlainOldSynth.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set(CMAKE_CXX_STANDARD 20)          # PM framework uses std::numbers / std::span
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -73,52 +79,111 @@ add_custom_command(
     COMMENT "Embedding Resources/* as compiled-in data")
 add_custom_target(generate_resources DEPENDS "${MODICUMFM_RESOURCES_HPP}" "${MODICUMFM_RESOURCES_CPP}")
 
-# --- the plugin: CLAP + OpenGL UI, built with DPF --------------------------
-# DPF (vendored submodule) owns the plugin wrapper and generates the .clap from our DSP + UI
-# subclasses; the DSP side drives pm_framework's VoiceManager.
+# --- DPF is used ONLY for the GUI ------------------------------------------
+# UIExporter + NanoVG + pugl (plus the native WebView the Help button needs). The CLAP entry point
+# is ours (src/plugin.cpp), because DPF's generated CLAP wrapper cannot receive MIDI 2.0 note
+# events: see that file's header.
 add_subdirectory(dpf)
-dpf_add_plugin(ModicumFM
-    TARGETS clap
-    UI_TYPE opengl
-    USE_WEB_VIEW
-    FILES_DSP
-        plugin/ModicumFMPlugin.cpp
-    FILES_UI
-        src/UI/ModicumFMUI.cpp)
-# So both DSP and UI sources find DistrhoPluginInfo.h + ModicumFMParams.h.
-target_include_directories(ModicumFM PUBLIC plugin)
-# The DSP side pulls in the vendored engine.
-target_link_libraries(ModicumFM-dsp PUBLIC pm_framework)
-# The UI shares framework headers (FM6OpAlgorithms.hpp for the algorithm names and operator roles),
-# so it links pm_framework too. Static-lib symbol extraction dedups it in the final .clap.
-target_link_libraries(ModicumFM-ui PUBLIC pm_framework)
-# Generated preset array (see the codegen step above) — must exist before ModicumFMUI.cpp compiles.
-add_dependencies(ModicumFM-ui generate_presets)
-target_include_directories(ModicumFM-ui PRIVATE "${CMAKE_BINARY_DIR}/generated")
-# Embedded logo bytes — the generated .cpp defines the data the .hpp declares.
-add_dependencies(ModicumFM-ui generate_resources)
-target_sources(ModicumFM-ui PRIVATE "${MODICUMFM_RESOURCES_CPP}")
-# DPF may default to an older standard; the DSP glue includes C++20 framework headers.
-set_target_properties(ModicumFM-dsp ModicumFM-ui PROPERTIES
-    CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+# dgl-opengl is normally created by dpf_add_plugin()'s UI_TYPE branch; call the same helper
+# directly. SHARED_RESOURCES=TRUE embeds DGL's DejaVu font. USE_WEB_VIEW=TRUE mirrors
+# dpf_add_plugin's USE_WEB_VIEW: it defines DGL_USE_WEB_VIEW PUBLIC (required by
+# DistrhoPluginChecks.h when DISTRHO_UI_WEB_VIEW is 1) and builds DGL's own WebView impl.
+# USE_FILE_BROWSER=TRUE brings in the Distrho String/ChildProcess helpers that impl uses.
+dpf__add_dgl_opengl(TRUE TRUE TRUE)
+
+# --- modicumfm_core: the whole plugin (DSP + host glue + GUI shell) as one static archive --------
+# Hidden visibility for our own objects, so clap_entry (marked CLAP_EXPORT in plugin.cpp) is the
+# only symbol this target exports (the vendored engine and DGL libraries keep their own default
+# visibility).
+add_library(modicumfm_core STATIC
+    src/plugin.cpp
+    src/UI/ModicumFMUI.cpp
+    "${MODICUMFM_RESOURCES_CPP}"                # generated: the logo/help bytes (see above)
+    "${DPF_ROOT_DIR}/distrho/src/DistrhoUI.cpp"
+    "${DPF_ROOT_DIR}/distrho/src/DistrhoUtils.cpp")
+set_target_properties(modicumfm_core PROPERTIES
+    C_VISIBILITY_PRESET hidden
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON)
+target_include_directories(modicumfm_core PUBLIC
+    src                               # plugin_gui.h (the DSP <-> GUI seam)
+    plugin                            # DistrhoPluginInfo.h + ModicumFMParams.h
+    external/clap/include             # <clap/clap.h> (the raw entry point)
+    "${CMAKE_BINARY_DIR}/generated"   # GeneratedPresets.h + EmbeddedResources.hpp
+    "${DPF_ROOT_DIR}/distrho")        # DistrhoUI.hpp / DistrhoUIInternal.hpp
+target_compile_definitions(modicumfm_core PUBLIC
+    DISTRHO_PLUGIN_TARGET_CLAP
+    DISTRHO_IS_STANDALONE=0
+    MODICUMFM_VERSION_STRING="${PROJECT_VERSION}")
+target_link_libraries(modicumfm_core PUBLIC pm_framework dgl-opengl)
+add_dependencies(modicumfm_core generate_presets generate_resources)
+# TRUE = the UI's Help button opens a native WebView. On macOS this adds DistrhoUI_macOS.mm and
+# links WebKit; the WebView implementation itself comes from DPF's UI sources, not from dgl.
+dpf__add_plugin_specific_ui_sources(modicumfm_core TRUE)
 # Dev-only JSON patch dumper (keystroke → file); compiled out of release builds.
 if(MODICUMFM_PRESET_DUMP)
-    target_compile_definitions(ModicumFM-ui PRIVATE MODICUMFM_PRESET_DUMP=1)
+    target_compile_definitions(modicumfm_core PRIVATE MODICUMFM_PRESET_DUMP=1)
+endif()
+
+# --- the .clap output ------------------------------------------------------
+# A MODULE with no sources of its own would be rejected by CMake, and simply linking the archive is
+# not enough: nothing references clap_entry, so the linker would drop the object that defines it.
+# Hence the empty placeholder plus a whole-archive force-load.
+function(modicumfm_force_load_whole_archive TARGET_NAME LIB_NAME)
+    if(APPLE)
+        target_link_options(${TARGET_NAME} PRIVATE "-Wl,-force_load,$<TARGET_FILE:${LIB_NAME}>")
+    elseif(UNIX)
+        target_link_options(${TARGET_NAME} PRIVATE
+            "-Wl,--whole-archive" "$<TARGET_FILE:${LIB_NAME}>" "-Wl,--no-whole-archive")
+    endif()
+endfunction()
+
+set(MODICUMFM_EMPTY_SOURCE "${CMAKE_BINARY_DIR}/generated/modicumfm_empty.c")
+# A genuinely empty file trips -Wempty-translation-unit under -Wpedantic -Werror, and ISO C requires
+# at least one declaration anyway.
+set(_modicumfm_empty_content "typedef int modicumfm_empty_translation_unit_marker;\n")
+set(_modicumfm_empty_existing "")
+if(EXISTS "${MODICUMFM_EMPTY_SOURCE}")
+    file(READ "${MODICUMFM_EMPTY_SOURCE}" _modicumfm_empty_existing)
+endif()
+if(NOT _modicumfm_empty_existing STREQUAL _modicumfm_empty_content)
+    file(WRITE "${MODICUMFM_EMPTY_SOURCE}" "${_modicumfm_empty_content}")
+endif()
+
+add_library(ModicumFM MODULE "${MODICUMFM_EMPTY_SOURCE}")
+target_link_libraries(ModicumFM PRIVATE modicumfm_core)
+modicumfm_force_load_whole_archive(ModicumFM modicumfm_core)
+
+if(APPLE)
+    set_target_properties(ModicumFM PROPERTIES
+        BUNDLE TRUE
+        BUNDLE_EXTENSION "clap"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.unlikelyware.modicumfm"
+        MACOSX_BUNDLE_BUNDLE_NAME "ModicumFM"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")
+else()
+    set_target_properties(ModicumFM PROPERTIES PREFIX "" SUFFIX ".clap")
 endif()
 
 # --- install: symlink the built .clap into the user CLAP dir ---------------
-# Runs automatically after ModicumFM-clap is (re)built, so the plugin in the
-# user CLAP dir is always a symlink pointing at the freshest build.
-# create_symlink replaces any existing file or link, so this is idempotent.
+# Runs automatically after ModicumFM is (re)built, so the plugin in the user CLAP dir is always a
+# symlink pointing at the freshest build. The rm first clears an old link or a copied bundle
+# directory, which create_symlink would not replace.
 if(APPLE)
     set(MODICUMFM_CLAP_DIR "$ENV{HOME}/Library/Audio/Plug-Ins/CLAP")
+    set(MODICUMFM_CLAP_ARTIFACT "$<TARGET_BUNDLE_DIR:ModicumFM>")
 else()
     set(MODICUMFM_CLAP_DIR "$ENV{HOME}/.clap")
+    set(MODICUMFM_CLAP_ARTIFACT "$<TARGET_FILE:ModicumFM>")
 endif()
-add_custom_command(TARGET ModicumFM-clap POST_BUILD
+add_custom_command(TARGET ModicumFM POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${MODICUMFM_CLAP_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "${MODICUMFM_CLAP_DIR}/ModicumFM.clap"
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        "${CMAKE_BINARY_DIR}/bin/ModicumFM.clap"
+        "${MODICUMFM_CLAP_ARTIFACT}"
         "${MODICUMFM_CLAP_DIR}/ModicumFM.clap"
     COMMENT "Symlinking ModicumFM.clap into ${MODICUMFM_CLAP_DIR}"
     VERBATIM)
@@ -186,3 +251,23 @@ set_tests_properties(pm-fm6op PROPERTIES PASS_REGULAR_EXPRESSION "ALL PASS")
 
 add_test(NAME pm-voicemanager COMMAND pm-voicemanager-test)
 set_tests_properties(pm-voicemanager PROPERTIES PASS_REGULAR_EXPRESSION "ALL PASS")
+
+# --- end-to-end CLAP host test: note-port dialect negotiation + the MIDI 2.0 7.9-pitch path ------
+# Drives the real built .clap over the CLAP C API (no DAW, no GUI): dlopen + clap_entry + factory,
+# then a MIDI 2.0 channel-voice-2 NoteOn carrying a 7.9-pitch attribute. This is the only check that
+# proves the raw entry point does what dpf_add_plugin could not.
+add_executable(mfm-clap-host-test test/mfm_clap_host_test.cpp)
+target_include_directories(mfm-clap-host-test PRIVATE
+    external/clap/include             # <clap/clap.h>
+    plugin)                           # ModicumFMParams.h (parameter ids/enums)
+# dlopen/dlsym/dlclose: on glibc before 2.34 these live in libdl.
+target_link_libraries(mfm-clap-host-test PRIVATE ${CMAKE_DL_LIBS})
+add_dependencies(mfm-clap-host-test ModicumFM)
+
+if(APPLE)
+    set(MODICUMFM_CLAP_UNDER_TEST "$<TARGET_BUNDLE_DIR:ModicumFM>")
+else()
+    set(MODICUMFM_CLAP_UNDER_TEST "$<TARGET_FILE:ModicumFM>")
+endif()
+add_test(NAME mfm-clap COMMAND mfm-clap-host-test "${MODICUMFM_CLAP_UNDER_TEST}")
+set_tests_properties(mfm-clap PROPERTIES PASS_REGULAR_EXPRESSION "ALL PASS")

@@ -12,7 +12,7 @@ validator. Everything runs headless on Linux/macOS — no DAW or audio device re
   git submodule update --init --recursive
   ```
 
-- To build the plugin itself (DPF's OpenGL/NanoVG UI), the X11 + GL dev packages:
+- To build the plugin itself (DPF's OpenGL/NanoVG UI, the GUI layer), the X11 + GL dev packages:
 
   ```sh
   sudo apt install pkg-config libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev
@@ -32,8 +32,8 @@ PolygraphModular headers stay on that code's own warning style.
 
 ## What each test covers
 
-The eight CTest cases exercise the `pm_framework` engine end-to-end (the DPF plugin wrapper
-itself is covered by `clap-validator`, below):
+Eight CTest cases exercise the `pm_framework` engine end-to-end, and `mfm-clap` drives the built
+plugin through the CLAP C API (`clap-validator`, below, covers CLAP conformance):
 
 | CTest name       | Executable               | Verifies |
 |------------------|--------------------------|----------|
@@ -45,6 +45,7 @@ itself is covered by `clap-validator`, below):
 | `pm-modicumfm`         | `pm-modicumfm-test`            | The ModicumFM voice: note plays at pitch, full pitch bend = +2 semitones, channel pressure opens the filter, voice frees on release |
 | `pm-fm6op`       | `pm-fm6op-test`          | FM6Op: algorithm-table invariants, operator-role analysis, all 32 algorithms sound and stay within ±1, algorithm 4's cross-feedback reaches the sound, velocity floor + curves, Character macros (neutral identical; Brightness / Bite / Grit / Body direction), Touch (exact modulator scaling by velocity) and Key Track (darker + faster decay up the keyboard; middle C unchanged), shared envelopes (neutral identical; Loudness attack, Brightness decay/sustain, Loudness sustain on a pluck) |
 | `pm-voicemanager`| `pm-voicemanager-test`   | Polyphony: a 3-note chord allocates 3 voices and frees them on release |
+| `mfm-clap`       | `mfm-clap-host-test`     | The built `.clap`: ports, note dialects (MIDI 2.0 preferred), gui extension, params (ids = indexes, enums), state (incl. the legacy DPF blob and loading while active), and 7.9-pitch / CLAP / MIDI 1.0 notes measured end to end |
 
 ## Running a single test
 
@@ -62,7 +63,7 @@ Validate the built plugin against the CLAP spec with
 [`clap-validator`](https://github.com/free-audio/clap-validator):
 
 ```sh
-clap-validator validate build/bin/ModicumFM.clap
+clap-validator validate build/ModicumFM.clap
 ```
 
 ## Continuous integration

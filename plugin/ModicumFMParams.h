@@ -7,7 +7,7 @@
 // (see the helpers below). Ranges and defaults mirror the module constants in pm_param_data.cpp
 // unless noted.
 //
-// APPEND-ONLY: DPF exposes each param's index as its host-facing id, so saved sessions and
+// APPEND-ONLY: each param's index is its host-facing CLAP id (as it was under DPF), so saved sessions and
 // automation key off these positions. New params (macros, templates, … — see docs/ROADMAP.md)
 // go immediately before kParamCount; never reorder or remove existing ones.
 
@@ -181,6 +181,42 @@ static constexpr ParamSpec kParams[kParamCount] = {
 };
 
 #undef MODICUMFM_FM_OP_SPECS
+
+// --- dropdowns -------------------------------------------------------------------------------
+// One source of truth for "is this parameter stepped-with-labels, and what are the labels": the
+// CLAP params extension (CLAP_PARAM_IS_ENUM + value/text conversion) and the UI dropdowns both read
+// it from here, so a label can never drift between the host's generic panel and our own.
+
+static constexpr const char* kVoiceModeChoices[] = { "Mono", "Poly", nullptr };
+static constexpr const char* kBendRangeChoices[] = { "Off", "0.5 st", "1 st", "1.5 st", "2 st",
+                                                     "2.5 st", "3 st", "3.5 st", "4 st", nullptr };
+static constexpr const char* kVelFloorChoices[]  = { "0%", "25%", "50%", "75%", "Fixed", nullptr }; // level of the softest note
+static constexpr const char* kVelCurveChoices[]  = { "Concave", "Linear", "Convex", nullptr };
+static constexpr const char* kQualityChoices[]   = { "Normal", "High", "Best", nullptr };            // oversampling Off / 2x / 4x
+static constexpr const char* kOpWaveChoices[]    = { "Sine", "1+2", "1+3", "1+3+5", "1-4", nullptr }; // harmonic stacks
+
+// Operator o's Wave param, for any o.
+constexpr bool isOpWaveParam(uint32_t index)
+{
+   return index >= kParamOp1Wave && index < kParamOp1Wave + kFmOperators * kFmOpCount
+       && (index - kParamOp1Wave) % kFmOpCount == kOpWave;
+}
+
+// Null-terminated label list for a dropdown parameter, or nullptr when it is a plain value.
+inline const char* const* choicesFor(uint32_t index)
+{
+   if (isOpWaveParam(index)) return kOpWaveChoices;
+   switch (index) {
+   case kParamVoiceMode:  return kVoiceModeChoices;
+   case kParamBendRange:  return kBendRangeChoices;
+   case kParamVelFloor:   return kVelFloorChoices;
+   case kParamVelCurve:   return kVelCurveChoices;
+   case kParamOversample: return kQualityChoices;
+   default:               return nullptr;
+   }
+}
+
+inline bool isDropdownParam(uint32_t index) { return choicesFor(index) != nullptr; }
 
 } // namespace modicumfm
 
