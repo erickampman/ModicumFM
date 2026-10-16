@@ -564,7 +564,7 @@ protected:
         glStencilMask(0xff);
         glClearStencil(0);
         glClear(GL_STENCIL_BUFFER_BIT);
-        beginPath(); rect(0, 0, getWidth(), getHeight()); fillColor(24, 26, 31); fill();
+        beginPath(); rect(0, 0, getWidth(), getHeight()); fillColor(Color(28, 20, 34)); fill();
     }
     void onResize(const ResizeEvent& ev) override
     {
