@@ -51,7 +51,7 @@ constexpr uint32_t kFmEngineParamCount = kFmOpBase + kFmOperators * kFmOpCount; 
 
 enum ParamIndex {
    // Global
-   kParamVoiceMode = 0,  // 0 = Mono (legato), 1 = 10-voice poly
+   kParamVoiceMode = 0,  // 0 = Mono (legato), 1 = 10-voice poly, 2 = 20, 3 = 32
    kParamBendRange,      // pitch-bend range in quarter-tones, 0 (off) .. 8 (4 semitones)
    kParamMasterLevel,
    // FM engine
@@ -148,7 +148,7 @@ struct ParamSpec {
 
 static constexpr ParamSpec kParams[kParamCount] = {
    // Global
-   {"Voices",       "voices",   "",   0.0f,   1.0f,   1.0f,  false, true },
+   {"Voices",       "voices",   "",   0.0f,   3.0f,   1.0f,  false, true },
    {"Bend Range",   "bend",     "",   0.0f,   8.0f,   4.0f,  false, true },
    {"Master",       "master",   "",   0.0f,   1.0f,   0.7f,  false, false},
    // FM engine. Init voice: algorithm 1, Op2 gently modulating Op1; the rest silent.
@@ -217,7 +217,7 @@ static constexpr ParamSpec kParams[kParamCount] = {
 // CLAP params extension (CLAP_PARAM_IS_ENUM + value/text conversion) and the UI dropdowns both read
 // it from here, so a label can never drift between the host's generic panel and our own.
 
-static constexpr const char* kVoiceModeChoices[] = { "Mono", "Poly", nullptr };
+static constexpr const char* kVoiceModeChoices[] = { "Mono", "Poly 10", "Poly 20", "Poly 32", nullptr };
 static constexpr const char* kBendRangeChoices[] = { "Off", "0.5 st", "1 st", "1.5 st", "2 st",
                                                      "2.5 st", "3 st", "3.5 st", "4 st", nullptr };
 static constexpr const char* kVelFloorChoices[]  = { "0%", "25%", "50%", "75%", "Fixed", nullptr }; // level of the softest note

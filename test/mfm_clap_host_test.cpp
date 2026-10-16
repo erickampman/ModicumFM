@@ -544,6 +544,8 @@ int main(int argc, char** argv) {
                 char text[128] = {};
                 if (params->value_to_text(inst.plugin, kParamVoiceMode, 0.0, text, sizeof(text)))
                     check(std::strcmp(text, "Mono") == 0, "enum value_to_text returns the label");
+                if (params->value_to_text(inst.plugin, kParamVoiceMode, 3.0, text, sizeof(text)))
+                    check(std::strcmp(text, "Poly 32") == 0, "Voices offers Poly 32");
                 else
                     check(false, "value_to_text works");
             } else {
@@ -933,14 +935,53 @@ int main(int argc, char** argv) {
         check(voiceInfo != nullptr, "voice-info extension is offered");
         if (voiceInfo != nullptr) {
             clap_voice_info_t info{};
-            check(voiceInfo->get(inst.plugin, &info) && info.voice_count == 10 && info.voice_capacity == 10
+            check(voiceInfo->get(inst.plugin, &info) && info.voice_count == 10 && info.voice_capacity == 32
                       && (info.flags & CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES) != 0,
-                  "poly: 10 voices, overlapping notes supported");
+                  "poly: 10 voices by default, overlapping notes supported");
+            sendParam(inst.plugin, kParamVoiceMode, 2.0);
+            check(voiceInfo->get(inst.plugin, &info) && info.voice_count == 20 && info.voice_capacity == 32,
+                  "Poly 20: 20 voices");
+            sendParam(inst.plugin, kParamVoiceMode, 3.0);
+            check(voiceInfo->get(inst.plugin, &info) && info.voice_count == 32 && info.voice_capacity == 32,
+                  "Poly 32: 32 voices");
             sendParam(inst.plugin, kParamVoiceMode, 0.0);
-            check(voiceInfo->get(inst.plugin, &info) && info.voice_count == 1 && info.voice_capacity == 10,
+            check(voiceInfo->get(inst.plugin, &info) && info.voice_count == 1 && info.voice_capacity == 32,
                   "mono: 1 voice");
         }
         inst.destroy();
+    }
+
+    // --- Voices: Poly 10 / 20 / 32 -------------------------------------------------------------------
+    // 32 held CLAP notes: Poly 10 steals 22 of them (each steal ends its note), Poly 20 steals 12,
+    // Poly 32 holds them all.
+    {
+        const auto stolen = [&](double voices) {
+            Instance inst;
+            if (!inst.create(lib)) return -1;
+            installTestPatch(inst.plugin);
+            sendParam(inst.plugin, kParamVoiceMode, voices);
+            std::vector<clap_event_note_t> ons;
+            for (int i = 0; i < 32; ++i) {
+                clap_event_note_t on = makeClapNoteOn(int16_t(40 + i), 1.0);
+                on.note_id = 100 + i;
+                ons.push_back(on);
+            }
+            std::vector<const clap_event_header_t*> list;
+            for (const auto& on : ons) list.push_back(&on.header);
+            OutputSink sink;
+            const uint32_t block = 512;
+            for (uint32_t b = 0; b < uint32_t(0.5 * kSampleRate) / block; ++b) {
+                sink.blockStart = uint64_t(b) * block;
+                if (b == 0) renderStereo(inst.plugin, block, list.data(), uint32_t(list.size()), &sink);
+                else        renderStereo(inst.plugin, block, nullptr, 0, &sink);
+            }
+            inst.destroy();
+            return int(sink.ends.size());
+        };
+        const int poly10 = stolen(1.0), poly20 = stolen(2.0), poly32 = stolen(3.0);
+        check(poly10 == 22, "Poly 10: 32 held notes steal 22 voices (got " + std::to_string(poly10) + ")");
+        check(poly20 == 12, "Poly 20: 32 held notes steal 12 voices (got " + std::to_string(poly20) + ")");
+        check(poly32 == 0,  "Poly 32: 32 held notes all keep a voice (got " + std::to_string(poly32) + ")");
     }
 
     // --- CLAP note expressions + note ids, as Bitwig sends them ---------------------------------------

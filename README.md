@@ -12,7 +12,7 @@ expert view. See [docs/ROADMAP.md](docs/ROADMAP.md).
 ## Status
 
 **Polyphonic 6-op FM synth with a full custom GUI.** The PM framework drives a `VoiceManager`
-(10-voice poly with note stealing, or mono legato) rendering, per voice:
+(10-, 20- or 32-voice poly with note stealing, or mono legato) rendering, per voice:
 
 ```
 note pitch ─> Slew (mono glide) + pitch bend + vibrato ──> FM6Op engine
@@ -74,7 +74,7 @@ note pitch ─> Slew (mono glide) + pitch bend + vibrato ──> FM6Op engine
   (concave / linear / convex) — PolygraphModular's velocity-curve family, as fixed choices; Touch
   (velocity → modulator levels, i.e. brightness) and Key Track (note → modulator levels and
   decay/release times), both neutral at 0.
-- **Global**: Poly / Mono, MPE (off / on), pitch-bend range (off … ±4 semitones), Quality, master level.
+- **Global**: Voices (Mono / Poly 10 / Poly 20 / Poly 32), MPE (off / on), pitch-bend range (off … ±4 semitones), Quality, master level.
 - **MIDI 1.0 values** are upscaled with the spec's Min-Center-Max rule (M2-104 D.1.3), so 127 /
   16383 are full scale and 64 / 8192 the exact centre; MIDI 1.0 poly pressure decodes. A MIDI 2.0
   note-on with velocity 0 is a note-on (M2-104 §4.2.8), not a note-off; at the 0% Vel Floor it
@@ -121,7 +121,7 @@ bend range; **pressure** becomes polyphonic pressure, which moves that note's fi
 aftertouch; **brightness** becomes per-note controller #74, the Expression panel's timbre. A CLAP note gets `CLAP_EVENT_NOTE_END` when its voice
 falls silent at the end of the carriers' release (or is stolen, or leaves the mono stack), not at
 note-off, so Bitwig keeps its per-voice modulation running through the release. The voice-info
-extension reports 10 voices (1 in Mono) and supports overlapping notes on one key.
+extension reports 10, 20 or 32 voices (1 in Mono), capacity 32, and supports overlapping notes on one key.
 
 **MPE** (lower zone), switched on in the Global box; off by default, and presets leave it alone
 since it describes the controller, not the sound. Member channels 2–16 bend ±48, and the master
