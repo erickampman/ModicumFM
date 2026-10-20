@@ -28,5 +28,6 @@
 
 ## M4: Later
 - [ ] Instrument templates: curated patches with 4–6 named macro knobs (roadmap idea 5)
+- [ ] Pitch 7.25 as persistent per-key tuning table (CLAP tuning stays per-note)
 - [ ] Move onto the DPF fork (erickampman/DPF) with own DGL_NAMESPACE
 - [ ] VST3 / AUv2 via clap-wrapper
