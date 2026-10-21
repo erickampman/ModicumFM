@@ -5,11 +5,12 @@ validator. Everything runs headless on Linux/macOS — no DAW or audio device re
 
 ## Prerequisites
 
-- CMake ≥ 3.17 and a C++20 compiler (gcc or clang).
-- Submodules (CLAP headers for the tests; DPF + pugl for the plugin build):
+- CMake ≥ 3.21 and a C++20 compiler (gcc or clang).
+- Submodules (CLAP headers for the tests; DPF + pugl for the plugin build; clap-wrapper and the
+  VST3 SDK for the VST3/AUv2 builds), plus the local clap-wrapper patch:
 
   ```sh
-  git submodule update --init --recursive
+  tools/fetch_deps.sh
   ```
 
 - To build the plugin itself (DPF's OpenGL/NanoVG UI, the GUI layer), the X11 + GL dev packages:

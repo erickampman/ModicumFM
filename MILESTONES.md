@@ -30,4 +30,6 @@
 - [ ] Instrument templates: curated patches with 4–6 named macro knobs (roadmap idea 5)
 - [ ] Pitch 7.25 as persistent per-key tuning table (CLAP tuning stays per-note)
 - [ ] Move onto the DPF fork (erickampman/DPF) with own DGL_NAMESPACE
-- [ ] VST3 / AUv2 via clap-wrapper
+- [x] VST3 / AUv2 via clap-wrapper (2026-10-21, macOS): VST3 offers Tuning, Brightness and Pressure
+  note expressions via CLAP_PLUGIN_AS_VST3; AUv2 `aumu MdFM nLKL` passes auval; clap-wrapper's AUv2
+  GUI-show patch carried in patches/. Checked by the author in REAPER; Linux build not yet checked

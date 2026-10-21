@@ -26,8 +26,8 @@ jobs:
       CXX: ${{ matrix.cxx }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - name: Submodules and dependency patches
+        run: tools/fetch_deps.sh
       - name: Install DPF UI deps (Linux)
         if: runner.os == 'Linux'
         run: |

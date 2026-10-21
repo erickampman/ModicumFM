@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.21)   # clap-wrapper needs 3.21
 
 # C is needed for DPF's pugl / dgl sources.
 project(ModicumFM VERSION 0.1.0 LANGUAGES C CXX)
@@ -14,6 +14,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(MODICUMFM_WERROR "Treat warnings as errors (framework + tests)" OFF)
 option(MODICUMFM_PRESET_DUMP "Dev-only: press 'P' in the UI to dump the patch as JSON to \$HOME" OFF)
+option(MODICUMFM_BUILD_VST3 "Build a VST3 wrapper around the same plugin via clap-wrapper." ON)
+option(MODICUMFM_BUILD_AUV2 "Build an AUv2 (.component) wrapper via clap-wrapper (macOS only)." ${APPLE})
+
+if(APPLE)
+    # The .mm UI sources are Objective-C++, and clap-wrapper's AUv2 wrapper needs the language enabled.
+    enable_language(OBJCXX)
+endif()
 
 # --- PM framework port -----------------------------------------------------
 # Vendored PolygraphModular framework + our shim/MIDI layer, as a static lib. Compiled with
@@ -115,6 +122,9 @@ target_include_directories(modicumfm_core PUBLIC
     external/clap/include             # <clap/clap.h> (the raw entry point)
     "${CMAKE_BINARY_DIR}/generated"   # GeneratedPresets.h + EmbeddedResources.hpp
     "${DPF_ROOT_DIR}/distrho")        # DistrhoUI.hpp / DistrhoUIInternal.hpp
+# clap-wrapper's plugin-side extension header only (clapwrapper/vst3.h: which VST3 note expressions to
+# offer). Header-only and plain C, so the CLAP build needs it even with MODICUMFM_BUILD_VST3 off.
+target_include_directories(modicumfm_core PRIVATE "${CMAKE_SOURCE_DIR}/external/clap-wrapper/include")
 target_compile_definitions(modicumfm_core PUBLIC
     DISTRHO_PLUGIN_TARGET_CLAP
     DISTRHO_IS_STANDALONE=0
@@ -193,6 +203,99 @@ add_custom_command(TARGET ModicumFM POST_BUILD
         "${MODICUMFM_CLAP_DIR}/ModicumFM.clap"
     COMMENT "Symlinking ModicumFM.clap into ${MODICUMFM_CLAP_DIR}"
     VERBATIM)
+
+# --- VST3 / AUv2 via the vendored clap-wrapper, wrapping the very same CLAP -------------------
+# Purely additive: nothing here touches the .clap target above. Unlike the .clap, these are not
+# linked into the user plug-in folders on every build; run `install-vst3` / `install-auv2`.
+if(MODICUMFM_BUILD_VST3 OR MODICUMFM_BUILD_AUV2)
+    if(NOT CLAP_SDK_ROOT)
+        set(CLAP_SDK_ROOT "${CMAKE_SOURCE_DIR}/external/clap" CACHE PATH "" FORCE)
+    endif()
+    add_subdirectory(external/clap-wrapper)
+endif()
+
+if(MODICUMFM_BUILD_VST3)
+    if(NOT VST3_SDK_ROOT)
+        set(VST3_SDK_ROOT "${CMAKE_SOURCE_DIR}/external/vst3sdk" CACHE PATH "" FORCE)
+    endif()
+
+    add_library(ModicumFM_vst3 MODULE "${MODICUMFM_EMPTY_SOURCE}")
+    if(UNIX AND NOT APPLE)
+        # clap-wrapper's Linux branch tests a misspelled TCLP_RESOURCE_DIRECTORY, which is never
+        # set, so it always warns that RESOURCE_DIRECTORY is unsupported. Defining it empty
+        # silences that; we pass no RESOURCE_DIRECTORY.
+        set(TCLP_RESOURCE_DIRECTORY "")
+    endif()
+    target_link_libraries(ModicumFM_vst3 PRIVATE modicumfm_core)
+    modicumfm_force_load_whole_archive(ModicumFM_vst3 modicumfm_core)
+    target_add_vst3_wrapper(
+        TARGET ModicumFM_vst3
+        OUTPUT_NAME "ModicumFM"
+        BUNDLE_IDENTIFIER "com.unlikelyware.modicumfm.vst3"
+        BUNDLE_VERSION "${PROJECT_VERSION}")
+    if(TARGET base-sdk-vst3 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        # The VST3 SDK still uses std::wstring_convert, deprecated since C++17.
+        target_compile_options(base-sdk-vst3 PRIVATE -Wno-deprecated-declarations)
+    endif()
+
+    if(APPLE)
+        set(MODICUMFM_VST3_DIR "$ENV{HOME}/Library/Audio/Plug-Ins/VST3")
+        set(MODICUMFM_VST3_ARTIFACT "$<TARGET_BUNDLE_DIR:ModicumFM_vst3>")
+    else()
+        # On Linux $<TARGET_FILE> is the .so inside the bundle; hosts want the bundle folder,
+        # which clap-wrapper builds under build/Release (or build/Debug).
+        set(MODICUMFM_VST3_DIR "$ENV{HOME}/.vst3")
+        set(MODICUMFM_VST3_ARTIFACT
+            "${CMAKE_BINARY_DIR}/$<IF:$<CONFIG:Debug>,Debug,Release>/ModicumFM.vst3")
+    endif()
+    add_custom_target(install-vst3
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${MODICUMFM_VST3_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "${MODICUMFM_VST3_DIR}/ModicumFM.vst3"
+        COMMAND ${CMAKE_COMMAND} -E create_symlink "${MODICUMFM_VST3_ARTIFACT}" "${MODICUMFM_VST3_DIR}/ModicumFM.vst3"
+        DEPENDS ModicumFM_vst3
+        VERBATIM
+        COMMENT "Symlinking ModicumFM.vst3 into ${MODICUMFM_VST3_DIR}")
+endif()
+
+if(MODICUMFM_BUILD_AUV2)
+    # AUv2 is an Apple-only format, and clap-wrapper's target_add_auv2_wrapper does not exist off
+    # Apple platforms. Say so plainly instead of failing with an unknown-command error.
+    if(NOT APPLE)
+        message(FATAL_ERROR
+            "MODICUMFM_BUILD_AUV2 is macOS-only (AUv2 is an Apple plugin format). "
+            "Reconfigure with -DMODICUMFM_BUILD_AUV2=OFF.")
+    endif()
+    # clap-wrapper fetches Apple's AudioUnitSDK itself (CPM) on the first configure, unless pointed
+    # at a local copy with -DAUDIOUNIT_SDK_ROOT=...
+    if(NOT AUDIOUNIT_SDK_ROOT)
+        set(CLAP_WRAPPER_DOWNLOAD_DEPENDENCIES ON)
+    endif()
+
+    add_library(ModicumFM_auv2 MODULE "${MODICUMFM_EMPTY_SOURCE}")
+    target_link_libraries(ModicumFM_auv2 PRIVATE modicumfm_core)
+    modicumfm_force_load_whole_archive(ModicumFM_auv2 modicumfm_core)
+    # "MdFM" (ModicumFM) as the subtype, under Unlikelyware's own "nLKL" manufacturer code.
+    target_add_auv2_wrapper(
+        TARGET ModicumFM_auv2
+        OUTPUT_NAME "ModicumFM"
+        BUNDLE_IDENTIFIER "com.unlikelyware.modicumfm.auv2"
+        BUNDLE_VERSION "${PROJECT_VERSION}"
+        MANUFACTURER_NAME "Unlikelyware"
+        MANUFACTURER_CODE "nLKL"
+        SUBTYPE_CODE "MdFM"
+        INSTRUMENT_TYPE "aumu")
+
+    # A copy, not a symlink: AU hosts don't reliably find symlinked components.
+    set(MODICUMFM_AUV2_DIR "$ENV{HOME}/Library/Audio/Plug-Ins/Components")
+    add_custom_target(install-auv2
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${MODICUMFM_AUV2_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "${MODICUMFM_AUV2_DIR}/ModicumFM.component"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "$<TARGET_BUNDLE_DIR:ModicumFM_auv2>" "${MODICUMFM_AUV2_DIR}/ModicumFM.component"
+        DEPENDS ModicumFM_auv2
+        VERBATIM
+        COMMENT "Copying ModicumFM.component into ${MODICUMFM_AUV2_DIR}")
+endif()
 
 # --- self-tests (the framework; headless, no DAW) --------------------------
 add_executable(pm-selftest test/pm_selftest.cpp)

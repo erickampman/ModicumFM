@@ -16,10 +16,10 @@ If it shows edits made on this machine, commit or stash them before pulling.
 
 ```sh
 git pull
-git submodule update --init --recursive
+tools/fetch_deps.sh
 ```
 
-`git pull` does not move submodules, and the `dpf` and `external/clap` pointers may have changed since
+`git pull` does not move submodules, and the `dpf`, `external/clap`, `external/clap-wrapper` and `external/vst3sdk` pointers may have changed since
 this clone was last updated.
 
 ## 3. Build in a fresh directory

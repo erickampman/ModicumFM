@@ -19,10 +19,12 @@ cmake -G Ninja -B build -S . -DCMAKE_BUILD_TYPE=Release -DMODICUMFM_WERROR=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 clap-validator validate build/ModicumFM.clap
+cmake --build build --target install-vst3 install-auv2   # VST3 symlink; AUv2 copy (macOS)
+auval -v aumu MdFM nLKL                                  # macOS
 ```
 
 Linux needs `pkg-config libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev` and
-the submodules (`git submodule update --init --recursive`). Updating an older Linux clone:
+the submodules (`tools/fetch_deps.sh`, which also applies `patches/`). Updating an older Linux clone:
 [docs/LINUX-SETUP.md](docs/LINUX-SETUP.md). The build symlinks the plugin into
 `~/.clap` (Linux) or `~/Library/Audio/Plug-Ins/CLAP` (macOS).
 
@@ -34,4 +36,4 @@ the submodules (`git submodule update --init --recursive`). Updating an older Li
 - After a rebuild, quit and restart the host: a running host keeps the binary it first loaded.
 - Parameters are appended, never inserted or reordered (the CLAP param id is the index); see the
   port record's handoff for the full checklist.
-- Do not edit the `dpf` or `external/clap` submodules.
+- Do not edit the submodules (`dpf`, `external/*`); clap-wrapper fixes go in `patches/`.

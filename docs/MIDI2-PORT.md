@@ -45,8 +45,9 @@ pressure from a controller.)
 **Next:** nothing left in the port; pick from the list below with the author.
 
 **Open after the port**: the Pitch panel (glide + vibrato) is **done in code** (below), waiting on the
-author's look in a host. Not started: VST3 / AUv2
-via clap-wrapper (decided: later); step 4's non-Retina monitor check (macOS); and the stencil-clear fix
+author's look in a host. VST3 / AUv2
+via clap-wrapper is built and validated on macOS (2026-10-21; see MILESTONES.md) and checked by the
+author in REAPER; the Linux build is still to check; step 4's non-Retina monitor check (macOS); and the stencil-clear fix
 (`5d36246`) probably belongs in PlainOldSynth, IFSynth and StruckSynth too, since they share DPF —
 offered to the author, not started.
 
