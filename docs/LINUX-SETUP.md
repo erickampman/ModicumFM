@@ -53,6 +53,13 @@ installed in another CLAP folder, remove it, or the host may load that one inste
 rescan its plugins, or restart it. A running host keeps the binary it first loaded, so restart it
 after every rebuild too.
 
+The VST3 is built too, at `build/Release/ModicumFM.vst3`, but isn't installed by the build. Link it
+into `~/.vst3` with:
+
+```sh
+cmake --build build --target install-vst3
+```
+
 ## 5. Continue the work
 
 Start Claude Code in the repo. It reads [CLAUDE.md](../CLAUDE.md), which points to the handoff in

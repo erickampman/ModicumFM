@@ -190,11 +190,18 @@ sudo apt install pkg-config libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev
 Then:
 
 ```sh
-git clone --recurse-submodules <this-repo>
+git clone <this-repo> ModicumFM && cd ModicumFM
+tools/fetch_deps.sh                            # pinned submodules + the AUv2 GUI patch
 cmake -G Ninja -B build -S . -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build --output-on-failure     # see TESTING.md for the full suite
+cmake --build build --target install-vst3      # optional; also install-auv2 on macOS
 ```
+
+Use `tools/fetch_deps.sh` rather than `--recurse-submodules`: it fetches only the four VST3 SDK
+submodules the build needs (not its docs, tutorials and VSTGUI) and applies `patches/` (clap-wrapper's
+AUv2 view never calls `gui->show()`, which is where the editor starts its render timer, so without
+the patch the AU window stays blank). Updating an older Linux clone: [docs/LINUX-SETUP.md](docs/LINUX-SETUP.md).
 
 Ninja is recommended: on macOS, Make fails when Xcode's path has a space (e.g. `Xcode 26.3.app`).
 
@@ -203,8 +210,17 @@ Produces `build/ModicumFM.clap` (a bundle on macOS). A post-build step symlinks 
 rescan. Validate with [`clap-validator`](https://github.com/free-audio/clap-validator). Test
 details in [TESTING.md](TESTING.md).
 
+The same plugin is also wrapped by [clap-wrapper](https://github.com/free-audio/clap-wrapper) as a
+VST3 (`build/ModicumFM.vst3` on macOS, `build/Release/ModicumFM.vst3` on Linux) and, on macOS, an
+AUv2 instrument (`build/ModicumFM.component`, `aumu MdFM nLKL`; check with
+`auval -v aumu MdFM nLKL`). These are not installed on every build: `install-vst3` symlinks the
+VST3 into `~/.vst3` (Linux) or `~/Library/Audio/Plug-Ins/VST3` (macOS), and `install-auv2` copies
+the component into `~/Library/Audio/Plug-Ins/Components` (AU hosts don't reliably follow
+symlinks). The VST3 offers hosts the Tuning, Brightness and Pressure note expressions.
+
 Configure options: `-DMODICUMFM_WERROR=ON` (warnings as errors), `-DMODICUMFM_PRESET_DUMP=ON`
-(dev-only DUMP button that writes the current patch as JSON to `$HOME`).
+(dev-only DUMP button that writes the current patch as JSON to `$HOME`), `-DMODICUMFM_BUILD_VST3=OFF`,
+`-DMODICUMFM_BUILD_AUV2=OFF` (on by default on macOS; macOS-only).
 
 ## License
 
