@@ -28,6 +28,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.SUBMODULES_TOKEN || github.token }}   # dpf + pugl are private forks
+      # fetch_deps.sh's own `git submodule` clones don't get checkout's token, so hand it to git
+      # for the private repos (dpf and its pugl).
+      - name: Credentials for the private submodules
+        env:
+          SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${SUBMODULES_TOKEN}@github.com/erickampman/".insteadOf \
+            "https://github.com/erickampman/"
       - name: Submodules and dependency patches
         run: tools/fetch_deps.sh
       - name: Install DPF UI deps (Linux)
