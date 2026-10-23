@@ -99,6 +99,9 @@ add_subdirectory(dpf)
 # DistrhoPluginChecks.h when DISTRHO_UI_WEB_VIEW is 1) and builds DGL's own WebView impl.
 # USE_FILE_BROWSER=TRUE brings in the Distrho String/ChildProcess helpers that impl uses.
 dpf__add_dgl_opengl(TRUE TRUE TRUE)
+# ModicumFM's own namespace (UmpireDAW's docs/decisions.md, "DPF fork"): on macOS pugl names its
+# Objective-C classes after it, so two DPF binaries with the same one in a host collide.
+target_compile_definitions(dgl-opengl PUBLIC DGL_NAMESPACE=ModicumFMDGL)
 
 # --- modicumfm_core: the whole plugin (DSP + host glue + GUI shell) as one static archive --------
 # Hidden visibility for our own objects, so clap_entry (marked CLAP_EXPORT in plugin.cpp) is the

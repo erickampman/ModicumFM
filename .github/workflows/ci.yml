@@ -26,6 +26,8 @@ jobs:
       CXX: ${{ matrix.cxx }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUBMODULES_TOKEN || github.token }}   # dpf + pugl are private forks
       - name: Submodules and dependency patches
         run: tools/fetch_deps.sh
       - name: Install DPF UI deps (Linux)
