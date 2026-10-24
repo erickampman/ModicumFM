@@ -36,7 +36,7 @@ inline std::string buildPresetJson(const float* values, const char* name = "Unti
 
    std::string j;
    j += "{\n";
-   j += "  \"app\": { \"name\": \"ModicumFM\", \"version\": \"0.1.0\" },\n";
+   j += "  \"app\": { \"name\": \"ModicumFM\", \"version\": \"" MODICUMFM_VERSION_STRING "\" },\n";
    j += "  \"plugin\": { \"format\": \"clap\", \"id\": \"com.unlikelyware.modicumfm\" },\n";
    j += "  \"meta\": { \"author\": \"\", \"createdAt\": \"" + std::string(iso)
         + "\", \"name\": \"" + name + "\" },\n";

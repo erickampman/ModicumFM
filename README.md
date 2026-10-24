@@ -137,8 +137,7 @@ messages stop reaching it; a CLAP note addressed by its id keeps taking expressi
 NOTE_END. With MPE off a pitch wheel and aftertouch still move releasing notes. Timbre (CC 74)
 follows the same rules.
 
-Built and tested on macOS and Linux (CI on both); the port record is
-[docs/MIDI2-PORT.md](docs/MIDI2-PORT.md).
+Built and tested on macOS and Linux (CI on both).
 
 ## Layout
 
@@ -174,7 +173,7 @@ Presets/              factory presets (JSON), compiled into GeneratedPresets.h b
                         tools/gen_presets.py
 Resources/            font, logo and help page, embedded into the binary at build time
 test/                 in-process self-tests (see TESTING.md)
-docs/                 ROADMAP.md (the macro / template plan), BuildNotes.md
+docs/                 ROADMAP.md (the macro / template plan)
 dpf/                  DISTRHO Plugin Framework (submodule, + nested pugl) — the GUI layer only
 external/clap         CLAP headers (submodule, pinned 1.2.9) — the plugin and the tests
 ```
@@ -201,7 +200,7 @@ cmake --build build --target install-vst3      # optional; also install-auv2 on 
 Use `tools/fetch_deps.sh` rather than `--recurse-submodules`: it fetches only the four VST3 SDK
 submodules the build needs (not its docs, tutorials and VSTGUI) and applies `patches/` (clap-wrapper's
 AUv2 view never calls `gui->show()`, which is where the editor starts its render timer, so without
-the patch the AU window stays blank). Updating an older Linux clone: [docs/LINUX-SETUP.md](docs/LINUX-SETUP.md).
+the patch the AU window stays blank).
 
 Ninja is recommended: on macOS, Make fails when Xcode's path has a space (e.g. `Xcode 26.3.app`).
 
