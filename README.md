@@ -139,6 +139,26 @@ follows the same rules.
 
 Built and tested on macOS and Linux (CI on both).
 
+## Installing
+
+The download holds `ModicumFM.clap`. Put it in your CLAP folder (create the folder if it isn't there),
+then rescan plugins in your host:
+
+| | Linux | macOS |
+|---|---|---|
+| For you | `~/.clap` | `~/Library/Audio/Plug-Ins/CLAP` |
+| For every user | `/usr/lib/clap` | `/Library/Audio/Plug-Ins/CLAP` |
+
+On macOS, `~/Library` is hidden in Finder: Go ▸ Go to Folder opens it. The 0.9 previews aren't
+notarized, so macOS won't load a downloaded plugin until its quarantine flag is cleared:
+
+```bash
+xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/CLAP/ModicumFM.clap
+```
+
+A host that is already running keeps the plugins it loaded: quit and restart it. To build ModicumFM
+yourself instead, see below.
+
 ## Building from source
 
 ```bash

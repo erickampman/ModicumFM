@@ -191,10 +191,10 @@ else()
     set_target_properties(ModicumFM PROPERTIES PREFIX "" SUFFIX ".clap")
 endif()
 
-# --- install: symlink the built .clap into the user CLAP dir ---------------
-# Runs automatically after ModicumFM is (re)built, so the plugin in the user CLAP dir is always a
-# symlink pointing at the freshest build. The rm first clears an old link or a copied bundle
-# directory, which create_symlink would not replace.
+# --- install-clap: symlink the built .clap into the user CLAP dir ----------
+# Only when asked (`cmake --build build --target install-clap`): an ordinary build never writes
+# outside build/ (ReleaseUMP R1-36). The link points at the freshest build after a rescan. The rm
+# first clears an old link or a copied bundle directory, which create_symlink would not replace.
 if(APPLE)
     set(MODICUMFM_CLAP_DIR "$ENV{HOME}/Library/Audio/Plug-Ins/CLAP")
     set(MODICUMFM_CLAP_ARTIFACT "$<TARGET_BUNDLE_DIR:ModicumFM>")
@@ -202,18 +202,19 @@ else()
     set(MODICUMFM_CLAP_DIR "$ENV{HOME}/.clap")
     set(MODICUMFM_CLAP_ARTIFACT "$<TARGET_FILE:ModicumFM>")
 endif()
-add_custom_command(TARGET ModicumFM POST_BUILD
+add_custom_target(install-clap
     COMMAND ${CMAKE_COMMAND} -E make_directory "${MODICUMFM_CLAP_DIR}"
     COMMAND ${CMAKE_COMMAND} -E rm -rf "${MODICUMFM_CLAP_DIR}/ModicumFM.clap"
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         "${MODICUMFM_CLAP_ARTIFACT}"
         "${MODICUMFM_CLAP_DIR}/ModicumFM.clap"
+    DEPENDS ModicumFM
     COMMENT "Symlinking ModicumFM.clap into ${MODICUMFM_CLAP_DIR}"
     VERBATIM)
 
 # --- VST3 / AUv2 via the vendored clap-wrapper, wrapping the very same CLAP -------------------
-# Purely additive: nothing here touches the .clap target above. Unlike the .clap, these are not
-# linked into the user plug-in folders on every build; run `install-vst3` / `install-auv2`.
+# Purely additive: nothing here touches the .clap target above. Like the .clap, these are
+# installed only by their targets, `install-vst3` / `install-auv2`.
 if(MODICUMFM_BUILD_VST3 OR MODICUMFM_BUILD_AUV2)
     if(NOT CLAP_SDK_ROOT)
         set(CLAP_SDK_ROOT "${CMAKE_SOURCE_DIR}/external/clap" CACHE PATH "" FORCE)
