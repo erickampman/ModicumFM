@@ -139,87 +139,18 @@ follows the same rules.
 
 Built and tested on macOS and Linux (CI on both).
 
-## Layout
+## Building from source
 
-The engine (`src/`) mirrors PolygraphModular's structure. DPF is used **only as the GUI layer**
-(UIExporter + NanoVG + pugl); the CLAP entry point is hand-written in `src/plugin.cpp`:
-
-```
-plugin/               the shared plugin definition
-                        DistrhoPluginInfo.h (UI flags; the plugin identity macros are inert),
-                        ModicumFMParams.h (shared param table, append-only, + dropdown labels)
-src/plugin.cpp        the raw CLAP plugin: entry point, note/audio/params/state/gui extensions,
-                        and the DSP glue (MIDI + params → VoiceManager)
-src/plugin_gui.h      the C seam between plugin.cpp and the GUI shell
-src/UI/               the plugin GUI (reusable NanoVG widgets + the panel)
-                        Knob, RatioKnob, EnvelopeGraph, AlgorithmDiagram (view + picker), Dropdown, PopupMenu, TabBar, GroupBox,
-                        Label, TitleText, Logo, HelpButton; ParamEdit.hpp (multi-param edits); PresetKeys / PresetDump (preset menu + dev-only JSON dumper);
-                        ModicumFMUI.cpp — the panel, and the CLAP gui extension (UIExporter)
-src/Common/           shim + MIDI + params + utilities
-                        pm_compat.h (Apple→portable), pm_midi.* (spec UMP + MIDI-1 decode, incl.
-                        pitch bend / channel pressure), clap_ump.h, pm_params.h / pm_param_data.* /
-                        pm_addresses.h, sine.* (FM6Op harmonic tables), ResonanceComp.hpp, …
-src/Module/           Module core + modules
-                        FM6Op (+ FM6OpAlgorithms.hpp: the 32 algorithms + operator-role
-                        analysis), LPFilter (+ ButterLow4), ADSR, Combine (pitch sum),
-                        PitchConverter, Slew (glide), PitchBendConverter, ChannelPressure,
-                        CCConverter (timbre, mod wheel), Chorus
-                        (+ ModDelayLine, CascadeLPF), SharedLFO (+ LFOClockSync), Final;
-                        ModuleSharedState.hpp (cross-voice state)
-src/Voice/            voice engine
-                        Voice.*, VoiceStateManager.*, VoiceManager.* (buildDefaultPatch wires the
-                        voice), ModuleMap.*, ModuleInitSpecs.hpp, pm_module_specs.cpp, …
-Presets/              factory presets (JSON), compiled into GeneratedPresets.h by
-                        tools/gen_presets.py
-Resources/            font, logo and help page, embedded into the binary at build time
-test/                 in-process self-tests (see TESTING.md)
-docs/                 ROADMAP.md (the macro / template plan)
-dpf/                  DISTRHO Plugin Framework (submodule, + nested pugl) — the GUI layer only
-external/clap         CLAP headers (submodule, pinned 1.2.9) — the plugin and the tests
-```
-
-## Build
-
-DPF's OpenGL/NanoVG UI needs the usual X11 + GL dev packages (Linux):
-
-```sh
-sudo apt install pkg-config libgl1-mesa-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev
-```
-
-Then:
-
-```sh
-git clone <this-repo> ModicumFM && cd ModicumFM
-tools/fetch_deps.sh                            # pinned submodules + the AUv2 GUI patch
-cmake -G Ninja -B build -S . -DCMAKE_BUILD_TYPE=Release
+```bash
+git clone https://github.com/erickampman/ModicumFM.git
+cd ModicumFM
+tools/fetch_deps.sh
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build --output-on-failure     # see TESTING.md for the full suite
-cmake --build build --target install-vst3      # optional; also install-auv2 on macOS
 ```
 
-Use `tools/fetch_deps.sh` rather than `--recurse-submodules`: it fetches only the four VST3 SDK
-submodules the build needs (not its docs, tutorials and VSTGUI) and applies `patches/` (clap-wrapper's
-AUv2 view never calls `gui->show()`, which is where the editor starts its render timer, so without
-the patch the AU window stays blank).
-
-Ninja is recommended: on macOS, Make fails when Xcode's path has a space (e.g. `Xcode 26.3.app`).
-
-Produces `build/ModicumFM.clap` (a bundle on macOS). A post-build step symlinks it into `~/.clap` (Linux) or
-`~/Library/Audio/Plug-Ins/CLAP/` (macOS), so any CLAP host picks up the freshest build after a
-rescan. Validate with [`clap-validator`](https://github.com/free-audio/clap-validator). Test
-details in [TESTING.md](TESTING.md).
-
-The same plugin is also wrapped by [clap-wrapper](https://github.com/free-audio/clap-wrapper) as a
-VST3 (`build/ModicumFM.vst3` on macOS, `build/Release/ModicumFM.vst3` on Linux) and, on macOS, an
-AUv2 instrument (`build/ModicumFM.component`, `aumu MdFM nLKL`; check with
-`auval -v aumu MdFM nLKL`). These are not installed on every build: `install-vst3` symlinks the
-VST3 into `~/.vst3` (Linux) or `~/Library/Audio/Plug-Ins/VST3` (macOS), and `install-auv2` copies
-the component into `~/Library/Audio/Plug-Ins/Components` (AU hosts don't reliably follow
-symlinks). The VST3 offers hosts the Tuning, Brightness and Pressure note expressions.
-
-Configure options: `-DMODICUMFM_WERROR=ON` (warnings as errors), `-DMODICUMFM_PRESET_DUMP=ON`
-(dev-only DUMP button that writes the current patch as JSON to `$HOME`), `-DMODICUMFM_BUILD_VST3=OFF`,
-`-DMODICUMFM_BUILD_AUV2=OFF` (on by default on macOS; macOS-only).
+[BUILDING.md](BUILDING.md) has what to install first on Linux and macOS, the tests, installing
+the plugin for hosts, and the build options.
 
 ## License
 

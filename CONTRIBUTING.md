@@ -73,3 +73,42 @@ unaffected.
 ## Platform-specific code
 
 - `src/UI/BackingScale_mac.mm` (Retina scale) and the AUv2 target are macOS-only.
+
+## Layout
+
+The engine (`src/`) mirrors PolygraphModular's structure. DPF is used **only as the GUI layer**
+(UIExporter + NanoVG + pugl); the CLAP entry point is hand-written in `src/plugin.cpp`:
+
+```
+plugin/               the shared plugin definition
+                        DistrhoPluginInfo.h (UI flags; the plugin identity macros are inert),
+                        ModicumFMParams.h (shared param table, append-only, + dropdown labels)
+src/plugin.cpp        the raw CLAP plugin: entry point, note/audio/params/state/gui extensions,
+                        and the DSP glue (MIDI + params → VoiceManager)
+src/plugin_gui.h      the C seam between plugin.cpp and the GUI shell
+src/UI/               the plugin GUI (reusable NanoVG widgets + the panel)
+                        Knob, RatioKnob, EnvelopeGraph, AlgorithmDiagram (view + picker), Dropdown, PopupMenu, TabBar, GroupBox,
+                        Label, TitleText, Logo, HelpButton; ParamEdit.hpp (multi-param edits); PresetKeys / PresetDump (preset menu + dev-only JSON dumper);
+                        ModicumFMUI.cpp — the panel, and the CLAP gui extension (UIExporter)
+src/Common/           shim + MIDI + params + utilities
+                        pm_compat.h (Apple→portable), pm_midi.* (spec UMP + MIDI-1 decode, incl.
+                        pitch bend / channel pressure), clap_ump.h, pm_params.h / pm_param_data.* /
+                        pm_addresses.h, sine.* (FM6Op harmonic tables), ResonanceComp.hpp, …
+src/Module/           Module core + modules
+                        FM6Op (+ FM6OpAlgorithms.hpp: the 32 algorithms + operator-role
+                        analysis), LPFilter (+ ButterLow4), ADSR, Combine (pitch sum),
+                        PitchConverter, Slew (glide), PitchBendConverter, ChannelPressure,
+                        CCConverter (timbre, mod wheel), Chorus
+                        (+ ModDelayLine, CascadeLPF), SharedLFO (+ LFOClockSync), Final;
+                        ModuleSharedState.hpp (cross-voice state)
+src/Voice/            voice engine
+                        Voice.*, VoiceStateManager.*, VoiceManager.* (buildDefaultPatch wires the
+                        voice), ModuleMap.*, ModuleInitSpecs.hpp, pm_module_specs.cpp, …
+Presets/              factory presets (JSON), compiled into GeneratedPresets.h by
+                        tools/gen_presets.py
+Resources/            font, logo and help page, embedded into the binary at build time
+test/                 in-process self-tests (see TESTING.md)
+docs/                 ROADMAP.md (the macro / template plan)
+dpf/                  DISTRHO Plugin Framework (submodule, + nested pugl) — the GUI layer only
+external/clap         CLAP headers (submodule, pinned 1.2.9) — the plugin and the tests
+```
