@@ -51,9 +51,13 @@ jobs:
             libxfixes-dev libxi-dev libxss-dev libxtst-dev libwayland-dev wayland-protocols \
             libegl1-mesa-dev libgles2-mesa-dev libdrm-dev libgbm-dev libdecor-0-dev libudev-dev \
             libdbus-1-dev libibus-1.0-dev
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      # The documented steps (BUILDING.md), plus warnings as errors.
       - name: Configure
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DMODICUMFM_WERROR=ON
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMODICUMFM_WERROR=ON
       - name: Build
-        run: cmake --build build -j
+        run: cmake --build build
       - name: Test (framework self-tests via ctest)
         run: ctest --test-dir build --output-on-failure --timeout 30
