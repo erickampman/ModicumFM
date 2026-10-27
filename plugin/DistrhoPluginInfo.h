@@ -38,6 +38,7 @@
                                           // DPF compiles its WebView impl from DistrhoUI_macOS.mm /
                                           // DistrhoUI.cpp / DistrhoUI_win32.cpp, not from dgl.
 #define DISTRHO_UI_USER_RESIZABLE      1
+#define DISTRHO_UI_FILE_BROWSER        1   // Save / Load's file dialog (UI::openFileBrowser)
 #define DISTRHO_UI_DEFAULT_WIDTH       1100
 #define DISTRHO_UI_DEFAULT_HEIGHT      840   // 6 operator rows + one module row (taller: stacked dropdowns)
 
