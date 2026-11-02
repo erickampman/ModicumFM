@@ -6,7 +6,7 @@
 </div>
 
 <p>
-  <em>ModicumFM is a CLAP and VST3 plugin on macOS and Linux, and an AUv2 plugin on macOS. A 6-operator FM synthesizer.</em>
+  <em>ModicumFM is a CLAP and VST® 3 plugin on macOS and Linux, and an AUv2 plugin on macOS. A 6-operator FM synthesizer.</em>
 </p>
 
 ::: {.callout .callout-note .card}
@@ -161,3 +161,5 @@ The **Preset** menu next to the title (showing `--` until you pick one) recalls 
 - The file is the same JSON as the factory presets, so a patch you save can be put in the source's `Presets` folder to build it in as a factory preset.
 - The host still saves the patch with its project, whether or not you saved it to a file.
 :::
+
+VST is a registered trademark of Steinberg Media Technologies GmbH.

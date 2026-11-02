@@ -29,7 +29,7 @@
 ## Save and Load (2026-10-27)
 - [x] Save / Load in the header write the patch as the factory presets' JSON and read it back (src/UI/PresetFile.hpp),
       through DPF's file dialog; MPE left out, loaded values clamped to each param's range.
-      Ported from StruckGaussian (ReleaseUMP R2-15). Fixed on the way:
+      Ported from StruckGaussian. Fixed on the way:
       the dumper wrote no Vibrato section. Load also takes the factory files, which have no schema. The patch mirror is
       now always kept (Save writes it). Help page: a Presets section.
       mfm-presetfile checks the round trip, every factory preset, and non-presets
@@ -38,12 +38,12 @@
       set_parent; the home folder comes from the account, not the sandboxed $HOME; failures show in the Preset menu
       (StruckGaussian 3f0c97c)
 - [x] By hand on Linux (2026-11-01): Save and Load (DPF's own dialog)
-- [ ] By hand: Save and Load in Logic Pro (AUv2) and a CLAP host on macOS
+- [x] By hand on the Mac (2026-11-01): Save and Load in Logic Pro (AUv2) and StageHand (CLAP)
 
 ## M4: Later
 - [ ] Instrument templates: curated patches with 4–6 named macro knobs (roadmap idea 5)
 - [ ] Pitch 7.25 as persistent per-key tuning table (CLAP tuning stays per-note)
-- [ ] Move onto the DPF fork (erickampman/DPF) with own DGL_NAMESPACE
+- [x] Move onto the DPF fork (erickampman/DPF) with own DGL_NAMESPACE (2026-10-23)
 - [x] VST3 / AUv2 via clap-wrapper (2026-10-21, macOS): VST3 offers Tuning, Brightness and Pressure
   note expressions via CLAP_PLUGIN_AS_VST3; AUv2 `aumu MdFM nLKL` passes auval; clap-wrapper's AUv2
   GUI-show patch carried in patches/. Checked by the author in REAPER; Linux build not yet checked
