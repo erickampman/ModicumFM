@@ -11,6 +11,8 @@
 //      envelopes; neutral is bit-identical;
 //   6. the Character macros: neutral is bit-identical, and Brightness / Bite / Grit / Body move
 //      the brightness the right way on the operators their role selects.
+//   9. Realism: neutral is bit-identical; at 1 each note gets its own pitch (within ±6 cents) and
+//      modulator index, and a same-pitch legato note keeps the last note's.
 
 #include "FM6OpAlgorithms.hpp"
 #include "Module.hpp"
@@ -106,6 +108,28 @@ static double centroidHz(const std::vector<float>& x, size_t from) {
       num += mag * k * 48000.0 / N; den += mag;
    }
    return den > 0 ? num / den : 0;
+}
+
+// Magnitude of the component at f Hz (48 kHz) over [from, to): a Hann-windowed single-bin DFT.
+static double toneMag(const std::vector<float>& x, size_t from, size_t to, double f) {
+   double re = 0, im = 0;
+   const double n = double(to - from);
+   for (size_t i = from; i < to; ++i) {
+      const double w = 0.5 - 0.5 * std::cos(2.0 * M_PI * double(i - from) / n);
+      const double ph = 2.0 * M_PI * f * double(i) / 48000.0;
+      re += w * x[i] * std::cos(ph); im += w * x[i] * std::sin(ph);
+   }
+   return std::sqrt(re * re + im * im);
+}
+// Mean frequency (Hz at 48 kHz) over [from, to) from interpolated rising zero crossings.
+static double freqHz(const std::vector<float>& x, size_t from, size_t to) {
+   double first = -1, last = -1; int n = 0;
+   for (size_t i = from + 1; i < to && i < x.size(); ++i)
+      if (x[i - 1] < 0.0f && x[i] >= 0.0f) {
+         const double t = double(i - 1) + x[i - 1] / double(x[i - 1] - x[i]);
+         if (first < 0) first = t; last = t; ++n;
+      }
+   return n > 1 ? (n - 1) * 48000.0 / (last - first) : 0.0;
 }
 
 int main() {
@@ -434,6 +458,55 @@ int main() {
       set(fm, FM6OpParamItemOp1Attack, 0.005f); set(fm, FM6OpParamItemOp1Decay, 0.3f);
       set(fm, FM6OpParamItemOp1Sustain, 0.7f);
       set(fm, FM6OpParamItemOp2Ratio, 1.0f);
+   }
+
+   // --- 9: Realism ------------------------------------------------------------------------------
+   {
+      // A plain sine (carrier Op1 alone) for pitch; then Op2 back on (0.4) for the index.
+      set(fm, FM6OpParamItemOp2Level, 0.0f);
+      set(fm, FM6OpParamItemRealism, 0.0f);
+      const std::vector<float> ref = renderNote(fm, 20, 69);
+      CHECK(renderNote(fm, 20, 69) == ref, "Realism 0: every note identical");
+      set(fm, FM6OpParamItemRealism, 1.0f);
+      double lo = 1e9, hi = -1e9;
+      for (int k = 0; k < 16; ++k) {
+         const double c = 1200.0 * std::log2(freqHz(renderNote(fm, 20, 69), 2 * kN, 20 * kN) / 440.0);
+         lo = std::fmin(lo, c); hi = std::fmax(hi, c);
+      }
+      CHECK(lo >= -6.05 && hi <= 6.05, "Realism 1: pitch offsets within ±6 cents");
+      CHECK(hi - lo > 1.5, "Realism 1: notes differ in pitch");
+      std::printf("realism pitch over 16 notes (A440): %+.2f .. %+.2f cents\n", lo, hi);
+      // A same-pitch legato note keeps the draw: no reset, the same note again.
+      fm->reset();
+      fm->midiProc(pm::makeNoteOn(69, 0xFFFF), fm);
+      std::vector<float> leg;
+      static uint64_t legID = 900000;
+      for (int b = 0; b < 40; ++b) {
+         if (b == 20) fm->midiProc(pm::makeNoteOn(69, 0xFFFF), fm);
+         fm->processProc(legID++, kN, fm);
+         leg.insert(leg.end(), fm->output.first->data, fm->output.first->data + kN);
+      }
+      const double f1 = freqHz(leg, 2 * kN, 20 * kN), f2 = freqHz(leg, 22 * kN, 40 * kN);
+      CHECK(std::fabs(1200.0 * std::log2(f2 / f1)) < 0.05, "Realism: a same-pitch legato note keeps the pitch");
+      // Index: at a small index (Op2 at 0.1) the 2nd harmonic grows in step with it, so its level
+      // over the fundamental's tracks the index offset: within ×2^±0.15 of neutral, and varying.
+      set(fm, FM6OpParamItemOp2Level, 0.1f);
+      const auto h2 = [](const std::vector<float>& x) {
+         const double f = freqHz(x, 4 * kN, 20 * kN);
+         return toneMag(x, 4 * kN, 20 * kN, 2.0 * f) / toneMag(x, 4 * kN, 20 * kN, f); };
+      set(fm, FM6OpParamItemRealism, 0.0f);
+      const double h0 = h2(renderNote(fm, 20, 57));
+      set(fm, FM6OpParamItemRealism, 1.0f);
+      double bLo = 1e9, bHi = -1e9;
+      for (int k = 0; k < 16; ++k) {
+         const double b = h2(renderNote(fm, 20, 57)) / h0;
+         bLo = std::fmin(bLo, b); bHi = std::fmax(bHi, b);
+      }
+      CHECK(bHi / bLo > 1.05, "Realism 1: notes differ in modulation index");
+      CHECK(bLo > 0.87 && bHi < 1.15, "Realism 1: index offsets within about ±11%");
+      std::printf("realism index over 16 notes (2nd harmonic / fundamental): x%.3f .. x%.3f of neutral\n", bLo, bHi);
+      set(fm, FM6OpParamItemOp2Level, 0.4f);
+      set(fm, FM6OpParamItemRealism, 0.0f);
    }
 
    if (g_fails == 0)

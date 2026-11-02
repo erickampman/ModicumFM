@@ -122,6 +122,8 @@ static constexpr PresetKey kPresetKeys[kParamCount] = {
    {"Vibrato", "depth"},
    {"Vibrato", "wheel"},
    {"Vibrato", "sync"},
+   // Realism: sound, so presets store it (factory presets as 0).
+   {"FM6Op", "realism"},
 };
 
 } // namespace modicumfm

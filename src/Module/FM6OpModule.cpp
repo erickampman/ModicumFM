@@ -14,6 +14,7 @@
 #include "pm_midi.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 
@@ -102,6 +103,13 @@ static inline double egTick(FMEG& e, double atkInc, double decCoef, double sus, 
 
 static constexpr float kFMTouchPivot = 0.7f;
 
+// Realism (0..1): at note-on each voice draws two offsets, d in -1..1 (triangular, so most notes
+// land near the middle): pitch d·realism·kFMRealismCents cents, and every modulator's level
+// ×2^(d·realism·kFMRealismIndexOct), about ±11% at full Realism. They hold for the whole note; a
+// legato slide (same pitch, or the voice manager's continuation) keeps the last note's. Neutral at 0.
+static constexpr double kFMRealismCents    = 6.0;
+static constexpr double kFMRealismIndexOct = 0.15;
+
 struct FM6OpState {
     double sampleRate = 44100.0;
 
@@ -116,6 +124,9 @@ struct FM6OpState {
     float   velNorm  = kFMTouchPivot; // raw note velocity 0..1, for Touch (pivot = no change)
     float   prevGate = 0.0f;  // for Gate-input edge detection
     uint8_t lastNote = 255;   // for same-pitch legato smoothing
+    uint32_t rng      = 1;    // Realism: per-voice xorshift32 (seeded per instance at init, never 0)
+    float    rlzPitch = 0.0f; // Realism draws for the current note, -1..1
+    float    rlzIndex = 0.0f;
 
     // Oversampling decimator (only used when Oversample != Off): the operator bank runs at N× the
     // sample rate and this FIR lowpass removes the images above the base Nyquist before downsampling.
@@ -167,9 +178,31 @@ static inline double fmRenderStep(FM6OpState* st, int ch, const FM6OpAlgo& algo,
 
 // --- Lifecycle --------------------------------------------------------------
 
+// Realism's per-voice generator: xorshift32, and a triangular -1..1 draw (two uniforms averaged).
+static inline uint32_t fmRand(FM6OpState* st) {
+    uint32_t x = st->rng;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    return st->rng = x;
+}
+static inline float fmRandTri(FM6OpState* st) {
+    const float a = (float)(fmRand(st) >> 8) * (1.0f / 16777216.0f);   // 0..1
+    const float b = (float)(fmRand(st) >> 8) * (1.0f / 16777216.0f);
+    return a + b - 1.0f;
+}
+static void fmDrawRealism(FM6OpState* st) {
+    st->rlzPitch = fmRandTri(st);
+    st->rlzIndex = fmRandTri(st);
+}
+
 const void InitFM6OpModule(uint32_t /*count*/, Module* module) {
     fmInitGains();
     auto* st = new FM6OpState();
+    // Every voice its own sequence: a counter through splitmix32's finaliser (never 0, which
+    // xorshift can't leave). Reset keeps the sequence going, so notes don't repeat after a reset.
+    static std::atomic<uint32_t> seedCounter{0};
+    uint32_t z = seedCounter.fetch_add(1, std::memory_order_relaxed) * 0x9E3779B9u + 0x7F4A7C15u;
+    z = (z ^ (z >> 16)) * 0x85EBCA6Bu; z = (z ^ (z >> 13)) * 0xC2B2AE35u; z ^= z >> 16;
+    st->rng = z ? z : 1u;
     st->sampleRate = module->mSampleRate;
     module->state = st;
 }
@@ -320,6 +353,7 @@ void MIDIFM6OpModule(const pm::UmpMessage& message, Module* module) {
         const bool samePitch = (st->lastNote != 255 && st->lastNote == note);
         st->lastNote = note;
         st->f0 = 440.0 * std::exp2(((double)note - 69.0) / 12.0);
+        if (!samePitch && !module->legatoContinuation) { fmDrawRealism(st); }   // a slide keeps them
         if (!gateConn) {
             st->velNorm = (float)message.velocity / 65535.0f;
             st->velAmp = fmVelocityLevel(message.velocity,
@@ -392,7 +426,10 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
     // Global transpose (constant across the block): Pitch (semitones) + Fine (cents).
     const double pitchSemis   = module->getParamValue(FM6OpParamItemPitch);
     const double fineCents     = module->getParamValue(FM6OpParamItemFine);
-    const double transposeFac  = std::exp2((pitchSemis + fineCents / 100.0) / 12.0);
+    // Realism: this note's pitch offset rides on the transpose (its index offset is below).
+    const double realism       = std::min(1.0, std::max(0.0, (double)module->getParamValue(FM6OpParamItemRealism)));
+    const double rlzCents      = realism * kFMRealismCents * (double)st->rlzPitch;
+    const double transposeFac  = std::exp2((pitchSemis + (fineCents + rlzCents) / 100.0) / 12.0);
     // Linear FM depth: FMInput (Hz per unit) is ADDED to the fundamental (through-zero).
     const double fmLevel       = module->getParamValue(FM6OpParamItemFMLevel);
 
@@ -412,6 +449,8 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
     const double touchMod  = std::exp2(touch * 2.0 * ((double)st->velNorm - kFMTouchPivot));
     const double keyMod    = std::exp2(-keyTrack * 0.6 * keyOct);
     const double keyTime   = std::exp2(-keyTrack * 0.5 * keyOct);
+    // Realism: this note's index offset (its pitch offset is in transposeFac).
+    const double rlzMod    = std::exp2(realism * kFMRealismIndexOct * (double)st->rlzIndex);
     // Shared envelopes: [0] carriers (Loudness), [1] modulators (Brightness).
     const auto envMul = [&](uint8_t item) { return std::min(1000.0, std::max(0.01, (double)module->getParamValue(item))); };
     const double envAtk[2] = { envMul(FM6OpParamItemLoudAttack),  envMul(FM6OpParamItemBrightAttack) };
@@ -426,7 +465,7 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
         baseLevel[oi]        = module->getParamValue(opItem(oi, kLevel));
         const bool modulator = !macros.roles.isCarrier(oi);
         if (modulator) {
-            double lvl = baseLevel[oi] * macros.brightScale * (1.0 + macros.bite) * touchMod * keyMod;
+            double lvl = baseLevel[oi] * macros.brightScale * (1.0 + macros.bite) * touchMod * keyMod * rlzMod;
             if (oi == macros.gritOp) { lvl *= 1.0 + 1.5 * macros.grit; }
             baseLevel[oi] = std::min(lvl, std::max(baseLevel[oi], kFMMacroMaxLevel));
         } else {
@@ -522,6 +561,7 @@ const KPBuffPair* ProcessFM6OpModule(uint64_t processCallID, uint32_t count, Mod
             if (g >= 0.5f && st->prevGate < 0.5f) {              // rising: trigger
                 st->velAmp = std::min(1.0f, std::max(0.0f, g));
                 st->velNorm = st->velAmp;
+                fmDrawRealism(st);
                 for (int oi = 0; oi < kFM6OpCount; ++oi) { egTrigger(st->eg[oi], delaySamp[oi]); st->phase[0][oi] = st->phase[1][oi] = 0.0; st->prevOut[0][oi] = st->prevOut[1][oi] = 0.0; st->prevOut2[0][oi] = st->prevOut2[1][oi] = 0.0; }
                 if (osFactor > 1) { for (int ch = 0; ch < 2; ++ch) std::fill_n(st->osHist[ch], FM6OpState::FM_OS_TAPS, 0.0); }  // clean decimator start
             } else if (g < 0.5f && st->prevGate >= 0.5f) {       // falling: release

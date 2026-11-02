@@ -38,7 +38,7 @@ note pitch ─> Slew (mono glide) + pitch bend + vibrato ──> FM6Op engine
 - **Chorus**: mix, rate, depth, base delay, feedback. One LFO phase is shared by every voice, so
   all notes' choruses sweep together; L and R run 90° apart.
 - **Voice tab / Character**: role-based macros — Brightness (modulator levels + high carriers), Bite (a harder,
-  shorter modulator burst), Grit (feedback + top modulator), Body (carrier tilt + width) — applied in the
+  shorter modulator burst), Grit (feedback + top modulator), Body (carrier tilt + width) — and Realism (each note its own small random pitch and index offset) — applied in the
   engine on top of the operator settings, neutral by default; hovering one rings its target
   operators in the FM Engine diagram. Shared **Loudness / Brightness envelopes** scale every
   carrier's / modulator's envelope (times ×0.01–×1000, capped at the operator limits; sustain offset) and draw a representative

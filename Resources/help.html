@@ -94,7 +94,7 @@ plugin opens). Every other panel — FM Engine, the filter, Response, Chorus and
 both.</p>
 
 <h2 class="sound">Voice: Character</h2>
-<p>Four broad controls that reshape the whole sound at once. Each acts on operators by their
+<p>Four broad controls that reshape the whole sound at once, and Realism. The four act on operators by their
 <i>role</i> in the current algorithm, so it means the same thing whatever the algorithm. Hover a
 knob to see the operators it affects ringed in the FM Engine diagram. At the default (0) each leaves
 the sound exactly as the operators set it; double-click returns it there.</p>
@@ -113,6 +113,12 @@ the sound exactly as the operators set it; double-click returns it there.</p>
   Turned down, the high-ratio carriers come forward and the stereo detune narrows, to mono at the
   far end. (The loud/soft balance needs carriers at different ratios; the width works on every
   sound.)</dd>
+  <dt>Realism</dt><dd>Makes each note a little different, as no two notes on a real instrument
+  are quite the same. Every note you play gets its own small, random tuning (up to about 6 cents
+  sharp or flat at full) and brightness (the modulators up to about 11% up or down), chosen when
+  the note starts and held for the whole note; most notes land near the middle. A legato note at the
+  same pitch keeps the last note's. At 0 every note plays exactly as set. A little goes a long way:
+  try 0.2–0.4 on keys and plucks; at full, chords sound slightly out of tune, on purpose.</dd>
 </dl>
 <p><b>Loudness envelope</b> and <b>Brightness envelope</b> (under the knobs) reshape every
 operator's envelope at once without opening the Operators tab: Loudness acts on all the carriers
@@ -124,7 +130,7 @@ operators keep their differences — E.Piano's tine stays shorter than its body.
 (×0.01 to ×1000): enough to give a slow pad a sharp attack, or to stretch a pluck into a pad. Sustain is moved
 toward full (up) or toward zero (down), so even a plucked sound can be made to hold. Brightness is
 greyed out on algorithms with no modulators.</p>
-<p><b>Reset</b> (top right of the Character panel) returns the four knobs and both envelopes to
+<p><b>Reset</b> (top right of the Character panel) returns the five knobs and both envelopes to
 neutral, so they no longer change the sound. Double-click any single knob or envelope point to
 reset just that one.</p>
 

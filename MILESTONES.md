@@ -13,7 +13,7 @@
 - [x] Shared relative envelopes: Loudness and Brightness × Attack/Decay/Release/Sustain
 - [x] Responsiveness: velocity→level, Touch (velocity→modulator level), Key Track
 - [x] Pitch panel: Glide (Time, Mode) and Vibrato (Rate, Depth, Wheel, Sync) — code done, awaiting host check
-- [ ] Realism: per-note random pitch and index offset
+- [x] Realism: per-note random pitch and index offset (Character panel, 2026-11-01)
 
 ## M3: MIDI 2.0 and MPE port
 - [x] Raw CLAP entry point (DPF as GUI only, MIDI 2.0 dialect available)

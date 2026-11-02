@@ -254,6 +254,7 @@ AUParameterAddress vmAddress(uint32_t index) {
     case kParamBody:           return fm(FM6OpParamItemBody);
     case kParamTouch:          return fm(FM6OpParamItemTouch);
     case kParamKeyTrack:       return fm(FM6OpParamItemKeyTrack);
+    case kParamRealism:        return fm(FM6OpParamItemRealism);
     case kParamLoudAttack:     return fm(FM6OpParamItemLoudAttack);
     case kParamLoudDecay:      return fm(FM6OpParamItemLoudDecay);
     case kParamLoudSustain:    return fm(FM6OpParamItemLoudSustain);

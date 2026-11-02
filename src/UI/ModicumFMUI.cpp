@@ -8,7 +8,8 @@
 //   Response (velocity) | Chorus | Global (Voices, MPE, Bend Range, Quality, Master)
 //
 // The Voice tab swaps the Operators panel for the simple layer, Character: the role-based macros
-// Brightness, Bite, Grit, Body, and the shared Loudness / Brightness envelopes, which scale every
+// Brightness, Bite, Grit, Body, then Realism (each note's own small random pitch and index offset),
+// and the shared Loudness / Brightness envelopes, which scale every
 // carrier's / modulator's envelope and draw a representative one; a Reset button returns all of
 // these to neutral. Hovering a macro or envelope rings the operators it acts on in the FM Engine
 // diagram. Under Character, Expression: what pressure (Bright / Cutoff / Level) and timbre, CC74
@@ -522,7 +523,7 @@ protected:
     // its own begin/change/end edit.
     void resetCharacter()
     {
-        for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody,
+        for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody, kParamRealism,
                             kParamLoudAttack, kParamLoudDecay, kParamLoudSustain, kParamLoudRelease,
                             kParamBrightAttack, kParamBrightDecay, kParamBrightSustain, kParamBrightRelease})
         {
@@ -921,7 +922,7 @@ private:
             return fChorusGroup.get();
         case kParamVelFloor: case kParamVelCurve: case kParamTouch: case kParamKeyTrack:
             return fResponseGroup.get();
-        case kParamBrightness: case kParamBite: case kParamGrit: case kParamBody:
+        case kParamBrightness: case kParamBite: case kParamGrit: case kParamBody: case kParamRealism:
             return fCharGroup.get();
         case kParamGlide: case kParamGlideMode: case kParamVibRate: case kParamVibDepth:
         case kParamVibWheel: case kParamVibSync:
@@ -1213,9 +1214,9 @@ private:
             int cx, cy, cw, ch;
             fCharGroup->contentBounds(cx, cy, cw, ch);
             const int rowH = std::min(ch, static_cast<int>(115 * scale));
-            const int cellW = cw / 4;
+            const int cellW = cw / 5;
             int i = 0;
-            for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody})
+            for (uint32_t id : {kParamBrightness, kParamBite, kParamGrit, kParamBody, kParamRealism})
                 place(fKnobs[id].get(), cx + (i++) * cellW, cy + static_cast<int>(10 * scale), cellW, rowH);
             // Reset: top-right corner of the panel's title strip.
             const int rbW = static_cast<int>(64 * scale), rbH = static_cast<int>(20 * scale);

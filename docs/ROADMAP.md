@@ -8,7 +8,7 @@ file records what's already in place for each and where the rest plugs in.
 |---|------|--------|
 | 1 | Role-based macros (Brightness, Bite, Grit, Body) | done (Voice tab → Character) |
 | 2 | Shared brightness envelope | done (relative envelopes, Voice tab) |
-| 6 | Responsiveness (Touch, Key tracking, Realism) | done except Realism |
+| 6 | Responsiveness (Touch, Key tracking, Realism) | done (Realism on the Voice tab → Character) |
 | 5 | Instrument templates with their own knobs | not started |
 
 Suggested order: 1 → 2 → 6 → 5. Templates are mostly *curated settings of the macros*, so they
@@ -92,7 +92,10 @@ preset to Shared change its sound).
 **Done: velocity → level, Touch and Key Track** (Response panel). Velocity → level is two indexed
 FM6Op items applied in the MIDI proc (`fmVelocityLevel`); Touch and Key Track are applied per
 block in `ProcessFM6OpModule` next to the Character macros, and tested in `pm_fm6op_test`.
-**Realism** is still open. The original notes, all inside FM6Op: The note and velocity are already captured in the MIDI proc (`st->f0`,
+**Done: Realism** (Voice tab → Character, beside the macros): at note-on each voice draws two
+triangular offsets from its own xorshift32 generator, pitch up to ±6 cents and every modulator's
+level ×2^±0.15 at full, held for the note (a same-pitch or voice-legato slide keeps them); tested in
+`pm_fm6op_test`. The original notes, all inside FM6Op: The note and velocity are already captured in the MIDI proc (`st->f0`,
 `st->velAmp`).
 
 - **Touch** (0..1): velocity scales the modulators (brightness). Today velocity only scales the

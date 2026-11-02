@@ -104,6 +104,8 @@ enum ParamIndex {
    kParamVibDepth,       // vibrato depth without the wheel, cents (peak)
    kParamVibWheel,       // vibrato depth the mod wheel (CC 1) adds at full, cents (peak)
    kParamVibSync,        // 0 = Shared (one LFO phase for every voice), 1 = Per Note (restarts at note-on)
+   // Character (appended; Voice tab, beside the macros). 0 = every note identical.
+   kParamRealism,        //  0..1  per-note random pitch and modulator-index offset, drawn at note-on
    // (append new params here)
    kParamCount
 };
@@ -208,6 +210,8 @@ static constexpr ParamSpec kParams[kParamCount] = {
    {"Vib Depth",      "vibDepth",  "ct", 0.0f,  100.0f,  0.0f,   false, false},
    {"Wheel>Vib",      "vibWheel",  "ct", 0.0f,  100.0f,  0.0f,   false, false},
    {"Vib Sync",       "vibSync",   "",   0.0f,    1.0f,  0.0f,   false, true },
+   // Character (off: every note identical)
+   {"Realism",        "realism",   "",   0.0f,    1.0f,  0.0f,   false, false},
 };
 
 #undef MODICUMFM_FM_OP_SPECS
@@ -336,7 +340,8 @@ static_assert(symbolIs(kParamVibRate,         "vibRate"));
 static_assert(symbolIs(kParamVibDepth,        "vibDepth"));
 static_assert(symbolIs(kParamVibWheel,        "vibWheel"));
 static_assert(symbolIs(kParamVibSync,         "vibSync"));
-static_assert(kParamVibSync + 1 == kParamCount, "a new parameter needs its symbolIs line above");
+static_assert(symbolIs(kParamRealism,         "realism"));
+static_assert(kParamRealism + 1 == kParamCount, "a new parameter needs its symbolIs line above");
 
 // Every dropdown's labels must cover its range exactly: integer, min 0, one label per step up to max.
 constexpr bool choicesMatchRange(uint32_t index)

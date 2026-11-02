@@ -133,6 +133,7 @@ static const ModuleParamConstants fm6OpConstants[] = {
    {"brightMod2Level", FM6OpParamItemBrightMod2Level, 0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
    {"levelModInput",   FM6OpParamItemLevelModInput,   0, 0, nullptr,  0.0f, 0.0f, 0.0f, 0}, // connection
    {"levelModLevel",   FM6OpParamItemLevelModLevel,   0, 0, nullptr, -1.0f, 1.0f, 0.0f, 0},
+   {"realism",         FM6OpParamItemRealism,         0, 0, nullptr,  0.0f, 1.0f, 0.0f, 0}, // off
 };
 #undef FM6OP_OP
 const ModuleParamConstantsGroup fm6OpConstantsGroup = {

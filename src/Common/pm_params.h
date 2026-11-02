@@ -438,6 +438,9 @@ enum FM6OpParamItem : NSUInteger {
    FM6OpParamItemBrightMod2Level, // -1..1
    FM6OpParamItemLevelModInput,   // connection (pressure)
    FM6OpParamItemLevelModLevel,   // -1..1
+   // Character (appended). 0..1: each note's own small random pitch and modulator-index offset,
+   // drawn at note-on; 0 = every note identical.
+   FM6OpParamItemRealism,
    FM6OpParamItemCount_           // one past the last item — must stay <= MODULE_MAX_PARAMS + 1
 };
 
