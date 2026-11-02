@@ -289,8 +289,8 @@ tbody tr:nth-child(even) {
 
 <section id="on-this-page" class="callout callout-note card">
 <h2>On This Page</h2>
-<p><a href="#overview">Overview</a> · <a href="#tabs">Voice and
-Operators</a></p>
+<p><a href="#overview">Overview</a> · <a href="#window">The Window</a> ·
+<a href="#tabs">Voice and Operators</a></p>
 <p><strong>Voice tab —</strong> <a href="#character">Character</a> · <a
 href="#expression">Expression</a> · <a href="#pitch">Pitch</a></p>
 <p><strong>The engine —</strong> <a href="#engine">FM Engine</a> · <a
@@ -310,14 +310,37 @@ envelopes shape each note's loudness, as on classic FM synths. Pitch
 bend moves the engine; pressure (aftertouch) and timbre (CC 74) do what
 the Voice tab's Expression panel says.</p>
 </section>
+<section id="window" class="callout callout-note card">
+<h2>The Window</h2>
+<p>Along the top, left to right: the logo and name, the
+<strong>Preset</strong> menu, the <strong>Voice | Operators</strong>
+tabs, then <strong>Save</strong>, <strong>Load</strong> and
+<strong>Help</strong> at the right-hand end.</p>
+<ul>
+<li><strong>Help</strong> opens this page in a panel inside the plugin
+window, covering everything below the top strip; its <strong>?</strong>
+turns to <strong>x</strong> while the page is open, and a second click
+closes it.</li>
+<li>The left column holds <strong>FM Engine</strong> above
+<strong>Low-Pass Filter</strong> and <strong>Filter Envelope</strong>;
+the large panel on the right is <strong>Operators</strong> (or, on the
+Voice tab, <strong>Character</strong> above <strong>Expression</strong>
+and <strong>Pitch</strong>). Along the bottom: <strong>Response | Chorus
+| Global</strong>.</li>
+</ul>
+<p>Knobs: drag up or down, or use the mouse wheel; hold
+<strong>Ctrl</strong> for fine steps. Double-click or
+<strong>Shift</strong>-click returns a knob to its default. Menus (the
+boxes with a chevron) open a list of choices on click.</p>
+</section>
 <section id="tabs" class="callout callout-note card">
 <h2>Voice and Operators</h2>
-<p>The <strong>Voice | Operators</strong> tabs at the top switch the
-large right-hand panel between the simple controls
-(<strong>Voice</strong>: Character) and the full engine
-(<strong>Operators</strong>, shown when the plugin opens). Every other
-panel — FM Engine, the filter, Response, Chorus and Global — is on
-both.</p>
+<p>The <strong>Voice | Operators</strong> tabs, right of the Preset
+menu, switch the large right-hand panel between the simple controls
+(<strong>Voice</strong>: Character, Expression and Pitch) and the full
+engine (<strong>Operators</strong>, shown when the plugin opens). Every
+other panel — FM Engine, Low-Pass Filter, Filter Envelope, Response,
+Chorus and Global — is on both.</p>
 </section>
 <section id="character" class="callout callout-note card">
 <h2>Voice: Character</h2>
@@ -386,9 +409,9 @@ each note follows its own.</p>
 <li><strong>Bright:</strong> The modulators' levels, i.e. how bright the
 FM tone is: at +1, full pressure (or timbre) brightens as far as the
 Character Brightness knob's top end; at −1, it darkens.</li>
-<li><strong>Cutoff:</strong> The low-pass filter's cutoff, in octaves at
-full pressure / timbre. Turn the filter's Cutoff down first, or there is
-nothing to open.</li>
+<li><strong>Cutoff:</strong> The low-pass filter's cutoff, in octaves
+(up to 8 either way) at full pressure / timbre. Turn the filter's Cutoff
+down first, or there is nothing to open.</li>
 <li><strong>Level:</strong> (Pressure only) the carriers' level, for
 swells. Positive: notes start quiet and swell as you press (at +1,
 silent until pressed). Negative: pressing makes them quieter. A
@@ -401,14 +424,14 @@ sound, so presets store them; Character's Reset leaves them alone.</p>
 </section>
 <section id="pitch" class="callout callout-note card">
 <h2>Voice: Pitch</h2>
-<p><strong>Glide</strong> (Mono only; greyed out in Poly, which never
-glides):</p>
+<p><strong>Glide</strong> (Mono only; greyed out in the Poly settings,
+which never glide):</p>
 <ul>
 <li><strong>Time:</strong> Portamento: each new note slides from the
 current pitch at this rate, in time per octave, so a two-octave jump
 takes twice as long as one. <code>Off</code> (the minimum) jumps
-straight to the note. Pitch bend and vibrato are not slowed by the
-glide.</li>
+straight to the note. Up to 2 seconds per octave. Pitch bend and vibrato
+are not slowed by the glide.</li>
 <li><strong>Mode:</strong> <code>Always</code>: every note glides, even
 after you let go of the last one. <code>Legato</code>: only a note
 played while the previous key is still held glides; a detached note
@@ -416,7 +439,7 @@ starts at its own pitch.</li>
 </ul>
 <p><strong>Vibrato:</strong></p>
 <ul>
-<li><strong>Rate:</strong> Speed, 0.5 to 10 Hz.</li>
+<li><strong>Rate:</strong> Speed, 0.5 to 10 Hz (default 5 Hz).</li>
 <li><strong>Depth:</strong> Vibrato that is always there, up to 100
 cents (a semitone) each way.</li>
 <li><strong>Wheel:</strong> Extra depth the mod wheel adds at full, up
@@ -454,10 +477,11 @@ algorithm decides where it goes (the loop lights up when Feedback is
 above zero): one operator per algorithm modulates itself (in algorithms
 4 and 6 a small loop of operators) — from a brighter sine toward a
 buzzy, saw-like tone.</li>
-<li><strong>Pitch / Fine:</strong> Transpose the whole engine in
-semitones / cents.</li>
+<li><strong>Pitch / Fine:</strong> Transpose the whole engine: Pitch in
+whole semitones (±24), Fine in cents (±100).</li>
 <li><strong>Detune:</strong> Stereo detune: left and right are tuned
-apart by up to 50 cents in total, for width and movement.</li>
+apart by up to 50 cents in total (default 5), for width and
+movement.</li>
 </ul>
 </section>
 <section id="operators" class="callout callout-note card">
@@ -478,7 +502,7 @@ decimals. Double-click snaps back to the nearest harmonic ratio;
 double-click again for 1. (A fine-tune offset in cents, from older
 presets or automation, shows as e.g. <code>+7c</code> and is cleared by
 double-click.)</li>
-<li><strong>Level:</strong> For a carrier, its loudness. For a
+<li><strong>Level:</strong> 0 to 1. For a carrier, its loudness. For a
 modulator, the modulation index — how many harmonics it adds.</li>
 <li><strong>Envelope:</strong> The operator's own envelope, drawn as a
 graph. On a carrier it is the loudness contour; on a modulator it shapes
@@ -501,16 +525,20 @@ sideways sets the decay time, up/down the sustain level.</li>
 Hovering or dragging shows the point's value. The time axis is
 compressed so very short and very long stages both fit; the flat part in
 the middle stands for the held note. Decay and Release are the time to
-fade by 60 dB.</p>
+fade by 60 dB. Operator envelopes reach 5 s of Delay, 20 s of Attack and
+30 s of Decay / Release; the filter envelope's stages reach 10 s.</p>
 </section>
 <section id="filter" class="callout callout-note card">
 <h2>Low-Pass Filter + Filter Envelope</h2>
 <ul>
-<li><strong>Cutoff:</strong> Filter frequency. Everything above it is
-rolled off (24 dB/octave).</li>
-<li><strong>Resonance:</strong> Emphasis at the cutoff.</li>
-<li><strong>Env Amount:</strong> How far (in octaves) the Filter
-Envelope moves the cutoff; negative values sweep it down.</li>
+<li><strong>Cutoff:</strong> Filter frequency, about 7 Hz to 18.5 kHz
+(fully open by default). Everything above it is rolled off (24
+dB/octave).</li>
+<li><strong>Resonance:</strong> Emphasis at the cutoff, 1 (none) to
+20.</li>
+<li><strong>Env Amount:</strong> How far (in octaves, up to 12 either
+way) the Filter Envelope moves the cutoff; negative values sweep it
+down.</li>
 <li><strong>Filter Envelope:</strong> Triggered by each note; a graph
 edited like the operator envelopes (above), without the Delay
 point.</li>
@@ -544,13 +572,12 @@ same. Middle C is the pivot.</li>
 <h2>Chorus</h2>
 <ul>
 <li><strong>Mix:</strong> Dry / wet balance.</li>
-<li><strong>Rate:</strong> Speed of the chorus sweep. One LFO drives
-every voice, so all notes sweep together; left and right run 90° apart
-for width.</li>
-<li><strong>Depth:</strong> How far the delay sweeps
-(milliseconds).</li>
-<li><strong>Delay:</strong> Base delay time — shorter is tighter, longer
-is lusher.</li>
+<li><strong>Rate:</strong> Speed of the chorus sweep, about 0.03 to 8 Hz
+(default 0.5 Hz). One LFO drives every voice, so all notes sweep
+together; left and right run 90° apart for width.</li>
+<li><strong>Depth:</strong> How far the delay sweeps, 0 to 1 ms.</li>
+<li><strong>Delay:</strong> Base delay time, 5 to 30 ms — shorter is
+tighter, longer is lusher.</li>
 <li><strong>Feedback:</strong> Feeds the chorus back into itself for a
 more resonant, flanger-like colour.</li>
 </ul>
@@ -558,16 +585,18 @@ more resonant, flanger-like colour.</li>
 <section id="global" class="callout callout-note card">
 <h2>Global</h2>
 <ul>
-<li><strong>Voices:</strong> Poly (10 voices) or Mono (legato: a note
-played while another is held changes pitch without re-attacking the
-envelopes; Glide on the Voice tab's Pitch panel slides between
-notes).</li>
+<li><strong>Voices:</strong> <code>Poly 10</code> (the default),
+<code>Poly 20</code> or <code>Poly 32</code> voices, or
+<code>Mono</code> (legato: a note played while another is held changes
+pitch without re-attacking the envelopes; Glide on the Voice tab's Pitch
+panel slides between notes).</li>
 <li><strong>MPE:</strong> On for an MPE controller (lower zone: channel
 1 is the master channel, 2–16 carry one note each). Each note bends ±48
 semitones on its own channel, and the master channel's bend (the Bend
 Range) moves every note. Presets leave this switch alone.</li>
-<li><strong>Bend Range:</strong> Pitch-bend range, up to 4 semitones
-each way. <code>Off</code> ignores pitch bend.</li>
+<li><strong>Bend Range:</strong> Pitch-bend range in half-semitone
+steps, up to <code>4 st</code> each way (default <code>2 st</code>).
+<code>Off</code> ignores pitch bend.</li>
 <li><strong>Quality:</strong> Normal / High / Best: runs the FM engine
 at 1× / 2× / 4× the sample rate, reducing harsh aliasing on bright,
 high-modulation sounds at extra CPU cost.</li>
@@ -576,9 +605,14 @@ high-modulation sounds at extra CPU cost.</li>
 </section>
 <section id="presets" class="callout callout-note card">
 <h2>Presets</h2>
-<p>The <strong>Preset</strong> menu next to the title recalls a factory
-patch, applying every parameter it specifies at once. Parameters a
-preset doesn't mention are left at their current value.</p>
+<p>The <strong>Preset</strong> menu next to the title (showing
+<code>--</code> until you pick one) recalls a factory patch, applying
+every parameter it specifies at once. The factory presets, listed
+alphabetically: Bass, Brass, Breath Flute, Choir, Clav, Drowning With
+Chowning, E.Piano, Glass Pad, Gong, Grit Keys, Harmonica, Harpsichord,
+Hollow Lead, Init, Koto, Laser Sweep, Marimba, Music Box, Organ, Pluck,
+Slow Bloom, Square Bass, Steel Drum, Tubular Bells, Warm Strings.
+Parameters a preset doesn't mention are left at their current value.</p>
 <p><strong>Save</strong> and <strong>Load</strong>, left of the Help
 button, write the patch to a file and read one back, through the
 system's file dialog. The first time, the dialog opens on
@@ -587,7 +621,9 @@ used.</p>
 <ul>
 <li>A saved patch has every sound parameter and leaves out MPE; loading
 one sets those parameters and leaves MPE alone.</li>
-<li>The preset menu then shows the patch's name, dimmed.</li>
+<li>The preset menu then shows the patch's name, dimmed. If a file can't
+be written or read, it shows <code>Couldn't save</code> or
+<code>Couldn't load</code> instead.</li>
 <li>The file is the same JSON as the factory presets, so a patch you
 save can be put in the source's <code>Presets</code> folder to build it
 in as a factory preset.</li>
