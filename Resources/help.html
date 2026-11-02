@@ -1,296 +1,600 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>ModicumFM Help</title>
-<style>
-  :root {
-    --bg: #16181c;
-    --panel: #1e2126;
-    --text: #d8dce2;
-    --muted: #8a919c;
-    --sound: #3cc85a;
-    --filter: #aa70e2;
-    --env: #dcce48;
-    --lfo: #e9709e;
-    --comb: #f2962e;
-    --neutral: #78becd;
-  }
-  * { box-sizing: border-box; }
-  body {
+    <meta charset="utf-8" />
+    <title>help-ModicumFM</title>
+    <style>
+:root {
+  --bg: #0f1115;
+  --page: #141823;
+  --text: #e6e2d8;
+  --muted: rgba(230, 226, 216, 0.72);
+  --border: rgba(230, 226, 216, 0.12);
+  --shadow: rgba(0, 0, 0, 0.35);
+
+  /* New: "card" surface (slightly lighter than page) */
+  --card: rgba(255, 255, 255, 0.04);
+  --card-hover: rgba(255, 255, 255, 0.055);
+}
+
+html, body {
     margin: 0;
-    padding: 32px 40px 64px;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-    font-size: 15px;
-    line-height: 1.55;
-  }
-  h1 {
-    font-size: 26px;
-    margin: 0 0 4px;
-    color: #fff;
-  }
-  .subtitle {
-    color: var(--muted);
-    margin: 0 0 32px;
-  }
-  h2 {
-    font-size: 18px;
-    margin: 40px 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #333;
-  }
-  h2.sound    { color: var(--sound); }
-  h2.filter   { color: var(--filter); }
-  h2.env      { color: var(--env); }
-  h2.lfo      { color: var(--lfo); }
-  h2.comb     { color: var(--comb); }
-  h2.neutral  { color: var(--neutral); }
-  p { margin: 0 0 12px; }
-  dl { margin: 0 0 12px; }
-  dt {
+    padding: 0;
+    background-color: #fbfaf7;
+}
+
+/* Page container — new */
+.page {
+    max-width: 900px;       /* or whatever you prefer */
+    margin: 0 auto;         /* center it */
+    padding: 2rem;          /* spacing around content */
+}
+
+/* Basic typography */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: #222;
+
+    /* REMOVE padding: now applied by .page */
+    /* padding: 1rem; */
+}
+
+/* Headings */
+h1, h2, h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
     font-weight: 600;
-    color: #fff;
-    margin-top: 8px;
-  }
-  dd {
-    margin: 2px 0 0 0;
-    color: var(--text);
-  }
-  code {
-    background: var(--panel);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 13px;
-  }
-  .panel {
-    background: var(--panel);
-    border: 1px solid #2b2f36;
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin-bottom: 16px;
-  }
-  a { color: var(--neutral); }
-</style>
+}
+
+/* Paragraph spacing */
+p {
+    margin: 0.75rem 0;
+}
+
+/* Lists */
+ul, ol {
+    margin: 0.75rem 0 0.75rem 1.5rem;
+}
+
+/* Code blocks */
+pre, code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+pre {
+    background: #f0f0f0;
+    padding: 1rem;
+    overflow-x: auto;
+    border-radius: 6px;
+}
+
+code {
+    background: #ececec;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+}
+
+/* Don't double-style code inside pre blocks */
+pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+}
+
+/* Hook for language-specific styles (future syntax highlighting) */
+code[class^="language-"],
+code[class*=" language-"] {
+    /* placeholder: add colors later if you want */
+}
+
+/* Blockquotes */
+blockquote {
+    margin: 1.5rem 0;
+    padding-left: 1rem;
+    border-left: 3px solid #ccc;
+    color: #555;
+    font-style: italic;
+}
+
+/* Horizontal rule */
+hr {
+    border: none;
+    border-top: 1px solid #ccc;
+    margin: 2rem 0;
+}
+
+.module-container {
+  display: flex; 
+  justify-content: center; 
+}
+
+/* Images */
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1rem 0;
+    border-radius: 12px;
+}
+
+.disclosure-content {
+  padding: 0.5em 1em;
+}
+
+.disclosure-content > p:first-child {
+  margin-top: 0;
+}
+
+.disclosure-content > p:last-child {
+  margin-bottom: 0;
+}
+
+:target {
+  scroll-margin-top: 1.5rem;
+  outline: 2px solid rgba(0,0,0,0.15);
+  border-radius: 8px;
+}
+
+figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+figure.float-right {
+  float: right;
+  margin: 0 0 1rem 1rem;
+  max-width: 45%;
+}
+
+figure.float-left {
+  float: left;
+  margin: 0 1rem 1rem 0;
+  max-width: 45%;
+}
+
+.clear {
+  clear: both;
+}
+
+figure {
+    display: inline-block;     /* shrink-wrap to image width */
+    margin: 1em 0;
+    text-align: center;        /* center caption under image */
+}
+
+figure img {
+    display: block;            /* prevent inline baseline quirks */
+    max-width: 100%;
+    height: auto;
+}
+
+figcaption {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 0.4em;
+}
+
+a.embed {
+  display: inline-block;
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.05);
+  text-decoration: none;
+}
+
+.callout-note {
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1em;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+/* The generic rounded-rect card */
+.card {
+  display: block;                 /* important for headings */
+  padding: 0.9rem 1rem;
+  margin: 1.1rem 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 10px 22px var(--shadow);
+}
+
+/* Only hover cards that are meant to be interactive */
+.card.is-interactive:hover {
+  background: var(--card-hover);
+}
+
+
+/* Make sure headings don’t add their own extra margins inside cards */
+.card h1, .card h2, .card h3,
+h1.card, h2.card, h3.card {
+  margin: 0;
+}
+
+.module-header {
+  position: relative;
+  display: flex;
+  justify-content: center;   /* center the title */
+  align-items: baseline;
+}
+
+.module-back {
+  position: absolute;
+  left: 0;
+  font-size: 0.85em;
+  opacity: 0.6;
+  text-decoration: none;
+  letter-spacing: 0.03em;
+}
+
+.module-back:hover {
+  opacity: 1.0;
+}
+
+.module-title {
+  margin: 0;
+  text-align: center;
+}
+
+/* breadcrumb trail */
+.breadcrumb { font-size: 0.85em; opacity: 0.7; letter-spacing: 0.03em; margin-bottom: 0.35rem; }
+.breadcrumb a { text-decoration: none; color: inherit; opacity: 0.75; }
+.breadcrumb a:hover { opacity: 1.0; }
+.breadcrumb .crumb-current { opacity: 1.0; }
+
+
+/* Tables (pipe tables from pandoc) */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.95em;
+}
+
+th, td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+  vertical-align: top;
+}
+
+thead th {
+  border-bottom: 2px solid #bbb;
+  font-weight: 600;
+}
+
+tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.025);
+}    </style>
 </head>
 <body>
-
-<h1>ModicumFM</h1>
-<p class="subtitle">A 6-operator FM synthesizer — reference for every section.</p>
-
-<div class="panel">
-  <p>Each voice is one six-operator FM engine, then a resonant low-pass filter and a chorus:</p>
-  <p><code>FM Engine → Low-Pass Filter → Chorus → Master</code></p>
-  <p>There is no separate amp envelope: the <i>carriers'</i> own envelopes shape each note's
-  loudness, as on classic FM synths. Pitch bend moves the engine; pressure (aftertouch) and timbre
-  (CC 74) do what the Voice tab's Expression panel says.</p>
+<div class="page">
+<div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0 0.5rem;">
+  <a href="https://www.unlikelyware.com" target="_blank" rel="noopener noreferrer">
+    <img src="Unlikelyware.png" alt="Unlikelyware" style="width: 56px; height: auto; border-radius: 10px; margin: 0; display: block;">
+  </a>
+  <h1 style="margin: 0;">ModicumFM</h1>
 </div>
 
-<h2 class="sound">Voice and Operators</h2>
-<p>The <b>Voice | Operators</b> tabs at the top switch the large right-hand panel between the
-simple controls (<b>Voice</b>: Character) and the full engine (<b>Operators</b>, shown when the
-plugin opens). Every other panel — FM Engine, the filter, Response, Chorus and Global — is on
+<p>
+  <em>ModicumFM is a CLAP and VST3 plugin on macOS and Linux, and an AUv2 plugin on macOS. A 6-operator FM synthesizer.</em>
+</p>
+
+<section id="on-this-page" class="callout callout-note card">
+<h2>On This Page</h2>
+<p><a href="#overview">Overview</a> · <a href="#tabs">Voice and
+Operators</a></p>
+<p><strong>Voice tab —</strong> <a href="#character">Character</a> · <a
+href="#expression">Expression</a> · <a href="#pitch">Pitch</a></p>
+<p><strong>The engine —</strong> <a href="#engine">FM Engine</a> · <a
+href="#operators">Operators</a> · <a href="#filter">Low-Pass
+Filter</a></p>
+<p><strong>Playing and output —</strong> <a
+href="#response">Response</a> · <a href="#chorus">Chorus</a> · <a
+href="#global">Global</a> · <a href="#presets">Presets</a></p>
+</section>
+<section id="overview" class="callout callout-note card">
+<h2>Overview</h2>
+<p>Each voice is one six-operator FM engine, then a resonant low-pass
+filter and a chorus:</p>
+<p><code>FM Engine → Low-Pass Filter → Chorus → Master</code></p>
+<p>There is no separate amp envelope: the <em>carriers'</em> own
+envelopes shape each note's loudness, as on classic FM synths. Pitch
+bend moves the engine; pressure (aftertouch) and timbre (CC 74) do what
+the Voice tab's Expression panel says.</p>
+</section>
+<section id="tabs" class="callout callout-note card">
+<h2>Voice and Operators</h2>
+<p>The <strong>Voice | Operators</strong> tabs at the top switch the
+large right-hand panel between the simple controls
+(<strong>Voice</strong>: Character) and the full engine
+(<strong>Operators</strong>, shown when the plugin opens). Every other
+panel — FM Engine, the filter, Response, Chorus and Global — is on
 both.</p>
-
-<h2 class="sound">Voice: Character</h2>
-<p>Four broad controls that reshape the whole sound at once, and Realism. The four act on operators by their
-<i>role</i> in the current algorithm, so it means the same thing whatever the algorithm. Hover a
-knob to see the operators it affects ringed in the FM Engine diagram. At the default (0) each leaves
-the sound exactly as the operators set it; double-click returns it there.</p>
-<dl>
-  <dt>Brightness</dt><dd>Turns every modulator up (brighter, more harmonics) or down (purer,
-  closer to sine waves). Where the carriers sit at different ratios — e.g. the drawbar-style
-  Organ — it also turns the higher ones up or down, like pulling out the upper drawbars.</dd>
-  <dt>Bite</dt><dd>A sharper attack: the modulators hit harder but fade faster and settle lower,
-  so each note starts with a brief burst of brightness while the carriers' envelopes stay the
-  same — a plucked or struck edge.</dd>
-  <dt>Grit</dt><dd>Adds feedback and drives the highest-ratio modulator harder, for a rougher,
-  buzzier edge.</dd>
-  <dt>Body</dt><dd>Warm and wide (up) or thin and focused (down). Turned up, the low-ratio
-  carriers (fundamental, body) get louder and the high-ratio ones softer, the carriers drift
-  slightly apart in pitch, and the left/right detune widens — a thicker, ensemble-like sound.
-  Turned down, the high-ratio carriers come forward and the stereo detune narrows, to mono at the
-  far end. (The loud/soft balance needs carriers at different ratios; the width works on every
-  sound.)</dd>
-  <dt>Realism</dt><dd>Makes each note a little different, as no two notes on a real instrument
-  are quite the same. Every note you play gets its own small, random tuning (up to about 6 cents
-  sharp or flat at full) and brightness (the modulators up to about 11% up or down), chosen when
-  the note starts and held for the whole note; most notes land near the middle. A legato note at the
-  same pitch keeps the last note's. At 0 every note plays exactly as set. A little goes a long way:
-  try 0.2–0.4 on keys and plucks; at full, chords sound slightly out of tune, on purpose.</dd>
-</dl>
-<p><b>Loudness envelope</b> and <b>Brightness envelope</b> (under the knobs) reshape every
-operator's envelope at once without opening the Operators tab: Loudness acts on all the carriers
-(how the sound swells and fades), Brightness on all the modulators (how the tone opens and closes).
-Each graph draws a representative operator's envelope — the loudest carrier, the strongest
-modulator — as it sounds now; drag its points as on any envelope graph. Behind the scenes the times
-are <i>multiplied</i> for every operator of that kind (the readout shows e.g. <code>×3.0</code>), so
-operators keep their differences — E.Piano's tine stays shorter than its body. The range is wide
-(×0.01 to ×1000): enough to give a slow pad a sharp attack, or to stretch a pluck into a pad. Sustain is moved
-toward full (up) or toward zero (down), so even a plucked sound can be made to hold. Brightness is
-greyed out on algorithms with no modulators.</p>
-<p><b>Reset</b> (top right of the Character panel) returns the five knobs and both envelopes to
-neutral, so they no longer change the sound. Double-click any single knob or envelope point to
-reset just that one.</p>
-
-<h2 class="env">Voice: Expression</h2>
-<p>What your controller's <b>pressure</b> (aftertouch) and <b>timbre</b> (CC 74, the MPE "slide")
-do to a sounding note. Rows are the source, columns what it moves. Every knob is 0 by default, so
-nothing happens until you turn one; with MPE or polyphonic aftertouch each note follows its own.</p>
-<dl>
-  <dt>Bright</dt><dd>The modulators' levels, i.e. how bright the FM tone is: at +1, full pressure
-  (or timbre) brightens as far as the Character Brightness knob's top end; at −1, it darkens.</dd>
-  <dt>Cutoff</dt><dd>The low-pass filter's cutoff, in octaves at full pressure / timbre. Turn the
-  filter's Cutoff down first, or there is nothing to open.</dd>
-  <dt>Level</dt><dd>(Pressure only) the carriers' level, for swells. Positive: notes start quiet
-  and swell as you press (at +1, silent until pressed). Negative: pressing makes them quieter. A
-  controller that sends no pressure stays silent at +1.</dd>
-</dl>
-<p>Pressure is channel aftertouch, polyphonic aftertouch, or a host's per-note pressure (Bitwig);
-timbre is CC 74, MIDI 2.0 per-note controller 74, or a host's per-note brightness. These are part of
-the sound, so presets store them; Character's Reset leaves them alone.</p>
-
-<h2 class="comb">Voice: Pitch</h2>
-<p><b>Glide</b> (Mono only; greyed out in Poly, which never glides):</p>
-<dl>
-  <dt>Time</dt><dd>Portamento: each new note slides from the current pitch at this rate, in time per
-  octave, so a two-octave jump takes twice as long as one. <code>Off</code> (the minimum) jumps
-  straight to the note. Pitch bend and vibrato are not slowed by the glide.</dd>
-  <dt>Mode</dt><dd><code>Always</code>: every note glides, even after you let go of the last one.
-  <code>Legato</code>: only a note played while the previous key is still held glides; a detached
-  note starts at its own pitch.</dd>
-</dl>
-<p><b>Vibrato</b>:</p>
-<dl>
-  <dt>Rate</dt><dd>Speed, 0.5 to 10 Hz.</dd>
-  <dt>Depth</dt><dd>Vibrato that is always there, up to 100 cents (a semitone) each way.</dd>
-  <dt>Wheel</dt><dd>Extra depth the mod wheel adds at full, up to 100 cents. Leave Depth at 0 and turn
-  this up for vibrato that comes in with the wheel.</dd>
-  <dt>Sync</dt><dd><code>Shared</code>: one LFO for every note, so they all wobble together (it
-  restarts when all notes have ended). <code>Per Note</code>: each note's vibrato starts from the
-  beginning when you play it, so notes played at different times wobble out of step. In Mono, a
-  note played over a held one keeps the running vibrato.</dd>
-</dl>
-
-<h2 class="sound">FM Engine</h2>
-<p>Six sine-based operators. An <i>algorithm</i> decides which operators modulate which: a
-<i>carrier</i> is heard, a <i>modulator</i> bends a carrier's phase to add harmonics. Each
-operator row's caption shows its role in the current algorithm: <b>out</b> (a carrier, shown in
-green) or <b>mod N</b> (a modulator N steps away from the output).</p>
-<dl>
-  <dt>Algorithm</dt><dd>Operator routing — the 32 classic six-operator algorithms, shown as a
-  diagram: <b>filled</b> boxes are carriers (heard, joined by the output line at the bottom),
-  <b>outlined</b> boxes are modulators, stacked above the operators they modulate. The small loop
-  marks the feedback path. Click the diagram to choose from all 32 (click outside the chooser or
-  press Esc to close it); the mouse wheel over it steps to the previous / next algorithm.
-  Low numbers are deep stacks (bright, complex); high numbers are mostly carriers (organ-like,
-  additive; 32 is all six in parallel). Levels are balanced by the number of carriers, so
-  switching algorithm doesn't jump the volume.</dd>
-  <dt>Feedback</dt><dd>Sits beside the diagram because the algorithm decides where it goes (the
-  loop lights up when Feedback is above zero): one operator per algorithm modulates itself (in algorithms 4 and 6 a small
-  loop of operators) — from a brighter sine toward a buzzy, saw-like tone.</dd>
-  <dt>Pitch / Fine</dt><dd>Transpose the whole engine in semitones / cents.</dd>
-  <dt>Detune</dt><dd>Stereo detune: left and right are tuned apart by up to 50 cents in total,
-  for width and movement.</dd>
-</dl>
-
-<h2 class="sound">Operators</h2>
+</section>
+<section id="character" class="callout callout-note card">
+<h2>Voice: Character</h2>
+<p>Four broad controls that reshape the whole sound at once, and
+Realism. The four act on operators by their <em>role</em> in the current
+algorithm, so it means the same thing whatever the algorithm. Hover a
+knob to see the operators it affects ringed in the FM Engine diagram. At
+the default (0) each leaves the sound exactly as the operators set it;
+double-click returns it there.</p>
+<ul>
+<li><strong>Brightness:</strong> Turns every modulator up (brighter,
+more harmonics) or down (purer, closer to sine waves). Where the
+carriers sit at different ratios — e.g. the drawbar-style Organ — it
+also turns the higher ones up or down, like pulling out the upper
+drawbars.</li>
+<li><strong>Bite:</strong> A sharper attack: the modulators hit harder
+but fade faster and settle lower, so each note starts with a brief burst
+of brightness while the carriers' envelopes stay the same — a plucked or
+struck edge.</li>
+<li><strong>Grit:</strong> Adds feedback and drives the highest-ratio
+modulator harder, for a rougher, buzzier edge.</li>
+<li><strong>Body:</strong> Warm and wide (up) or thin and focused
+(down). Turned up, the low-ratio carriers (fundamental, body) get louder
+and the high-ratio ones softer, the carriers drift slightly apart in
+pitch, and the left/right detune widens — a thicker, ensemble-like
+sound. Turned down, the high-ratio carriers come forward and the stereo
+detune narrows, to mono at the far end. (The loud/soft balance needs
+carriers at different ratios; the width works on every sound.)</li>
+<li><strong>Realism:</strong> Makes each note a little different, as no
+two notes on a real instrument are quite the same. Every note you play
+gets its own small, random tuning (up to about 6 cents sharp or flat at
+full) and brightness (the modulators up to about 11% up or down), chosen
+when the note starts and held for the whole note; most notes land near
+the middle. A legato note at the same pitch keeps the last note's. At 0
+every note plays exactly as set. A little goes a long way: try 0.2–0.4
+on keys and plucks; at full, chords sound slightly out of tune, on
+purpose.</li>
+</ul>
+<p><strong>Loudness envelope</strong> and <strong>Brightness
+envelope</strong> (under the knobs) reshape every operator's envelope at
+once without opening the Operators tab: Loudness acts on all the
+carriers (how the sound swells and fades), Brightness on all the
+modulators (how the tone opens and closes). Each graph draws a
+representative operator's envelope — the loudest carrier, the strongest
+modulator — as it sounds now; drag its points as on any envelope graph.
+Behind the scenes the times are <em>multiplied</em> for every operator
+of that kind (the readout shows e.g. <code>×3.0</code>), so operators
+keep their differences — E.Piano's tine stays shorter than its body. The
+range is wide (×0.01 to ×1000): enough to give a slow pad a sharp
+attack, or to stretch a pluck into a pad. Sustain is moved toward full
+(up) or toward zero (down), so even a plucked sound can be made to hold.
+Brightness is greyed out on algorithms with no modulators.</p>
+<p><strong>Reset</strong> (top right of the Character panel) returns the
+five knobs and both envelopes to neutral, so they no longer change the
+sound. Double-click any single knob or envelope point to reset just that
+one.</p>
+</section>
+<section id="expression" class="callout callout-note card">
+<h2>Voice: Expression</h2>
+<p>What your controller's <strong>pressure</strong> (aftertouch) and
+<strong>timbre</strong> (CC 74, the MPE "slide") do to a sounding note.
+Rows are the source, columns what it moves. Every knob is 0 by default,
+so nothing happens until you turn one; with MPE or polyphonic aftertouch
+each note follows its own.</p>
+<ul>
+<li><strong>Bright:</strong> The modulators' levels, i.e. how bright the
+FM tone is: at +1, full pressure (or timbre) brightens as far as the
+Character Brightness knob's top end; at −1, it darkens.</li>
+<li><strong>Cutoff:</strong> The low-pass filter's cutoff, in octaves at
+full pressure / timbre. Turn the filter's Cutoff down first, or there is
+nothing to open.</li>
+<li><strong>Level:</strong> (Pressure only) the carriers' level, for
+swells. Positive: notes start quiet and swell as you press (at +1,
+silent until pressed). Negative: pressing makes them quieter. A
+controller that sends no pressure stays silent at +1.</li>
+</ul>
+<p>Pressure is channel aftertouch, polyphonic aftertouch, or a host's
+per-note pressure (Bitwig); timbre is CC 74, MIDI 2.0 per-note
+controller 74, or a host's per-note brightness. These are part of the
+sound, so presets store them; Character's Reset leaves them alone.</p>
+</section>
+<section id="pitch" class="callout callout-note card">
+<h2>Voice: Pitch</h2>
+<p><strong>Glide</strong> (Mono only; greyed out in Poly, which never
+glides):</p>
+<ul>
+<li><strong>Time:</strong> Portamento: each new note slides from the
+current pitch at this rate, in time per octave, so a two-octave jump
+takes twice as long as one. <code>Off</code> (the minimum) jumps
+straight to the note. Pitch bend and vibrato are not slowed by the
+glide.</li>
+<li><strong>Mode:</strong> <code>Always</code>: every note glides, even
+after you let go of the last one. <code>Legato</code>: only a note
+played while the previous key is still held glides; a detached note
+starts at its own pitch.</li>
+</ul>
+<p><strong>Vibrato:</strong></p>
+<ul>
+<li><strong>Rate:</strong> Speed, 0.5 to 10 Hz.</li>
+<li><strong>Depth:</strong> Vibrato that is always there, up to 100
+cents (a semitone) each way.</li>
+<li><strong>Wheel:</strong> Extra depth the mod wheel adds at full, up
+to 100 cents. Leave Depth at 0 and turn this up for vibrato that comes
+in with the wheel.</li>
+<li><strong>Sync:</strong> <code>Shared</code>: one LFO for every note,
+so they all wobble together (it restarts when all notes have ended).
+<code>Per Note</code>: each note's vibrato starts from the beginning
+when you play it, so notes played at different times wobble out of step.
+In Mono, a note played over a held one keeps the running vibrato.</li>
+</ul>
+</section>
+<section id="engine" class="callout callout-note card">
+<h2>FM Engine</h2>
+<p>Six sine-based operators. An <em>algorithm</em> decides which
+operators modulate which: a <em>carrier</em> is heard, a
+<em>modulator</em> bends a carrier's phase to add harmonics. Each
+operator row's caption shows its role in the current algorithm:
+<strong>out</strong> (a carrier, shown in green) or <strong>mod
+N</strong> (a modulator N steps away from the output).</p>
+<ul>
+<li><strong>Algorithm:</strong> Operator routing — the 32 classic
+six-operator algorithms, shown as a diagram: <strong>filled</strong>
+boxes are carriers (heard, joined by the output line at the bottom),
+<strong>outlined</strong> boxes are modulators, stacked above the
+operators they modulate. The small loop marks the feedback path. Click
+the diagram to choose from all 32 (click outside the chooser or press
+Esc to close it); the mouse wheel over it steps to the previous / next
+algorithm. Low numbers are deep stacks (bright, complex); high numbers
+are mostly carriers (organ-like, additive; 32 is all six in parallel).
+Levels are balanced by the number of carriers, so switching algorithm
+doesn't jump the volume.</li>
+<li><strong>Feedback:</strong> Sits beside the diagram because the
+algorithm decides where it goes (the loop lights up when Feedback is
+above zero): one operator per algorithm modulates itself (in algorithms
+4 and 6 a small loop of operators) — from a brighter sine toward a
+buzzy, saw-like tone.</li>
+<li><strong>Pitch / Fine:</strong> Transpose the whole engine in
+semitones / cents.</li>
+<li><strong>Detune:</strong> Stereo detune: left and right are tuned
+apart by up to 50 cents in total, for width and movement.</li>
+</ul>
+</section>
+<section id="operators" class="callout callout-note card">
+<h2>Operators</h2>
 <p>Each operator row:</p>
-<dl>
-  <dt>Wave</dt><dd>Sine, or a small harmonic stack (<code>1+2</code>, <code>1+3</code>,
-  <code>1+3+5</code>, <code>1-4</code>) for richer modulators and carriers.</dd>
-  <dt>Ratio</dt><dd>Operator frequency as a multiple of the note. A plain drag (or the mouse
-  wheel) steps through the harmonic ratios 0.5, 1, 2 … 16, which give clean, pitched tones.
-  <b>Shift</b>-drag moves the ratio smoothly instead (hold <b>Ctrl</b> too for very fine steps;
-  Shift + wheel nudges it): small offsets make slow beating, larger in-between ratios such as
-  1.41 or 3.5 give bells and metallic sounds. Off-grid ratios show three decimals. Double-click
-  snaps back to the nearest harmonic ratio; double-click again for 1. (A fine-tune offset in
-  cents, from older presets or automation, shows as e.g. <code>+7c</code> and is cleared by
-  double-click.)</dd>
-  <dt>Level</dt><dd>For a carrier, its loudness. For a modulator, the modulation index — how many
-  harmonics it adds.</dd>
-  <dt>Envelope</dt><dd>The operator's own envelope, drawn as a graph. On a carrier it is the
-  loudness contour; on a modulator it shapes the <i>timbre</i> over time (e.g. a bright attack that
-  mellows). A voice is freed once its carriers have faded out.</dd>
-</dl>
-<p>Envelope graphs (operators and the filter envelope) are edited by dragging their points:</p>
-<dl>
-  <dt>Delay</dt><dd>(operators only) the end of the flat start — drag sideways to make the
-  operator come in late. Dimmed while it is zero.</dd>
-  <dt>Attack</dt><dd>the peak — drag sideways.</dd>
-  <dt>Decay / Sustain</dt><dd>the corner into the held part — sideways sets the decay time,
-  up/down the sustain level.</dd>
-  <dt>Release</dt><dd>the end — drag sideways.</dd>
-</dl>
-<p>Hold <b>Ctrl</b> while dragging for fine changes. <b>Shift</b>-click or double-click a point to
-reset it. Hovering or dragging shows the point's value. The time axis is compressed so very short
-and very long stages both fit; the flat part in the middle stands for the held note. Decay and
-Release are the time to fade by 60 dB.</p>
-
-<h2 class="filter">Low-Pass Filter + Filter Envelope</h2>
-<dl>
-  <dt>Cutoff</dt><dd>Filter frequency. Everything above it is rolled off (24 dB/octave).</dd>
-  <dt>Resonance</dt><dd>Emphasis at the cutoff.</dd>
-  <dt>Env Amount</dt><dd>How far (in octaves) the Filter Envelope moves the cutoff; negative
-  values sweep it down.</dd>
-  <dt>Filter Envelope</dt><dd>Triggered by each note; a graph edited like the operator envelopes
-  (above), without the Delay point.</dd>
-</dl>
-
-<h2 class="env">Response</h2>
-<p>How the way you play shapes each note: velocity sets the loudness (Vel Floor, Vel Curve) and,
-with Touch, the tone; Key Track changes the tone and length up and down the keyboard.</p>
-<dl>
-  <dt>Vel Floor</dt><dd>The loudness of the softest possible note, as a share of the loudest:
-  <code>0%</code> (full velocity range) up to <code>75%</code>; <code>Fixed</code> ignores velocity
-  entirely.</dd>
-  <dt>Vel Curve</dt><dd>How loudness grows between the floor and full: <code>Concave</code> gets
-  loud early (light touch), <code>Linear</code> is even, <code>Convex</code> saves the loudest
-  levels for hard playing (heavy touch).</dd>
-  <dt>Touch</dt><dd>Lets velocity change the <i>tone</i> as well as the loudness: play harder and
-  the sound gets brighter, softer and it gets mellower — what makes an electric piano or brass
-  patch feel alive. 0 = velocity only changes the loudness.</dd>
-  <dt>Key Track</dt><dd>Changes the sound across the keyboard. Turned up, higher notes get darker
-  and die away faster (like most acoustic instruments); turned down, the reverse. 0 = every note
-  the same. Middle C is the pivot.</dd>
-</dl>
-
-<h2 class="neutral">Chorus</h2>
-<dl>
-  <dt>Mix</dt><dd>Dry / wet balance.</dd>
-  <dt>Rate</dt><dd>Speed of the chorus sweep. One LFO drives every voice, so all notes sweep
-  together; left and right run 90&deg; apart for width.</dd>
-  <dt>Depth</dt><dd>How far the delay sweeps (milliseconds).</dd>
-  <dt>Delay</dt><dd>Base delay time — shorter is tighter, longer is lusher.</dd>
-  <dt>Feedback</dt><dd>Feeds the chorus back into itself for a more resonant, flanger-like
-  colour.</dd>
-</dl>
-
-<h2 class="comb">Global</h2>
-<dl>
-  <dt>Voices</dt><dd>Poly (10 voices) or Mono (legato: a note played while another is held changes
-  pitch without re-attacking the envelopes; Glide on the Voice tab's Pitch panel slides between notes).</dd>
-  <dt>MPE</dt><dd>On for an MPE controller (lower zone: channel 1 is the master channel, 2–16 carry
-  one note each). Each note bends ±48 semitones on its own channel, and the master channel's bend
-  (the Bend Range) moves every note. Presets leave this switch alone.</dd>
-  <dt>Bend Range</dt><dd>Pitch-bend range, up to 4 semitones each way. <code>Off</code> ignores
-  pitch bend.</dd>
-  <dt>Quality</dt><dd>Normal / High / Best: runs the FM engine at 1× / 2× / 4× the sample rate,
-  reducing harsh aliasing on bright, high-modulation sounds at extra CPU cost.</dd>
-  <dt>Master</dt><dd>Output level.</dd>
-</dl>
-
-<h2 class="neutral">Presets</h2>
-<p>The <b>Preset</b> menu next to the title recalls a factory patch, applying every parameter it
-specifies at once. Parameters a preset doesn't mention are left at their current value.</p>
-<p><b>Save</b> and <b>Load</b>, left of the Help button, write the patch to a file and read one back,
-through the system's file dialog. The first time, the dialog opens on <b>Documents/ModicumFM</b>;
-after that, on the last folder you used. A saved patch has every sound parameter and leaves out MPE;
-loading one sets those parameters and leaves MPE alone. The preset menu then shows the patch's name,
-dimmed. The file is the same JSON as the factory presets, so a patch you save can be put in the
-source's <code>Presets</code> folder to build it in as a factory preset. The host still saves the
-patch with its project, whether or not you saved it to a file.</p>
-
+<ul>
+<li><strong>Wave:</strong> Sine, or a small harmonic stack
+(<code>1+2</code>, <code>1+3</code>, <code>1+3+5</code>,
+<code>1-4</code>) for richer modulators and carriers.</li>
+<li><strong>Ratio:</strong> Operator frequency as a multiple of the
+note. A plain drag (or the mouse wheel) steps through the harmonic
+ratios 0.5, 1, 2 … 16, which give clean, pitched tones.
+<strong>Shift</strong>-drag moves the ratio smoothly instead (hold
+<strong>Ctrl</strong> too for very fine steps; Shift + wheel nudges it):
+small offsets make slow beating, larger in-between ratios such as 1.41
+or 3.5 give bells and metallic sounds. Off-grid ratios show three
+decimals. Double-click snaps back to the nearest harmonic ratio;
+double-click again for 1. (A fine-tune offset in cents, from older
+presets or automation, shows as e.g. <code>+7c</code> and is cleared by
+double-click.)</li>
+<li><strong>Level:</strong> For a carrier, its loudness. For a
+modulator, the modulation index — how many harmonics it adds.</li>
+<li><strong>Envelope:</strong> The operator's own envelope, drawn as a
+graph. On a carrier it is the loudness contour; on a modulator it shapes
+the <em>timbre</em> over time (e.g. a bright attack that mellows). A
+voice is freed once its carriers have faded out.</li>
+</ul>
+<p>Envelope graphs (operators and the filter envelope) are edited by
+dragging their points:</p>
+<ul>
+<li><strong>Delay:</strong> (operators only) the end of the flat start —
+drag sideways to make the operator come in late. Dimmed while it is
+zero.</li>
+<li><strong>Attack:</strong> the peak — drag sideways.</li>
+<li><strong>Decay / Sustain:</strong> the corner into the held part —
+sideways sets the decay time, up/down the sustain level.</li>
+<li><strong>Release:</strong> the end — drag sideways.</li>
+</ul>
+<p>Hold <strong>Ctrl</strong> while dragging for fine changes.
+<strong>Shift</strong>-click or double-click a point to reset it.
+Hovering or dragging shows the point's value. The time axis is
+compressed so very short and very long stages both fit; the flat part in
+the middle stands for the held note. Decay and Release are the time to
+fade by 60 dB.</p>
+</section>
+<section id="filter" class="callout callout-note card">
+<h2>Low-Pass Filter + Filter Envelope</h2>
+<ul>
+<li><strong>Cutoff:</strong> Filter frequency. Everything above it is
+rolled off (24 dB/octave).</li>
+<li><strong>Resonance:</strong> Emphasis at the cutoff.</li>
+<li><strong>Env Amount:</strong> How far (in octaves) the Filter
+Envelope moves the cutoff; negative values sweep it down.</li>
+<li><strong>Filter Envelope:</strong> Triggered by each note; a graph
+edited like the operator envelopes (above), without the Delay
+point.</li>
+</ul>
+</section>
+<section id="response" class="callout callout-note card">
+<h2>Response</h2>
+<p>How the way you play shapes each note: velocity sets the loudness
+(Vel Floor, Vel Curve) and, with Touch, the tone; Key Track changes the
+tone and length up and down the keyboard.</p>
+<ul>
+<li><strong>Vel Floor:</strong> The loudness of the softest possible
+note, as a share of the loudest: <code>0%</code> (full velocity range)
+up to <code>75%</code>; <code>Fixed</code> ignores velocity
+entirely.</li>
+<li><strong>Vel Curve:</strong> How loudness grows between the floor and
+full: <code>Concave</code> gets loud early (light touch),
+<code>Linear</code> is even, <code>Convex</code> saves the loudest
+levels for hard playing (heavy touch).</li>
+<li><strong>Touch:</strong> Lets velocity change the <em>tone</em> as
+well as the loudness: play harder and the sound gets brighter, softer
+and it gets mellower — what makes an electric piano or brass patch feel
+alive. 0 = velocity only changes the loudness.</li>
+<li><strong>Key Track:</strong> Changes the sound across the keyboard.
+Turned up, higher notes get darker and die away faster (like most
+acoustic instruments); turned down, the reverse. 0 = every note the
+same. Middle C is the pivot.</li>
+</ul>
+</section>
+<section id="chorus" class="callout callout-note card">
+<h2>Chorus</h2>
+<ul>
+<li><strong>Mix:</strong> Dry / wet balance.</li>
+<li><strong>Rate:</strong> Speed of the chorus sweep. One LFO drives
+every voice, so all notes sweep together; left and right run 90° apart
+for width.</li>
+<li><strong>Depth:</strong> How far the delay sweeps
+(milliseconds).</li>
+<li><strong>Delay:</strong> Base delay time — shorter is tighter, longer
+is lusher.</li>
+<li><strong>Feedback:</strong> Feeds the chorus back into itself for a
+more resonant, flanger-like colour.</li>
+</ul>
+</section>
+<section id="global" class="callout callout-note card">
+<h2>Global</h2>
+<ul>
+<li><strong>Voices:</strong> Poly (10 voices) or Mono (legato: a note
+played while another is held changes pitch without re-attacking the
+envelopes; Glide on the Voice tab's Pitch panel slides between
+notes).</li>
+<li><strong>MPE:</strong> On for an MPE controller (lower zone: channel
+1 is the master channel, 2–16 carry one note each). Each note bends ±48
+semitones on its own channel, and the master channel's bend (the Bend
+Range) moves every note. Presets leave this switch alone.</li>
+<li><strong>Bend Range:</strong> Pitch-bend range, up to 4 semitones
+each way. <code>Off</code> ignores pitch bend.</li>
+<li><strong>Quality:</strong> Normal / High / Best: runs the FM engine
+at 1× / 2× / 4× the sample rate, reducing harsh aliasing on bright,
+high-modulation sounds at extra CPU cost.</li>
+<li><strong>Master:</strong> Output level.</li>
+</ul>
+</section>
+<section id="presets" class="callout callout-note card">
+<h2>Presets</h2>
+<p>The <strong>Preset</strong> menu next to the title recalls a factory
+patch, applying every parameter it specifies at once. Parameters a
+preset doesn't mention are left at their current value.</p>
+<p><strong>Save</strong> and <strong>Load</strong>, left of the Help
+button, write the patch to a file and read one back, through the
+system's file dialog. The first time, the dialog opens on
+<strong>Documents/ModicumFM</strong>; after that, on the last folder you
+used.</p>
+<ul>
+<li>A saved patch has every sound parameter and leaves out MPE; loading
+one sets those parameters and leaves MPE alone.</li>
+<li>The preset menu then shows the patch's name, dimmed.</li>
+<li>The file is the same JSON as the factory presets, so a patch you
+save can be put in the source's <code>Presets</code> folder to build it
+in as a factory preset.</li>
+<li>The host still saves the patch with its project, whether or not you
+saved it to a file.</li>
+</ul>
+</section>
+</div>
 </body>
 </html>

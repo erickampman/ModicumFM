@@ -84,11 +84,18 @@ add_custom_target(generate_presets DEPENDS "${MODICUMFM_GENERATED_PRESETS_H}")
 # on the resource file once built — same reasoning as the preset codegen above.
 set(MODICUMFM_RESOURCES_HPP "${CMAKE_BINARY_DIR}/generated/EmbeddedResources.hpp")
 set(MODICUMFM_RESOURCES_CPP "${CMAKE_BINARY_DIR}/generated/EmbeddedResources.cpp")
+# res2c.py embeds a whole folder and names each symbol by the file's stem, so help.md (the source of
+# help.html) would collide with help.html. Copy everything but *.md into a staging folder first.
 file(GLOB MODICUMFM_RESOURCE_FILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/Resources/*")
+list(FILTER MODICUMFM_RESOURCE_FILES EXCLUDE REGEX "\\.md$")
+set(MODICUMFM_RESOURCES_STAGING "${CMAKE_BINARY_DIR}/generated/Resources")
 add_custom_command(
     OUTPUT "${MODICUMFM_RESOURCES_HPP}" "${MODICUMFM_RESOURCES_CPP}"
+    COMMAND ${CMAKE_COMMAND} -E rm -rf "${MODICUMFM_RESOURCES_STAGING}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${MODICUMFM_RESOURCES_STAGING}"
+    COMMAND ${CMAKE_COMMAND} -E copy ${MODICUMFM_RESOURCE_FILES} "${MODICUMFM_RESOURCES_STAGING}"
     COMMAND ${Python3_EXECUTABLE} "${CMAKE_SOURCE_DIR}/dpf/utils/res2c.py"
-            EmbeddedResources "${CMAKE_SOURCE_DIR}/Resources" "${CMAKE_BINARY_DIR}/generated"
+            EmbeddedResources "${MODICUMFM_RESOURCES_STAGING}" "${CMAKE_BINARY_DIR}/generated"
     DEPENDS ${MODICUMFM_RESOURCE_FILES} "${CMAKE_SOURCE_DIR}/dpf/utils/res2c.py"
     COMMENT "Embedding Resources/* as compiled-in data")
 add_custom_target(generate_resources DEPENDS "${MODICUMFM_RESOURCES_HPP}" "${MODICUMFM_RESOURCES_CPP}")
