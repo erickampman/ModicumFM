@@ -3,7 +3,6 @@
 //  cubesquare
 //
 //  Created by Eric Kampman on 6/24/19.
-//  Copyright © 2019 Eric Kampman. All rights reserved.
 //
 
 #ifndef sine_h
