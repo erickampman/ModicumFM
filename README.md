@@ -39,6 +39,13 @@ About 25 factory presets, from E.Piano and Tubular Bells to Harmonica and Gong. 
 [docs/how-it-works.md](docs/how-it-works.md) has the engine and the MIDI 2.0 details;
 [docs/ROADMAP.md](docs/ROADMAP.md) what's planned.
 
+## Known gaps
+
+- MPE's upper zone isn't supported, and Pitch 7.25 lasts for the sounding note only (no tuning
+  table).
+- Factory presets are chosen in the editor; CLAP's preset discovery, which lets a host's browser
+  list them, isn't implemented.
+
 ## Installing
 
 The download holds `ModicumFM.clap`. Put it in your CLAP folder (create the folder if it isn't there),
