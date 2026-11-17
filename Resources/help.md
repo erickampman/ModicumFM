@@ -33,7 +33,7 @@ There is no separate amp envelope: the *carriers'* own envelopes shape each note
 ## The Window {#window}
 Along the top, left to right: the logo and name, the **Preset** menu, the **Voice | Operators** tabs, then **Save**, **Load** and **Help** at the right-hand end.
 
-- **Help** opens this page in your web browser.
+- **Help** opens this page in a window of its own.
 - The left column holds **FM Engine** above **Low-Pass Filter** and **Filter Envelope**; the large panel on the right is **Operators** (or, on the Voice tab, **Character** above **Expression** and **Pitch**). Along the bottom: **Response | Chorus | Global**.
 
 Knobs: drag up or down, or use the mouse wheel; hold **Ctrl** for fine steps. Double-click or **Shift**-click returns a knob to its default. Menus (the boxes with a chevron) open a list of choices on click.
